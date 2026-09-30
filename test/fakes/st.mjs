@@ -32,9 +32,9 @@ export function createFakeST() {
       async sendRequest(...args) { calls.requests.push(args); return typeof response === 'function' ? response(...args) : response; },
     },
   };
-  return { ctx, calls, getContext: () => ctx,
+  return { ctx, calls, handlers, getContext: () => ctx,
     respond(value) { response = value; },
-    async emit(event, ...args) { await Promise.all([...handlers.get(event) ?? []].map(handler => handler(...args))); },
+    async emit(event, ...args) { for (const handler of handlers.get(event) ?? []) await handler(...args); },
     add(mes = 'The guide opens the dome.', extra = {}) { ctx.chat.push({ mes, is_user: false, ...extra }); return ctx.chat.length - 1; },
     install() { const previous = globalThis.SillyTavern; globalThis.SillyTavern = { getContext: () => ctx }; return () => { if (previous) globalThis.SillyTavern = previous; else delete globalThis.SillyTavern; }; },
   };

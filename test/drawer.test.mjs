@@ -212,6 +212,7 @@ test('drawer CSS docks a full-height side panel, wraps text and keeps inset acce
   assert.equal(computed(query('.st-sable-title')).minWidth, '0');
   assert.match(css, /\.st-sable-card::before\s*\{[^}]*top:\s*14px;\s*bottom:\s*14px;\s*width:\s*3px/);
   for (const [, property, value] of css.matchAll(/(animation|transition):([^;}]*)/g)) {
+    if (value.includes('st-sable-pulse')) { assert.match(value, /1\.5s ease-in-out infinite/); continue; }
     for (const [, amount, unit] of value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)) {
       assert.ok(Number(amount) * (unit === 's' ? 1000 : 1) <= 200, `${property} longer than 200 ms`);
     }
@@ -684,4 +685,29 @@ test('switching a card off from menu focuses reveal button and drag preserves hi
   pointer(document, 'pointercancel', 10, 2000);
   assert.deepEqual([...query('.st-sable-cards').children].map(el => el.dataset.section), runtime.snapshot().settings.order.filter(id => id !== 'offscreen'));
   assert.equal(query('.st-sable-cards').textContent.includes('null'), false);
+});
+
+test('drawer shows running and skipped status, with refresh busy state and optional motion', async t => {
+  const { runtime, fake, query, styled } = setup(t);
+  let finish;
+  fake.respond(() => new Promise(resolve => { finish = resolve; }));
+  const running = runtime.refresh();
+  const refresh = query('.st-sable-header .fa-rotate').parentElement;
+  assert.equal(query('.st-sable-status-text').textContent, 'обновляется…');
+  assert.ok(query('.st-sable-status-dot.st-sable-busy'));
+  assert.equal(refresh.getAttribute('aria-busy'), 'true');
+  assert.ok(refresh.querySelector('.fa-spin'));
+  refresh.click(); assert.equal(fake.calls.requests.length, 1);
+  runtime.updateSettings({ visual: { motion: false } });
+  assert.equal(refresh.querySelector('.fa-spin'), null);
+  assert.equal(styled()(query('.st-sable-busy')).animation, 'none');
+  finish('<sable_state>{"world":{"location":"Dome"}}</sable_state>'); await running;
+  assert.equal(refresh.getAttribute('aria-busy'), 'false');
+  assert.equal(query('.st-sable-busy'), null);
+  fake.ctx.chatMetadata.sableTrackers.lastRun = { at: Date.now(), ok: true, skipped: true, ms: 999, inTok: 123 };
+  runtime.publish();
+  assert.match(query('.st-sable-status-text').textContent, / · готово · без запроса$/);
+  assert.doesNotMatch(query('.st-sable-status-text').textContent, /999|123|токены|мс/);
+  runtime.updateSettings({ language: 'en' });
+  assert.match(query('.st-sable-status-text').textContent, / · ok · no request$/);
 });

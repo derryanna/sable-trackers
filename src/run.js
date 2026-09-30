@@ -17,13 +17,14 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   let active, lore = [], lastFingerprint, warnedProfile = false;
   const listeners = new Set();
   const bindings = [];
-  const cancel = () => { active?.controller.abort(); active = undefined; };
+  const cancel = () => { if (active) { active.controller.abort(); active = undefined; publish(); } };
   const lastCharacterId = ctx => ctx.chat.findLastIndex(characterMessage);
 
   function snapshot() {
     const ctx = getContext();
     const settings = loadSettings(ctx), store = loadStore(ctx);
     return { settings, store, entry: currentEntry(store, ctx.chat), modes: effectiveModes(settings, store),
+      running: active ? { mesId: active.mesId, swipeId: active.swipeId, startedAt: active.startedAt } : null,
       canSeedLegacy: !store.ring.length && !!seedFromLegacy(ctx.chat),
       name1: ctx.name1, name2: ctx.name2 };
   }
@@ -44,51 +45,72 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   function warn(key, settings) {
     if (warnedProfile) return;
     warnedProfile = true;
-    const message = t(key, settings.language);
-    if (globalThis.toastr?.warning) globalThis.toastr.warning(message);
-    else console.warn(message);
+    try {
+      const message = t(key, settings.language);
+      if (globalThis.toastr?.warning) globalThis.toastr.warning(message);
+      else console.warn(message);
+    } catch {}
   }
 
-  async function run(mesId, { force = false, type = 'normal' } = {}) {
+  function run(mesId, options = {}) {
+    try {
+      const ctx = getContext(), message = ctx.chat[mesId];
+      const fingerprint = JSON.stringify([ctx.getCurrentChatId(), mesId, message?.swipe_id ?? 0, message?.mes]);
+      if (active?.fingerprint === fingerprint) return active.promise;
+      // Make the shared promise available even to subscribers notified at request start.
+      let finish;
+      const promise = new Promise(resolve => { finish = resolve; });
+      void execute(mesId, options, promise).then(finish, () => finish());
+      return promise;
+    } catch { return Promise.resolve(); }
+  }
+
+  async function execute(mesId, { force = false, type = 'normal' } = {}, promise) {
     const ctx = getContext();
     const settings = loadSettings(ctx), data = loadStore(ctx);
     if (!settings.enabled || isGroup(ctx) || !RECEIVED_TYPES.has(type)
       || !Number.isInteger(mesId) || !characterMessage(ctx.chat[mesId])) return;
-    const message = ctx.chat[mesId], swipeId = message.swipe_id ?? 0;
-    const fingerprint = JSON.stringify([ctx.getCurrentChatId(), mesId, swipeId, message.mes]);
-    if (!force && fingerprint === lastFingerprint) return;
-    cancel();
-    const profile = ctx.extensionSettings.connectionManager?.profiles?.find(p => p.id === settings.profileId);
-    if (!profile) { warn('profileRequired', settings); return; }
-    if (profile.mode !== 'cc') { warn('profileUnsupported', settings); return; }
-    warnedProfile = false;
-    lastFingerprint = fingerprint;
-    const base = currentEntry(data, ctx.chat, mesId);
-    // Failed or superseded requests between snapshots still count as replies.
-    const elapsed = base ? ctx.chat.slice(base.mesId + 1, mesId + 1).filter(characterMessage).length : 1;
-    const turn = (base?.turn ?? 0) + elapsed;
-    const sections = getSections(settings);
-    const counters = Object.fromEntries(sections.map(s => [s.id, (base?.turnsSince?.[s.id] ?? 0) + elapsed]));
-    const modes = effectiveModes(settings, data);
-    const dueSections = sections.filter(s => modes[s.id] !== 'off'
-      && (s.id === 'dossiers' || counters[s.id] >= Math.max(1, s.custom ? s.period : settings.sections[s.id].period))).map(s => s.id);
-    if (!dueSections.length) {
-      // Advance the cadence even when only slow sections are enabled.
-      const state = mergeState(base?.state ?? {}, {}, { sections, requestedSections: [],
-        meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
-      putEntry(data, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
-      publish();
-      await saveStore(ctx);
-      return;
-    }
-    const request = { controller: new AbortController(), chatId: ctx.getCurrentChatId(), metadata: ctx.chatMetadata };
-    active = request;
-    const started = Date.now();
-    const stillCurrent = () => active === request && !request.controller.signal.aborted
-      && getContext().getCurrentChatId() === request.chatId && getContext().chatMetadata === request.metadata
-      && getContext().chat[mesId] === message && (message.swipe_id ?? 0) === swipeId
-      && JSON.stringify([request.chatId, mesId, swipeId, message.mes]) === fingerprint;
+    let request;
+    const started = Date.now(), message = ctx.chat[mesId], swipeId = message.swipe_id ?? 0;
+    const ownsRequest = () => request && active === request && !request.controller.signal.aborted
+      && getContext().getCurrentChatId() === request.chatId;
+    // Release the busy state and repaint before the (slow, whole-chat) metadata save.
+    const settle = () => { if (request && active === request) active = undefined; publish(); };
+    const stillCurrent = () => ownsRequest() && getContext().chat[mesId] === message
+      && (message.swipe_id ?? 0) === swipeId
+      && JSON.stringify([request.chatId, mesId, swipeId, message.mes]) === request.fingerprint;
     try {
+      const fingerprint = JSON.stringify([ctx.getCurrentChatId(), mesId, swipeId, message.mes]);
+      if (!force && fingerprint === lastFingerprint) return;
+      cancel();
+      const profile = ctx.extensionSettings.connectionManager?.profiles?.find(p => p.id === settings.profileId);
+      if (!profile) { warn('profileRequired', settings); return; }
+      if (profile.mode !== 'cc') { warn('profileUnsupported', settings); return; }
+      warnedProfile = false;
+      lastFingerprint = fingerprint;
+      const base = currentEntry(data, ctx.chat, mesId);
+      // Failed or superseded requests between snapshots still count as replies.
+      const elapsed = base ? ctx.chat.slice(base.mesId + 1, mesId + 1).filter(characterMessage).length : 1;
+      const turn = (base?.turn ?? 0) + elapsed;
+      const sections = getSections(settings);
+      const counters = Object.fromEntries(sections.map(s => [s.id, (base?.turnsSince?.[s.id] ?? 0) + elapsed]));
+      const modes = effectiveModes(settings, data);
+      const dueSections = sections.filter(s => modes[s.id] !== 'off'
+        && (force || s.id === 'dossiers' || counters[s.id] >= Math.max(1, s.custom ? s.period : settings.sections[s.id].period))).map(s => s.id);
+      if (!dueSections.length) {
+        // Advance the cadence even when only slow sections are enabled.
+        const state = mergeState(base?.state ?? {}, {}, { sections, requestedSections: [],
+          meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
+        putEntry(data, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
+        data.lastRun = { mesId, ok: true, at: Date.now(), skipped: true };
+        publish();
+        await saveStore(getContext());
+        return;
+      }
+      request = { controller: new AbortController(), chatId: ctx.getCurrentChatId(),
+        mesId, swipeId, startedAt: started, fingerprint, promise };
+      active = request;
+      publish();
       const built = buildPrompt({ settings: { ...settings, language: settings.language === 'en' ? 'English' : 'Russian' },
         sections, modes, dueSections, previousState: base?.state ?? {},
         card: ctx.substituteParams('{{description}}\n{{personality}}\n{{scenario}}'),
@@ -96,27 +118,35 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         chat: ctx.chat.slice(0, mesId + 1).filter(m => !m.is_system), userName: ctx.name1, characterName: ctx.name2 });
       const result = await ctx.ConnectionManagerRequestService.sendRequest(settings.profileId, built.messages, settings.maxTokens,
         { stream: false, extractData: true, includePreset: false, signal: request.controller.signal });
-      if (!stillCurrent()) return;
+      if (!ownsRequest()) return;
+      const current = loadStore(getContext());
+      if (!stillCurrent()) {
+        current.lastRun = { mesId, ok: false, at: Date.now(), ms: Date.now() - started, error: t('runDropped', settings.language) };
+        settle();
+        await saveStore(getContext());
+        return;
+      }
       const parsed = parseStateOutput(result, built.requestedSections, sections);
       for (const warning of parsed.warnings) console.warn(`Sable Trackers: ${warning}`);
       if (!parsed.ok || !parsed.validSections.length) throw new Error(t('invalidOutput', settings.language));
       const state = mergeState(base?.state ?? {}, parsed, { sections, requestedSections: built.requestedSections,
         meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
       for (const id of parsed.validSections) counters[id] = 0;
-      putEntry(data, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
+      putEntry(current, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
       const content = typeof result === 'string' ? result : result.content;
-      data.lastRun = { mesId, ok: true, at: Date.now(), ms: Date.now() - started,
+      current.lastRun = { mesId, ok: true, at: Date.now(), ms: Date.now() - started,
         inTok: Math.ceil(built.messages.reduce((sum, m) => sum + m.content.length, 0) / 4), outTok: Math.ceil(content.length / 4) };
-      publish();
-      await saveStore(ctx);
+      settle();
+      await saveStore(getContext());
     } catch (error) {
-      if (!stillCurrent()) return;
-      data.lastRun = { mesId, ok: false, at: Date.now(), error: t('runFailed', settings.language), ms: Date.now() - started };
-      console.warn('Sable Trackers: request failed', error);
-      publish();
-      await saveStore(ctx);
+      if (request && !ownsRequest()) return;
+      loadStore(getContext()).lastRun = { mesId, ok: false, at: Date.now(), ms: Date.now() - started,
+        error: t(request && !stillCurrent() ? 'runDropped' : 'runFailed', settings.language) };
+      try { console.warn('Sable Trackers: request failed', error); } catch {}
+      settle();
+      await saveStore(getContext());
     } finally {
-      if (active === request) active = undefined;
+      if (request && active === request) { active = undefined; publish(); }
     }
   }
 
@@ -158,7 +188,9 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   }
 
   function updateSettings(patch) {
-    cancel(); lastFingerprint = undefined; warnedProfile = false;
+    if (['enabled', 'profileId', 'language', 'customSections'].some(key => Object.hasOwn(patch, key))) {
+      cancel(); lastFingerprint = undefined; warnedProfile = false;
+    }
     saveSettings(getContext(), patch);
     publish();
   }
@@ -166,7 +198,6 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   function setMode(id, mode, chatOnly = loadSettings(getContext()).perChatOverrides) {
     // null removes a chat override so the global mode becomes effective again.
     if (!getSections(loadSettings(getContext())).some(s => s.id === id) || (!(mode === null && chatOnly) && !['inject', 'show', 'off'].includes(mode))) return;
-    cancel(); lastFingerprint = undefined;
     const ctx = getContext();
     if (chatOnly) {
       if (mode === null) delete loadStore(ctx).modeOverride[id];
@@ -222,7 +253,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     if (bindings.length) return;
     const ctx = getContext();
     const handlers = {
-      MESSAGE_RECEIVED: (id, type) => run(id, { type }), MESSAGE_SWIPED: swipe,
+      MESSAGE_RECEIVED: (id, type) => { void run(id, { type }); }, MESSAGE_SWIPED: swipe,
       MESSAGE_DELETED: deleted, MESSAGE_EDITED: edited, CHAT_CHANGED: chatChanged,
       WORLD_INFO_ACTIVATED: entries => { lore = Array.isArray(entries) ? structuredClone(entries) : []; },
     };
@@ -235,6 +266,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   }
 
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
+    idle: () => active?.promise ?? Promise.resolve(),
     snapshot, publish, updateSettings, setMode, seedLegacy, editState,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },

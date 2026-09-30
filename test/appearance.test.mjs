@@ -259,6 +259,7 @@ test('round 3 CSS: picture layer under the cards, ink-only overlays, readable ca
   assert.match(block, /\.st-sable-tab:active\s*\{\s*scale:\s*\.97/);
   assert.equal(/:active[^{]*\{[^}]*transform:/.test(block), false);
   for (const [, , value] of block.matchAll(/(animation|transition):([^;}]*)/g)) {
+    if (value.includes('st-sable-pulse')) { assert.match(value, /1\.5s ease-in-out infinite/); continue; }
     for (const [, amount, unit] of value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)) assert.ok(Number(amount) * (unit === 's' ? 1000 : 1) <= 200);
   }
 });

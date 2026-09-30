@@ -15,6 +15,8 @@ Scene-state tracking for SillyTavern 1.19.x, with Russian output by default and 
 
 Open the scene drawer from the edge tab, the extensions wand menu, or the panel under the latest character reply. The gear opens settings. The drawer supports folding, reordering and pinning. The pen button on a card opens an editor for that section: fix a field, add or remove rows, then Save (the change is injected into the next reply) or Cancel. Settings can hide the reply panel or edge tab.
 
+While an update is running, the status says “updating…” with a pulsing dot and a spinning ⟳ (animations can be disabled). Tapping ⟳ for the same reply keeps that update running; otherwise it updates all enabled sections regardless of period. Folding, pinning and appearance changes never interrupt an update.
+
 ## Sections and modes
 
 | Section | Contents | Default mode / period |

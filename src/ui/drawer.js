@@ -760,17 +760,24 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     hiddenToggle.title = hiddenLabel;
     hiddenToggle.setAttribute('aria-label', hiddenLabel);
     hiddenToggle.setAttribute('aria-expanded', String(revealOff));
+    refresh.setAttribute('aria-busy', String(!!view.running));
+    refresh.firstElementChild.classList.toggle('fa-spin', !!view.running && view.settings.visual?.motion !== false);
     const last = view.store.lastRun;
     const at = last?.at ?? (last?.ok ? view.entry?.state.meta?.updatedAt : undefined);
     const date = at ? new Date(at) : null;
     const time = date && Number.isFinite(date.getTime())
       ? date.toLocaleTimeString(view.settings.language, { hour: '2-digit', minute: '2-digit' }) : '—';
     status.replaceChildren();
-    if (last) {
+    if (view.running) {
+      const dot = node('span', 'status-dot');
+      dot.classList.add('st-sable-busy');
+      status.append(dot, node('span', 'status-text', label('running')));
+    } else if (last) {
       const dot = node('span', 'status-dot');
       dot.classList.add(last.ok ? 'st-sable-ok' : 'st-sable-fail');
       status.append(dot, node('span', 'status-text',
-        `${time} · ${label(last.ok ? 'ok' : 'error')} · ${last.ms ?? '—'} ${label('duration')} · ~${last.inTok ?? '—'} / ~${last.outTok ?? '—'} ${label('tokens')}`));
+        last.skipped ? `${time} · ${label('ok')} · ${label('skipped')}`
+          : `${time} · ${label(last.ok ? 'ok' : 'error')} · ${last.ms ?? '—'} ${label('duration')} · ~${last.inTok ?? '—'} / ~${last.outTok ?? '—'} ${label('tokens')}`));
       if (last.error) status.append(node('span', 'status-error', last.error));
     } else status.append(node('span', 'status-text', label('noRun')));
     if (view.entry?.stale) status.append(node('span', 'stale', `↻ ${label('outdated')}`));

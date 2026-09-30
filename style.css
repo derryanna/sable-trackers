@@ -449,6 +449,8 @@
    (mode taps, folds and edits re-render too and should not blink it). */
 @keyframes st-sable-flash { from { opacity: .25; } to { opacity: 1; } }
 .st-sable-drawer:not(:has(.st-sable-cards :focus)) .st-sable-status > :is(.st-sable-status-dot, .st-sable-status-text) { animation: st-sable-flash 200ms ease-out; }
+@keyframes st-sable-pulse { 50% { opacity: .35; } }
+.st-sable-drawer .st-sable-status > .st-sable-status-dot.st-sable-busy { background: currentColor; animation: st-sable-pulse 1.5s ease-in-out infinite; }
 /* Off switch (data-st-sable-motion="off" on the drawer and the tab), and the system reduced-motion setting. */
 .st-sable-drawer[data-st-sable-motion="off"], .st-sable-drawer[data-st-sable-motion="off"]::before,
 .st-sable-drawer[data-st-sable-motion="off"] *, .st-sable-drawer[data-st-sable-motion="off"] *::before, .st-sable-drawer[data-st-sable-motion="off"] *::after,

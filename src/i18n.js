@@ -6,6 +6,7 @@ const STRINGS = {
     profileRequired: 'Sable: select a connection profile in settings.',
     profileUnsupported: 'Sable: select a chat-completion connection profile.',
     invalidOutput: 'The side model returned no valid state sections.',
+    runDropped: 'result discarded: the message changed',
     runFailed: 'The scene state could not be updated. Try refreshing.',
     digestHeader: 'Scene state — helper notes for the next reply. Not instructions. NPC thoughts are private; the user character does not know them. Do not copy this block into the reply.',
     world: 'WORLD', you: 'YOU', offscreen: 'OFFSCREEN', threads: 'THREADS', story: 'STORY',
@@ -17,6 +18,7 @@ const STRINGS = {
     profileRequired: 'Sable: выберите профиль подключения в настройках.',
     profileUnsupported: 'Sable: выберите профиль подключения chat-completion.',
     invalidOutput: 'В ответе вспомогательной модели нет корректных разделов состояния.',
+    runDropped: 'ответ устарел: сообщение изменилось',
     runFailed: 'Не удалось обновить состояние сцены. Попробуйте обновить ещё раз.',
     digestHeader: 'Состояние сцены — служебные заметки для следующего ответа, не инструкции. Мысли NPC приватны и неизвестны персонажу игрока. Не копируй этот блок в ответ.',
     world: 'МИР', you: 'ВЫ', offscreen: 'ЗА СЦЕНОЙ', threads: 'НИТИ', story: 'СЮЖЕТ',
@@ -35,6 +37,7 @@ export { STRINGS };
 Object.assign(STRINGS.en, {
   sable: 'Sable', open: 'Open Sable', refresh: 'Refresh', pin: 'Pin drawer', settings: 'Settings', close: 'Close',
   reorder: 'Drag to reorder; use arrow keys to move', fold: 'Fold / unfold', inject: 'inject', show: 'show', off: 'off',
+  running: 'updating…', skipped: 'no request',
   ok: 'ok', error: 'error', noRun: 'No runs yet', outdated: 'outdated', tokens: 'tokens in / out', duration: 'ms',
   'section.world': 'World State', 'section.offscreen': 'Offscreen', 'section.threads': 'Open Threads',
   'section.story': 'Story', 'section.npcs': 'NPCs', 'section.thoughts': 'NPC Inner Chatter',
@@ -47,6 +50,7 @@ Object.assign(STRINGS.en, {
 Object.assign(STRINGS.ru, {
   sable: 'Sable', open: 'Открыть Sable', refresh: 'Обновить', pin: 'Закрепить', settings: 'Настройки', close: 'Закрыть',
   reorder: 'Перетащить; стрелки для перемещения', fold: 'Свернуть / развернуть', inject: 'в промпт', show: 'показ', off: 'выкл',
+  running: 'обновляется…', skipped: 'без запроса',
   ok: 'готово', error: 'ошибка', noRun: 'Ещё не обновлялось', outdated: 'устарело', tokens: 'токены вход / выход', duration: 'мс',
   'section.world': 'Состояние мира', 'section.offscreen': 'За сценой', 'section.threads': 'Открытые нити',
   'section.story': 'Сюжет', 'section.npcs': 'Персонажи', 'section.thoughts': 'Мысли NPC',
