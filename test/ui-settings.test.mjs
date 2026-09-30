@@ -202,17 +202,65 @@ test('appearance: sliders preview live on input, persist the full visual object 
   assert.deepEqual(calls.patches.at(-1), { visual: { ...VISUAL_DEFAULTS } });
   assert.deepEqual(runtime.snapshot().settings.visual, { ...VISUAL_DEFAULTS });
   assert.equal(query('[name="accent"]').value, '#f5f4ee');
-  assert.equal(drawer.element.style.getPropertyValue('--st-sable-accent'), '#f5f4ee');
+  assert.equal(drawer.element.style.getPropertyValue('--st-sable-accent'), '', 'the default accent follows the ink');
 });
 
 test('visual settings normalize with clamps; unknown top-level keys such as customSections survive', () => {
   const custom = [{ id: 'c_0123abcd', title: 'Clues', shape: 'list' }];
   const settings = normalizeSettings({ customSections: custom,
     visual: { opacity: 2, blur: -5, fontSize: 'x', widthVw: '70.4', accent: '#ABC', icons: 'svg', radius: null } });
-  assert.deepEqual(settings.visual, { opacity: 1, blur: 0, fontSize: 13, widthVw: 70, accent: '#aabbcc', icons: 'fa', radius: 18 });
+  assert.deepEqual(settings.visual, { opacity: 1, blur: 0, fontSize: 13, widthVw: 70, accent: '#aabbcc', base: null, text: null, icons: 'fa', radius: 18 });
   // customSections are normalized by the §11 side: the id and the given fields survive, the rest is filled in.
   assert.equal(settings.customSections.length, 1);
   assert.deepEqual({ id: settings.customSections[0].id, title: settings.customSections[0].title, shape: settings.customSections[0].shape }, custom[0]);
   assert.deepEqual(normalizeSettings({}).visual, { ...VISUAL_DEFAULTS });
   assert.equal(normalizeSettings({ visual: { opacity: 0.555 } }).visual.opacity, 0.56);
+});
+
+test('base and text colours: swatch writes the visual object, «auto» clears to null, reset clears both', t => {
+  const { dom, runtime, query, change, input, calls, button } = setup(t);
+  const drawer = createDrawer(runtime, { document: dom.window.document }); t.after(() => drawer.dispose());
+  const row = key => query(`[name="${key}"]`).closest('.st-sable-settings-optional');
+  assert.equal(row('base').querySelector('.st-sable-settings-label').textContent, 'Base colour');
+  assert.equal(row('text').querySelector('.st-sable-settings-label').textContent, 'Text colour');
+  assert.equal(query('[name="baseAuto"]').textContent, 'auto');
+  assert.equal(query('[name="baseAuto"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(query('[name="base"]').value, '#0e0e12', 'auto shows the dark-glass stand-in');
+  const before = calls.patches.length;
+  input('[name="base"]', '#fdf6e3');
+  assert.equal(calls.patches.length, before, 'picking previews without writing');
+  assert.equal(drawer.element.style.getPropertyValue('--st-sable-ink-rgb'), '0,0,0');
+  change('[name="base"]', '#fdf6e3');
+  assert.deepEqual(calls.patches.at(-1), { visual: { ...VISUAL_DEFAULTS, base: '#fdf6e3' } });
+  assert.equal(query('[name="baseAuto"]').getAttribute('aria-pressed'), 'false');
+  change('[name="text"]', '#5b4636');
+  assert.deepEqual(calls.patches.at(-1), { visual: { ...VISUAL_DEFAULTS, base: '#fdf6e3', text: '#5b4636' } });
+  assert.equal(drawer.element.style.getPropertyValue('--st-sable-text'), '#5b4636');
+  query('[name="textAuto"]').click();
+  assert.deepEqual(calls.patches.at(-1), { visual: { ...VISUAL_DEFAULTS, base: '#fdf6e3' } });
+  assert.equal(drawer.element.style.getPropertyValue('--st-sable-text'), 'rgb(0,0,0)', 'auto text follows the base ink');
+  const count = calls.patches.length;
+  query('[name="textAuto"]').click();
+  assert.equal(calls.patches.length, count, 'auto on an automatic colour writes nothing');
+  change('[name="text"]', '#222222');
+  button('Restore default look').click();
+  assert.deepEqual(runtime.snapshot().settings.visual, { ...VISUAL_DEFAULTS });
+  assert.equal(runtime.snapshot().settings.visual.base, null);
+  assert.equal(runtime.snapshot().settings.visual.text, null);
+  assert.equal(query('[name="text"]').value, '#eeeae7');
+  assert.equal(drawer.element.style.getPropertyValue('--st-sable-base-rgb'), '');
+  runtime.updateSettings({ language: 'ru' });
+  assert.equal(row('base').querySelector('.st-sable-settings-label').textContent, 'Основной цвет');
+  assert.equal(row('text').querySelector('.st-sable-settings-label').textContent, 'Цвет текста');
+  assert.equal(query('[name="baseAuto"]').textContent, 'авто');
+});
+
+test('base and text normalize to null or #rrggbb', () => {
+  const visual = value => normalizeSettings({ visual: value }).visual;
+  assert.deepEqual([visual({}).base, visual({}).text], [null, null]);
+  assert.deepEqual([visual({ base: null, text: null }).base, visual({ base: null, text: null }).text], [null, null]);
+  assert.deepEqual([visual({ base: ' #FDF6E3 ', text: '#ABC' }).base, visual({ base: '#FDF6E3', text: '#ABC' }).text], ['#fdf6e3', '#aabbcc']);
+  for (const garbage of ['red', 'url(x)', '#12345', '#1234567', 42, true, {}, ['#ffffff'], 'rgb(0,0,0)']) {
+    assert.deepEqual([visual({ base: garbage }).base, visual({ text: garbage }).text], [null, null], String(garbage));
+  }
 });

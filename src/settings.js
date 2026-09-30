@@ -2,7 +2,8 @@ import { SECTIONS, SECTION_ORDER, getSections, normalizeCustomSections, orderedS
 
 export const SETTINGS_KEY = 'sableTrackers';
 // Drawer look (SPEC §12). Ranges are inclusive; the UI sliders use the same bounds.
-export const VISUAL_DEFAULTS = Object.freeze({ opacity: 0.93, blur: 14, fontSize: 13, widthVw: 80, accent: '#f5f4ee', icons: 'fa', radius: 18 });
+// base/text: null = automatic (dark glass, theme text; a base derives its own ink). Hex colours override (SPEC §12).
+export const VISUAL_DEFAULTS = Object.freeze({ opacity: 0.93, blur: 14, fontSize: 13, widthVw: 80, accent: '#f5f4ee', base: null, text: null, icons: 'fa', radius: 18 });
 export const VISUAL_RANGES = Object.freeze({ opacity: [0.5, 1, 0.01], blur: [0, 30, 1], fontSize: [12, 16, 1], widthVw: [60, 100, 1], radius: [8, 24, 1] });
 export const DEFAULTS = {
   enabled: true, profileId: '', language: 'ru', messages: 4,
@@ -54,11 +55,19 @@ export function normalizeVisual(value) {
     if (Number.isFinite(number)) result[key] = Math.min(max, Math.max(min, Math.round(number / step) * step));
     if (step < 1) result[key] = Number(result[key].toFixed(2));
   }
-  const accent = typeof source.accent === 'string' ? source.accent.trim().toLowerCase() : '';
-  if (/^#[0-9a-f]{6}$/.test(accent)) result.accent = accent;
-  else if (/^#[0-9a-f]{3}$/.test(accent)) result.accent = `#${[...accent.slice(1)].map(c => c + c).join('')}`;
+  result.accent = normalizeHex(source.accent) ?? VISUAL_DEFAULTS.accent;
+  result.base = normalizeHex(source.base);
+  result.text = normalizeHex(source.text);
   result.icons = ['fa', 'emoji'].includes(source.icons) ? source.icons : VISUAL_DEFAULTS.icons;
   return result;
+}
+
+/** '#rrggbb' (lower case) from '#rrggbb' or '#rgb'; anything else is null. */
+export function normalizeHex(value) {
+  const hex = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (/^#[0-9a-f]{6}$/.test(hex)) return hex;
+  if (/^#[0-9a-f]{3}$/.test(hex)) return `#${[...hex.slice(1)].map(c => c + c).join('')}`;
+  return null;
 }
 
 export function loadSettings(ctx) {

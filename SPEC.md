@@ -286,8 +286,12 @@ Rules: custom sections behave exactly like built-ins: requested from the side mo
   fontSize: 13,       // px 12–16
   widthVw: 80,        // phone panel width 60–100 (vw)
   accent: '#f5f4ee',  // left accent bar / active chip colour
+  base: null,         // panel colour '#rrggbb'; null = dark glass rgb(14,14,18)
+  text: null,         // text colour '#rrggbb'; null = theme text (no base) or the base ink
   icons: 'fa' | 'emoji', // section title icons
   radius: 18 }        // card corner radius 8–24
 ```
 
-The drawer applies these as CSS custom properties on the drawer element (`--st-sable-opacity`, `--st-sable-blur`, `--st-sable-font`, `--st-sable-width`, `--st-sable-accent`, `--st-sable-radius`); `style.css` reads them with the defaults above as fallbacks. `icons` switches the title icon element. Missing keys are filled from defaults on load (settings.js).
+The drawer applies these as CSS custom properties on the drawer element and the edge tab (`--st-sable-opacity`, `--st-sable-blur`, `--st-sable-font`, `--st-sable-width`, `--st-sable-accent`, `--st-sable-radius`); `style.css` reads them with the defaults above as fallbacks. `icons` switches the title icon element. Missing keys are filled from defaults on load (settings.js); `accent`, `base` and `text` accept `#rrggbb` or `#rgb`, anything else becomes the default.
+
+Colours: with a `base`, the panel is `rgba(base, opacity)` (`--st-sable-base-rgb`) and the **ink** (`--st-sable-ink-rgb`) is black or white, whichever has the higher WCAG contrast ratio on the base (relative luminance crossover ≈ 0.179). Every overlay in the drawer and tab (borders, dividers, card fills, chips, tracks, hover states) is `rgba(ink, alpha)`, defaulting to white; the text is `text`, else `rgb(ink)`, else the theme colour (`--st-sable-text`). The ink comes from the base only, never from `text`. A default accent follows the ink. Text on a solid accent fill (the `inject` chip) uses `--st-sable-accent-ink-rgb`, derived from the accent in the same way. Light bases (`data-st-sable-tone="light"`) darken status colours and give coloured dots and bar tracks a faint rim.

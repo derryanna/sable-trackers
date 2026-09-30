@@ -38,7 +38,7 @@ Periods count character replies and apply globally. Dossiers always check for ne
 
 **Custom blocks** (settings → Custom blocks): **Add block** creates a block with a title, an icon (one emoji or a Font Awesome class such as `fa-magnifying-glass`), a shape (text, list or key: value), a list cap (1–20), a mode, a period and your instructions for the side model. Delete takes two taps.
 
-**Appearance** (settings → Appearance) adjusts the drawer's glass opacity, blur, font size, phone width, accent colour, corner radius and title icons (outline or emoji). Sliders preview live while dragging; **Restore default look** resets them.
+**Appearance** (settings → Appearance) adjusts the drawer's glass opacity, blur, font size, phone width, accent colour, corner radius and title icons (outline or emoji). For light themes, pick a **Base colour**: borders, dividers and text switch to black or white automatically, whichever reads better on it. **Text colour** overrides the text only. **auto** returns either one to the default dark glass / theme text. Sliders preview live while dragging; **Restore default look** resets everything.
 
 ## Token and storage notes
 

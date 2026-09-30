@@ -240,10 +240,13 @@ export function createSettings(runtime, { document = globalThis.document,
   const visualGrid = node('div', 'st-sable-settings-grid'); visualGroup.append(visualGrid);
   const visualControls = new Map(), visualOutputs = new Map();
   const visualWith = (key, value) => normalizeVisual({ ...runtime.snapshot().settings.visual, [key]: value });
+  const previewVisual = visual => {
+    for (const target of document.querySelectorAll('.st-sable-drawer, .st-sable-tab')) applyVisual(target, visual);
+  };
   function preview(key, value) {
     const visual = visualWith(key, value);
     visualOutputs.get(key).textContent = key === 'accent' ? visual.accent : formatVisual(key, visual[key]);
-    for (const target of document.querySelectorAll('.st-sable-drawer, .st-sable-tab')) applyVisual(target, visual);
+    previewVisual(visual);
   }
   function visualField(key, input, withOutput = true) {
     const row = node('label', `st-sable-settings-visual st-sable-settings-${input.type === 'range' ? 'range' : 'inline'}`);
@@ -259,6 +262,24 @@ export function createSettings(runtime, { document = globalThis.document,
     input.min = String(min); input.max = String(max); input.step = String(step);
     visualField(key, input);
   }
+  // Optional colours: a swatch plus «авто», which stores null (dark glass / theme text).
+  const optionalColors = new Map();
+  function optionalColor(key, fallback) {
+    const row = node('div', 'st-sable-settings-visual st-sable-settings-inline st-sable-settings-optional');
+    const input = node('input'); input.type = 'color'; input.name = key;
+    bind(labels, input, `visual.${key}`, 'aria-label');
+    const auto = node('button', 'menu_button st-sable-settings-auto'); auto.type = 'button'; auto.name = `${key}Auto`;
+    bind(labels, auto, 'visual.auto'); bind(labels, auto, `visual.${key}AutoHint`, 'title');
+    input.addEventListener('input', () => previewVisual(visualWith(key, input.value)));
+    input.addEventListener('change', () => runtime.updateSettings({ visual: visualWith(key, input.value) }));
+    auto.addEventListener('click', () => {
+      if (runtime.snapshot().settings.visual?.[key]) runtime.updateSettings({ visual: visualWith(key, null) });
+    });
+    row.append(text('span', 'st-sable-settings-label', `visual.${key}`), input, auto); visualGrid.append(row);
+    optionalColors.set(key, { input, auto, fallback });
+  }
+  optionalColor('base', '#0e0e12');
+  optionalColor('text', '#eeeae7');
   const accent = node('input'); accent.type = 'color'; accent.name = 'accent';
   visualField('accent', accent);
   const icons = options(node('select', 'text_pole'), ['fa', 'emoji'], value => `icons.${value}`); icons.name = 'icons';
@@ -304,6 +325,10 @@ export function createSettings(runtime, { document = globalThis.document,
     const visual = normalizeVisual(view.settings.visual);
     for (const [key, input] of visualControls) setValue(input, visual[key]);
     for (const [key, output] of visualOutputs) output.textContent = key === 'accent' ? visual.accent : formatVisual(key, visual[key]);
+    for (const [key, { input, auto, fallback }] of optionalColors) {
+      setValue(input, visual[key] ?? fallback);
+      auto.setAttribute('aria-pressed', String(!visual[key]));
+    }
     seed.disabled = !view.canSeedLegacy;
     reset.disabled = !Object.keys(view.store.modeOverride).length;
     refillProfiles();

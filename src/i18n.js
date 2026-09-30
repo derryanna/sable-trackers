@@ -133,3 +133,15 @@ Object.assign(STRINGS.ru, {
   'visual.accent': 'Акцент', 'visual.icons': 'Значки', 'visual.radius': 'Скругление',
   'icons.fa': 'Контурные', 'icons.emoji': 'Эмодзи', resetVisual: 'Сбросить вид',
 });
+
+// Visual: optional base and text colours for light themes.
+Object.assign(STRINGS.en, {
+  'visual.base': 'Base colour', 'visual.text': 'Text colour', 'visual.auto': 'auto',
+  'visual.baseAutoHint': 'Back to the default dark glass',
+  'visual.textAutoHint': 'Theme text colour, or matched to the base colour',
+});
+Object.assign(STRINGS.ru, {
+  'visual.base': 'Основной цвет', 'visual.text': 'Цвет текста', 'visual.auto': 'авто',
+  'visual.baseAutoHint': 'Вернуть тёмное стекло по умолчанию',
+  'visual.textAutoHint': 'Цвет текста темы или подобранный к основному цвету',
+});

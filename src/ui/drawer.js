@@ -1,6 +1,6 @@
 import { getSections, orderedSectionIds, BOND_SCALES } from '../sections.js';
 import { t } from '../i18n.js';
-import { normalizeVisual } from '../settings.js';
+import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
 
 export function displayNode(document, view, tag, className, text) {
   const element = document.createElement(tag);
@@ -16,13 +16,55 @@ export const SECTION_ICONS = Object.freeze({
   thoughts: 'comment-dots', bonds: 'handshake', dossiers: 'address-card', planner: 'compass', banlist: 'ban',
 });
 
+const BLACK = '0,0,0', WHITE = '255,255,255';
+const hexRgb = hex => [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16));
+
+/** WCAG 2 relative luminance of '#rrggbb' (sRGB linearisation threshold 0.04045). */
+export function luminance(hex) {
+  const [r, g, b] = hexRgb(hex).map(value => {
+    const channel = value / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Ink ('r,g,b') for text and overlays on a colour: black or white, whichever has the higher WCAG
+ *  contrast ratio. The crossover is at luminance ≈ 0.179, so pastel light-theme colours get black. */
+export function inkFor(hex) {
+  const light = luminance(hex);
+  return (light + 0.05) / 0.05 >= 1.05 / (light + 0.05) ? BLACK : WHITE;
+}
+
+/** Colour variables for the visual settings; null means "remove", so style.css uses its dark-glass fallback. */
+export function visualColors(visual) {
+  const value = normalizeVisual(visual);
+  // Overlay ink comes from the base only; a custom text colour never changes it.
+  const ink = value.base ? inkFor(value.base) : null;
+  // The default accent follows the ink in style.css, so it stays visible on any base.
+  const accent = value.accent === VISUAL_DEFAULTS.accent ? null : value.accent;
+  return {
+    'base-rgb': value.base ? hexRgb(value.base).join(',') : null,
+    'ink-rgb': ink,
+    accent,
+    'accent-ink-rgb': accent ? inkFor(accent) : (ink ?? WHITE) === WHITE ? BLACK : WHITE,
+    text: value.text ?? (ink ? `rgb(${ink})` : null),
+    tone: ink && (ink === BLACK ? 'light' : 'dark'),
+  };
+}
+
 /** Visual settings (SPEC §12) as CSS custom properties; style.css falls back to the defaults. */
 export function applyVisual(element, visual) {
-  const value = normalizeVisual(visual);
+  const value = normalizeVisual(visual), colors = visualColors(value);
+  const set = (name, css) => {
+    if (css === null) element.style.removeProperty(`--st-sable-${name}`);
+    else element.style.setProperty(`--st-sable-${name}`, css);
+  };
   for (const [name, css] of [['opacity', String(value.opacity)], ['blur', `${value.blur}px`], ['font', `${value.fontSize}px`],
-    ['width', `${value.widthVw}vw`], ['accent', value.accent], ['radius', `${value.radius}px`]]) {
-    element.style.setProperty(`--st-sable-${name}`, css);
-  }
+    ['width', `${value.widthVw}vw`], ['radius', `${value.radius}px`]]) set(name, css);
+  for (const name of ['base-rgb', 'ink-rgb', 'accent', 'accent-ink-rgb', 'text']) set(name, colors[name]);
+  // Light bases need darker status colours; see style.css.
+  if (colors.tone) element.dataset.stSableTone = colors.tone;
+  else delete element.dataset.stSableTone;
 }
 
 /** One emoji/text glyph, or Font Awesome classes ('fa-key' or 'fa-solid fa-key'); never parsed as HTML. */

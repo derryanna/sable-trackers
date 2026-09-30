@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
-import { createDrawer } from '../src/ui/drawer.js';
+import { createDrawer, inkFor, luminance, visualColors } from '../src/ui/drawer.js';
 import { createRuntime } from '../src/run.js';
 import { normalizeSettings, VISUAL_DEFAULTS } from '../src/settings.js';
 import { t as translate } from '../src/i18n.js';
@@ -311,20 +311,20 @@ test('visual settings become CSS variables on the drawer and tab, live on every 
   const tab = query('.st-sable-tab');
   const vars = element => Object.fromEntries(['opacity', 'blur', 'font', 'width', 'accent', 'radius']
     .map(name => [name, element.style.getPropertyValue(`--st-sable-${name}`)]));
-  assert.deepEqual(vars(ui.element), { opacity: '0.93', blur: '14px', font: '13px', width: '80vw', accent: '#f5f4ee', radius: '18px' });
+  assert.deepEqual(vars(ui.element), { opacity: '0.93', blur: '14px', font: '13px', width: '80vw', accent: '', radius: '18px' }, 'the default accent is left to the CSS ink fallback');
   runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS, opacity: 0.7, blur: 4, fontSize: 15, widthVw: 92, accent: '#8B5CF6', radius: 10 } });
   const expected = { opacity: '0.7', blur: '4px', font: '15px', width: '92vw', accent: '#8b5cf6', radius: '10px' };
   assert.deepEqual(vars(ui.element), expected);
   assert.deepEqual(vars(tab), expected, 'the tab follows the panel width');
   runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS, opacity: 7, blur: -1, accent: 'red; background: url(x)' } });
-  assert.deepEqual([vars(ui.element).opacity, vars(ui.element).blur, vars(ui.element).accent], ['1', '0px', '#f5f4ee'], 'values are clamped and validated');
+  assert.deepEqual([vars(ui.element).opacity, vars(ui.element).blur, vars(ui.element).accent], ['1', '0px', ''], 'values are clamped and validated');
   const computed = styled();
   ui.open();
-  assert.match(css, /\.st-sable-drawer\s*\{[^}]*background:\s*rgba\(14,14,18,var\(--st-sable-opacity,\s*\.93\)\)/);
+  assert.match(css, /\.st-sable-drawer\s*\{[^}]*background:\s*rgba\(var\(--st-sable-base-rgb,\s*14,14,18\),\s*var\(--st-sable-opacity,\s*\.93\)\)/);
   assert.match(css, /\.st-sable-drawer\s*\{[^}]*backdrop-filter:\s*blur\(var\(--st-sable-blur,\s*14px\)\)/);
   assert.match(css, /\.st-sable-card\s*\{[^}]*border-radius:\s*var\(--st-sable-radius,\s*18px\)/);
-  assert.match(css, /\.st-sable-card::before\s*\{[^}]*background:\s*var\(--st-sable-accent,\s*#f5f4ee\)/);
-  assert.match(css, /\.st-sable-mode\[data-mode="inject"\]\s*\{[^}]*var\(--st-sable-accent,\s*#f5f4ee\)/);
+  assert.match(css, /\.st-sable-card::before\s*\{[^}]*background:\s*var\(--st-sable-accent,\s*rgb\(var\(--st-sable-ink-rgb,\s*245,244,238\)\)\)/);
+  assert.match(css, /\.st-sable-mode\[data-mode="inject"\]\s*\{[^}]*color:\s*rgb\(var\(--st-sable-accent-ink-rgb,\s*0,0,0\)\);\s*background:\s*var\(--st-sable-accent,[^;]*;\s*border-color:\s*rgba\(var\(--st-sable-ink-rgb,\s*255,255,255\),\s*\.45\)/);
   assert.equal(computed(ui.element.querySelector('.st-sable-card-body')).fontSize, 'var(--st-sable-fs)');
 });
 
@@ -340,4 +340,58 @@ test('title icons switch between Font Awesome and registry emoji', t => {
   assert.equal(card('banlist').querySelector('.st-sable-card-icon').textContent, '🚫');
   runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS, icons: 'fa' } });
   assert.ok(card('world').querySelector('.st-sable-card-icon.fa-globe'));
+});
+
+test('ink: black or white by WCAG contrast; accent ink for text on a solid accent fill', () => {
+  assert.equal(inkFor('#ffffff'), '0,0,0');
+  assert.equal(inkFor('#0e0e12'), '255,255,255');
+  // Crossover where both contrast ratios are equal: luminance ≈ 0.179, between these two greys.
+  assert.ok(luminance('#757575') < 0.1791 && luminance('#767676') > 0.1791);
+  assert.equal(inkFor('#757575'), '255,255,255');
+  assert.equal(inkFor('#767676'), '0,0,0');
+  // A pastel light-theme base (luminance ≈ 0.39) gets black ink: 8.8:1 instead of 2.4:1 with white.
+  assert.ok(luminance('#b39ddb') > 0.35 && luminance('#b39ddb') < 0.5);
+  assert.equal(inkFor('#b39ddb'), '0,0,0');
+  assert.equal(inkFor('#8a6d1e'), '255,255,255');
+  assert.equal(inkFor('#f5f4ee'), '0,0,0');
+  assert.equal(visualColors({ accent: '#8a6d1e' })['accent-ink-rgb'], '255,255,255', 'dark gold chip gets white text');
+  assert.equal(visualColors({ accent: '#f5f4ee' })['accent-ink-rgb'], '0,0,0');
+  assert.equal(visualColors({ base: '#ffffff' })['accent-ink-rgb'], '255,255,255', 'default accent follows the black ink');
+  assert.equal(visualColors({ base: '#ffffff', text: '#444444' })['ink-rgb'], '0,0,0', 'text colour never changes the overlay ink');
+});
+
+test('base and text colours set ink variables and tone on the drawer and the tab; auto removes them', t => {
+  const { ui, query, runtime } = setup(t);
+  const tab = query('.st-sable-tab');
+  const colors = element => Object.fromEntries(['base-rgb', 'ink-rgb', 'accent', 'accent-ink-rgb', 'text']
+    .map(name => [name, element.style.getPropertyValue(`--st-sable-${name}`)]).concat([['tone', element.dataset.stSableTone ?? '']]));
+  const auto = { 'base-rgb': '', 'ink-rgb': '', accent: '', 'accent-ink-rgb': '0,0,0', text: '', tone: '' };
+  assert.deepEqual(colors(ui.element), auto, 'no base: dark glass, theme text');
+  runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS, base: '#FDF6E3' } });
+  const light = { 'base-rgb': '253,246,227', 'ink-rgb': '0,0,0', accent: '', 'accent-ink-rgb': '255,255,255', text: 'rgb(0,0,0)', tone: 'light' };
+  assert.deepEqual(colors(ui.element), light);
+  assert.deepEqual(colors(tab), light, 'the tab matches the panel');
+  runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS, base: '#fdf6e3', text: '#5b4636', accent: '#8a6d1e' } });
+  assert.deepEqual(colors(ui.element), { ...light, text: '#5b4636', accent: '#8a6d1e', 'accent-ink-rgb': '255,255,255' });
+  runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS, base: '#1d2430' } });
+  assert.deepEqual([colors(tab)['ink-rgb'], colors(tab).tone, colors(tab).text], ['255,255,255', 'dark', 'rgb(255,255,255)']);
+  runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS, text: '#ffcc00' } });
+  assert.deepEqual(colors(ui.element), { ...auto, text: '#ffcc00' }, 'a text colour alone keeps the dark glass');
+  runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS } });
+  assert.deepEqual(colors(ui.element), auto);
+  assert.equal(ui.element.hasAttribute('data-st-sable-tone'), false);
+});
+
+test('drawer and tab overlays read the ink variable; only the reply panel and settings keep theme colours', () => {
+  const drawerCss = css.slice(0, css.indexOf('/* Compact scene strip'));
+  const white = drawerCss.replaceAll('var(--st-sable-ink-rgb, 255,255,255)', 'INK').match(/rgba?\(\s*255\s*,\s*255\s*,\s*255/g);
+  assert.equal(white, null, 'no hard-coded white overlay left in the drawer or tab');
+  assert.ok((drawerCss.match(/rgba\(var\(--st-sable-ink-rgb, 255,255,255\), \.\d+\)/g) ?? []).length >= 25);
+  assert.match(drawerCss, /\.st-sable-drawer\s*\{[^}]*color:\s*var\(--st-sable-text,\s*var\(--SmartThemeBodyColor/);
+  assert.match(drawerCss, /\.st-sable-tab\s*\{[^}]*color:\s*var\(--st-sable-text,[^}]*background:\s*rgba\(var\(--st-sable-base-rgb,\s*24,24,30\),\s*\.7\)/);
+  assert.match(drawerCss, /\.st-sable-tab\[aria-expanded="true"\]\s*\{[^}]*rgba\(var\(--st-sable-base-rgb,\s*14,14,18\),\s*var\(--st-sable-opacity,\s*\.93\)\)/);
+  assert.match(drawerCss, /\.st-sable-bar-fill\s*\{[^}]*rgba\(var\(--st-sable-ink-rgb,\s*245,244,238\),\s*\.82\)/);
+  for (const rule of ['.st-sable-up', '.st-sable-down', '.st-sable-bar', ':is(.st-sable-dot']) {
+    assert.ok(css.includes(`.st-sable-drawer[data-st-sable-tone="light"] ${rule}`), `light-base rule for ${rule}`);
+  }
 });
