@@ -290,10 +290,27 @@ Rules: custom sections behave exactly like built-ins: requested from the side mo
   base: null,         // panel colour '#rrggbb'; null = dark glass rgb(14,14,18)
   text: null,         // text colour '#rrggbb'; null = theme text (no base) or the base ink
   icons: 'fa' | 'emoji', // section title icons
-  radius: 18 }        // card corner radius 8–24
+  radius: 18,         // card corner radius 8–24
+  bgImage: null,      // panel background: base64 png/jpeg/webp data URL or http(s) URL; null = none
+  bgDim: 0.45,        // wash of the base colour over the picture 0–0.9
+  bgFit: 'cover' | 'contain' | 'tile',
+  motion: true,       // false turns every animation and transition off
+  cardFill: 0.05,     // card tint alpha on the ink 0–0.3
+  border: 0.13,       // card border alpha 0–0.5; dividers use half of it
+  titleFont: 'theme' | 'serif' | 'mono' | 'rounded', // panel and card titles
+  titleWeight: 700,   // 500–800, step 100
+  chipStyle: 'filled' | 'outline', // the active «в промпт» chip
+  accentBar: true,    // the left accent bar on cards
+  spacing: 'cozy' | 'compact' }
 ```
 
-The drawer applies these as CSS custom properties on the drawer element and the edge tab (`--st-sable-opacity`, `--st-sable-blur`, `--st-sable-font`, `--st-sable-width`, `--st-sable-accent`, `--st-sable-radius`); `style.css` reads them with the defaults above as fallbacks. `icons` switches the title icon element. Missing keys are filled from defaults on load (settings.js); `accent`, `base` and `text` accept `#rrggbb` or `#rgb`, anything else becomes the default.
+The drawer applies these as CSS custom properties on the drawer element and the edge tab (`--st-sable-opacity`, `--st-sable-blur`, `--st-sable-font`, `--st-sable-width`, `--st-sable-accent`, `--st-sable-radius`, `--st-sable-card-fill`, `--st-sable-border`, `--st-sable-title-weight`, `--st-sable-bg-dim`); `style.css` reads them with the defaults above as fallbacks. Choices become data attributes that exist only while they differ from the default: `data-st-sable-motion="off"`, `-title-font`, `-chip`, `-accent-bar="off"`, `-spacing`, and on the drawer only `data-st-sable-bg="1"` and `-fit`. `icons` switches the title icon element. Missing keys are filled from defaults on load (settings.js); numbers are clamped and rounded to their slider step (`VISUAL_RANGES`), choices outside `VISUAL_CHOICES` and non-boolean flags fall back to the default; `accent`, `base` and `text` accept `#rrggbb` or `#rgb`, anything else becomes the default.
+
+Background: `normalizeBgImage` accepts only `data:image/(png|jpeg|webp);base64,…` or `http(s)://…` without whitespace, quotes, parentheses, backslashes or angle brackets, at most about 900 KB; anything else is `null`, so the value is safe inside CSS `url("…")`. The settings UI shrinks a chosen file with a canvas to 1280 px on the long side (JPEG, quality 0.82, transparent parts filled with the base) and refuses a result over about 600 KB. The picture lives in extension settings, so every device that shares `settings.json` shows it. It is a `::before` layer of the drawer (the drawer is its containing block, with explicit top/left/right/height; `z-index: -1` puts it over the panel fill and under the cards, and it does not scroll with them), painted as `rgba(base, bgDim)` over the image. With a picture the cards, the header and the status line get a base-coloured backing so text stays readable on a busy picture. The edge tab never gets the picture.
+
+Motion: at most 200 ms, transform/opacity only. The panel and tab slide in; a card body unfolded in place fades and slides in via a registered `--st-sable-reveal` number transitioned on the card (a card rebuilt by a full render has no previous style, so re-renders never replay it; `@starting-style` would replay on every card); buttons and the tab scale to 0.97 while pressed; a freshly rendered status line fades in unless focus is on a card control. `motion: false` and `prefers-reduced-motion` switch all of it off.
+
+Themes (`src/themes.js`, pure): a theme is the whole `visual` object. Export writes `sable-theme.json` = `{ format: 'sable-theme', version: 1, visual }` (the background data URL included). Import accepts that file or a bare visual object, runs it through `normalizeVisual` (unknown keys dropped) and rejects text that is not JSON or has no visual key. Presets are partial visual objects over the defaults — Стекло (the defaults), Бумага (`#f4f1ea` base, `#8a6d1e` accent, serif titles, no blur, opacity 0.98), Неон (`#0b0b14` base, `#b388ff` accent, outline chip, mono titles, border 0.16) — and keep the user's `bgImage`, `bgDim`, `bgFit`, `motion`, `fontSize` and `widthVw`. The preset select shows the preset the look matches, or «свой» after a tweak.
 
 Colours: with a `base`, the panel is `rgba(base, opacity)` (`--st-sable-base-rgb`) and the **ink** (`--st-sable-ink-rgb`) is black or white, whichever has the higher WCAG contrast ratio on the base (relative luminance crossover ≈ 0.179). Every overlay in the drawer and tab (borders, dividers, card fills, chips, tracks, hover states) is `rgba(ink, alpha)`, defaulting to white; the text is `text`, else `rgb(ink)`, else the theme colour (`--st-sable-text`). The ink comes from the base only, never from `text`. A default accent follows the ink. Text on a solid accent fill (the `inject` chip) uses `--st-sable-accent-ink-rgb`, derived from the accent in the same way. Light bases (`data-st-sable-tone="light"`) darken status colours and give coloured dots and bar tracks a faint rim.
 

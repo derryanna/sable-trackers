@@ -53,19 +53,39 @@ export function visualColors(visual) {
   };
 }
 
-/** Visual settings (SPEC §12) as CSS custom properties; style.css falls back to the defaults. */
+// Last background value per element: a data URL can be ~600 KB, so unchanged images are not re-set on every render.
+const appliedImages = new WeakMap();
+
+/** Visual settings (SPEC §12) as CSS custom properties and data attributes; style.css falls back to the defaults. */
 export function applyVisual(element, visual) {
   const value = normalizeVisual(visual), colors = visualColors(value);
   const set = (name, css) => {
     if (css === null) element.style.removeProperty(`--st-sable-${name}`);
     else element.style.setProperty(`--st-sable-${name}`, css);
   };
+  // A data attribute only while the value differs from the default look.
+  const flag = (name, css) => {
+    if (css === null) delete element.dataset[name];
+    else element.dataset[name] = css;
+  };
   for (const [name, css] of [['opacity', String(value.opacity)], ['blur', `${value.blur}px`], ['font', `${value.fontSize}px`],
-    ['width', `${value.widthVw}vw`], ['radius', `${value.radius}px`]]) set(name, css);
+    ['width', `${value.widthVw}vw`], ['radius', `${value.radius}px`], ['card-fill', String(value.cardFill)],
+    ['border', String(value.border)], ['title-weight', String(value.titleWeight)], ['bg-dim', String(value.bgDim)]]) set(name, css);
   for (const name of ['base-rgb', 'ink-rgb', 'accent', 'accent-ink-rgb', 'text']) set(name, colors[name]);
   // Light bases need darker status colours; see style.css.
-  if (colors.tone) element.dataset.stSableTone = colors.tone;
-  else delete element.dataset.stSableTone;
+  flag('stSableTone', colors.tone || null);
+  flag('stSableMotion', value.motion ? null : 'off');
+  flag('stSableTitleFont', value.titleFont === 'theme' ? null : value.titleFont);
+  flag('stSableChip', value.chipStyle === 'filled' ? null : value.chipStyle);
+  flag('stSableAccentBar', value.accentBar ? null : 'off');
+  flag('stSableSpacing', value.spacing === 'cozy' ? null : value.spacing);
+  // The background is a layer of the panel only; the edge tab never gets it.
+  const image = element.classList.contains('st-sable-tab') ? null : value.bgImage;
+  flag('stSableBg', image ? '1' : null);
+  flag('stSableFit', image && value.bgFit !== 'cover' ? value.bgFit : null);
+  // normalizeVisual guarantees no quotes, parentheses, backslashes or whitespace inside url("…").
+  const css = image ? `url("${image}")` : null;
+  if (appliedImages.get(element) !== css) { set('bg-image', css); appliedImages.set(element, css); }
 }
 
 /** One emoji/text glyph, or Font Awesome classes ('fa-key' or 'fa-solid fa-key'); never parsed as HTML. */

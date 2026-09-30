@@ -171,3 +171,43 @@ Object.assign(STRINGS.ru, {
   'field.beats': 'Ходы сюжета', 'field.beat': 'Ход', 'field.why': 'Зачем', 'field.remember': 'Не забыть',
   'field.pattern': 'Шаблон', 'field.example': 'Пример', 'field.key': 'Ключ', 'field.value': 'Значение',
 });
+
+// Round 3: appearance
+Object.assign(STRINGS.en, {
+  'sub.panel': 'Panel', 'sub.cards': 'Cards', 'sub.background': 'Background', 'sub.theme': 'Theme',
+  'visual.motion': 'Animations', 'visual.cardFill': 'Card fill', 'visual.border': 'Borders',
+  'visual.titleFont': 'Title font', 'visual.titleWeight': 'Title weight', 'visual.chipStyle': '“inject” chip',
+  'visual.accentBar': 'Accent bar on cards', 'visual.spacing': 'Spacing', 'visual.bgDim': 'Dimming', 'visual.bgFit': 'Fit',
+  'font.theme': 'Theme font', 'font.serif': 'Serif', 'font.mono': 'Monospace', 'font.rounded': 'Rounded',
+  'chip.filled': 'Filled', 'chip.outline': 'Outline', 'spacing.cozy': 'Cozy', 'spacing.compact': 'Compact',
+  'fit.cover': 'Fill', 'fit.contain': 'Whole picture', 'fit.tile': 'Tile',
+  'bg.file': 'Choose a picture', 'bg.remove': 'Remove background', 'bg.none': 'no picture', 'bg.preview': 'Background preview',
+  'bg.url': 'or a link to a picture', 'bg.fromFile': 'picture from a file',
+  'bg.hint': 'A picture from the device is shrunk to 1280 px and saved in the extension settings, so every device that shares them shows it.',
+  'bg.tooBig': 'Sable: the picture is still over 600 KB after shrinking. Pick a smaller one or use a link.',
+  'bg.badUrl': 'Sable: a picture link must start with http:// or https:// and have no spaces, quotes or brackets.',
+  'bg.readFailed': 'Sable: this picture could not be read. Try a JPEG, PNG or WebP file.',
+  'theme.preset': 'Preset', 'theme.custom': 'custom', 'preset.glass': 'Glass', 'preset.paper': 'Paper', 'preset.neon': 'Neon',
+  'theme.presetHint': 'A preset sets colours and style; the background, font size, phone width and animations stay. Tweak anything afterwards.',
+  'theme.export': 'Save theme file', 'theme.import': 'Load theme file',
+  'theme.invalid': 'Sable: this file is not a Sable theme.', 'theme.imported': 'Sable: theme imported.',
+});
+Object.assign(STRINGS.ru, {
+  'sub.panel': 'Панель', 'sub.cards': 'Карточки', 'sub.background': 'Фон', 'sub.theme': 'Тема',
+  'visual.motion': 'Анимации', 'visual.cardFill': 'Заливка карточек', 'visual.border': 'Рамки',
+  'visual.titleFont': 'Шрифт заголовков', 'visual.titleWeight': 'Жирность заголовков', 'visual.chipStyle': 'Кнопка «в промпт»',
+  'visual.accentBar': 'Полоса слева на карточках', 'visual.spacing': 'Плотность', 'visual.bgDim': 'Затемнение', 'visual.bgFit': 'Размещение',
+  'font.theme': 'Как в теме', 'font.serif': 'С засечками', 'font.mono': 'Моноширинный', 'font.rounded': 'Округлый',
+  'chip.filled': 'Залитая', 'chip.outline': 'Контур', 'spacing.cozy': 'Просторно', 'spacing.compact': 'Компактно',
+  'fit.cover': 'Заполнить', 'fit.contain': 'Целиком', 'fit.tile': 'Плиткой',
+  'bg.file': 'Выбрать картинку', 'bg.remove': 'Убрать фон', 'bg.none': 'нет фона', 'bg.preview': 'Фон панели',
+  'bg.url': 'или ссылка на картинку', 'bg.fromFile': 'картинка из файла',
+  'bg.hint': 'Картинка с устройства сжимается до 1280 px и хранится в настройках расширения, поэтому видна на всех устройствах с этими настройками.',
+  'bg.tooBig': 'Sable: даже после сжатия картинка больше 600 КБ. Выберите поменьше или дайте ссылку.',
+  'bg.badUrl': 'Sable: ссылка на картинку должна начинаться с http:// или https:// и не содержать пробелов, кавычек и скобок.',
+  'bg.readFailed': 'Sable: не удалось прочитать картинку. Подойдёт JPEG, PNG или WebP.',
+  'theme.preset': 'Пресет', 'theme.custom': 'свой', 'preset.glass': 'Стекло', 'preset.paper': 'Бумага', 'preset.neon': 'Неон',
+  'theme.presetHint': 'Пресет задаёт цвета и стиль; фон, размер шрифта, ширина и анимации остаются. Дальше всё можно подкрутить.',
+  'theme.export': 'Экспорт темы', 'theme.import': 'Импорт темы',
+  'theme.invalid': 'Sable: это не файл темы Sable.', 'theme.imported': 'Sable: тема загружена.',
+});

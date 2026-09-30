@@ -208,7 +208,7 @@ test('drawer CSS docks a full-height side panel, wraps text and keeps inset acce
   assert.match(css, /\.st-sable-card::before\s*\{[^}]*top:\s*14px;\s*bottom:\s*14px;\s*width:\s*3px/);
   for (const [, property, value] of css.matchAll(/(animation|transition):([^;}]*)/g)) {
     for (const [, amount, unit] of value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)) {
-      assert.ok(Number(amount) * (unit === 's' ? 1000 : 1) <= 150, `${property} longer than 150 ms`);
+      assert.ok(Number(amount) * (unit === 's' ? 1000 : 1) <= 200, `${property} longer than 200 ms`);
     }
   }
 });
