@@ -425,17 +425,24 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const chip = button(label(mode), section.title, () => runtime.setMode(id, { inject: 'show', show: 'off', off: 'inject' }[mode]), 'mode');
     chip.title = name;
     chip.setAttribute('aria-label', `${name}: ${label(mode)}`); chip.dataset.control = 'mode'; chip.dataset.mode = mode;
-    const edit = button('', 'edit', () => toggleEditor(section), 'edit');
-    edit.append(icon('pen'));
-    edit.setAttribute('aria-label', `${label('edit')}: ${name}`);
-    edit.setAttribute('aria-pressed', String(editors.has(id)));
-    edit.dataset.control = 'edit'; edit.disabled = mode === 'off';
     const fold = button('', 'fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [id]: !folded } }), 'fold');
     fold.append(icon('chevron-down'));
     fold.dataset.control = 'fold'; fold.disabled = mode === 'off'; fold.setAttribute('aria-expanded', String(!folded));
     fold.setAttribute('aria-controls', `st-sable-body-${id}`);
-    heading.append(handle, title, chip, edit, fold);
+    heading.append(handle, title, chip, fold);
     return heading;
+  }
+  // The pencil lives under the card, not in the header: a fifth header control made long titles wrap on phones.
+  function buildFooter(section) {
+    const { id } = section, { mode, folded } = cardState(id), name = section.custom ? section.title : label(section.title);
+    const footer = node('div', 'card-footer'); footer.hidden = folded || mode === 'off';
+    const edit = button('', 'edit', () => toggleEditor(section), 'edit');
+    edit.append(icon('pen'), document.createTextNode(` ${label('edit')}`));
+    edit.setAttribute('aria-label', `${label('edit')}: ${name}`);
+    edit.setAttribute('aria-pressed', String(editors.has(id)));
+    edit.dataset.control = 'edit';
+    footer.append(edit);
+    return footer;
   }
   function buildCard(section) {
     const { id } = section, { mode, folded } = cardState(id);
@@ -446,7 +453,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (editor) { body.append(editor.element); editor.card = card; }
     else if (mode !== 'off') renderBody(section, body, view.entry?.state ?? {});
     if (!body.childNodes.length) body.append(node('span', 'empty', '—'));
-    card.append(buildHeader(section), body);
+    card.append(buildHeader(section), body, buildFooter(section));
     return card;
   }
   function refreshCard(card, section) {
@@ -455,6 +462,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     card.classList.toggle('st-sable-off', mode === 'off');
     card.firstElementChild.replaceWith(buildHeader(section));
     card.querySelector('.st-sable-card-body').hidden = folded;
+    card.querySelector('.st-sable-card-footer')?.replaceWith(buildFooter(section));
   }
   /** Rebuild one card only (editor open/close); the other cards are untouched. */
   function rebuildCard(id) {

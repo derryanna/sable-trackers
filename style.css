@@ -210,7 +210,10 @@
 @media (prefers-reduced-motion: reduce) { .st-sable-drawer, .st-sable-tab[aria-expanded="true"] { animation: none; } .st-sable-drawer * { transition: none !important; } }
 
 /* Manual editor: schema-driven fields inside the card body; full-width inputs, 36px targets. */
-.st-sable-edit { font-size: 11px; }
+.st-sable-card-footer { display: flex; justify-content: flex-end; padding: 0 8px 6px; }
+.st-sable-card-footer[hidden] { display: none; }
+.st-sable-edit { width: auto; min-width: 36px; padding: 0 10px; font-size: 11px; opacity: .7; gap: 6px; }
+.st-sable-edit[aria-pressed="true"], .st-sable-edit:hover { opacity: 1; }
 .st-sable-edit > .fa-solid { opacity: .5; }
 .st-sable-edit[aria-pressed="true"] { background: rgba(var(--st-sable-ink-rgb, 255,255,255), .12); }
 .st-sable-edit[aria-pressed="true"] > .fa-solid { opacity: 1; }
