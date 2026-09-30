@@ -6,7 +6,7 @@ export const THEME_FILE = 'sable-theme.json';
 export const THEME_FORMAT = 'sable-theme';
 
 // Personal choices a preset leaves alone: the background image, reading size, phone width and motion.
-export const PRESET_KEEPS = Object.freeze(['bgImage', 'bgDim', 'bgFit', 'motion', 'fontSize', 'widthVw']);
+export const PRESET_KEEPS = Object.freeze(['bgImage', 'bgDim', 'bgFit', 'motion', 'fontSize', 'widthVw', 'cardColors']);
 
 /** Bundled starting points: partial visual objects over the defaults. The user tweaks from there. */
 export const PRESETS = Object.freeze({
@@ -29,7 +29,7 @@ export function presetOf(visual) {
   const current = normalizeVisual(visual);
   return PRESET_IDS.find(id => {
     const preset = applyPreset(current, id);
-    return Object.keys(VISUAL_DEFAULTS).every(key => preset[key] === current[key]);
+    return Object.keys(VISUAL_DEFAULTS).every(key => PRESET_KEEPS.includes(key) || preset[key] === current[key]);
   }) ?? '';
 }
 

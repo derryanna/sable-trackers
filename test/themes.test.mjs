@@ -92,3 +92,14 @@ test('fitWithin shrinks the long side to 1280 px, keeps the ratio and never upsc
   assert.deepEqual(fitWithin(20000, 10), { width: 1280, height: 1 });
   assert.deepEqual(fitWithin(0, 0), { width: 1, height: 1 });
 });
+
+test('presets preserve card colours and theme files round-trip them', () => {
+  const cardColors = { world: '#abcdef', c_0123abcd: '#123456' };
+  for (const id of PRESET_IDS) {
+    const visual = applyPreset({ cardColors }, id);
+    assert.deepEqual(visual.cardColors, cardColors);
+    assert.notEqual(visual.cardColors, cardColors);
+    assert.equal(presetOf(visual), id);
+    assert.deepEqual(parseTheme(exportTheme(visual)), visual);
+  }
+});

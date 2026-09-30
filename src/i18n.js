@@ -185,6 +185,7 @@ Object.assign(STRINGS.ru, {
 // Round 3: appearance
 Object.assign(STRINGS.en, {
   'sub.panel': 'Panel', 'sub.cards': 'Cards', 'sub.background': 'Background', 'sub.theme': 'Theme',
+  cardColors: 'Card colours', cardColorsHint: "Empty = the shared accent. The colour tints the card's bar, chip and border.",
   'visual.motion': 'Animations', 'visual.cardFill': 'Card fill', 'visual.border': 'Borders',
   'visual.titleFont': 'Title font', 'visual.titleWeight': 'Title weight', 'visual.chipStyle': '“inject” chip',
   'visual.accentBar': 'Accent bar on cards', 'visual.spacing': 'Spacing', 'visual.bgDim': 'Dimming', 'visual.bgFit': 'Fit',
@@ -204,6 +205,7 @@ Object.assign(STRINGS.en, {
 });
 Object.assign(STRINGS.ru, {
   'sub.panel': 'Панель', 'sub.cards': 'Карточки', 'sub.background': 'Фон', 'sub.theme': 'Тема',
+  cardColors: 'Цвета карточек', cardColorsHint: 'Пусто = общий акцент. Цвет красит полоску, чип и рамку карточки.',
   'visual.motion': 'Анимации', 'visual.cardFill': 'Заливка карточек', 'visual.border': 'Рамки',
   'visual.titleFont': 'Шрифт заголовков', 'visual.titleWeight': 'Жирность заголовков', 'visual.chipStyle': 'Кнопка «в промпт»',
   'visual.accentBar': 'Полоса слева на карточках', 'visual.spacing': 'Плотность', 'visual.bgDim': 'Затемнение', 'visual.bgFit': 'Размещение',

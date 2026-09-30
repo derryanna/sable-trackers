@@ -53,6 +53,14 @@ export function visualColors(visual) {
   };
 }
 
+function applyCardColor(card, color) {
+  for (const [key, value] of [['accent', color], ['accent-ink-rgb', color ? inkFor(color) : null]]) {
+    if (value) card.style.setProperty(`--st-sable-${key}`, value);
+    else card.style.removeProperty(`--st-sable-${key}`);
+  }
+  if (color) card.dataset.stSableTinted = '1'; else delete card.dataset.stSableTinted;
+}
+
 // Last background value per element: a data URL can be ~600 KB, so unchanged images are not re-set on every render.
 const appliedImages = new WeakMap();
 
@@ -72,6 +80,7 @@ export function applyVisual(element, visual) {
     ['width', `${value.widthVw}vw`], ['radius', `${value.radius}px`], ['card-fill', String(value.cardFill)],
     ['border', String(value.border)], ['title-weight', String(value.titleWeight)], ['bg-dim', String(value.bgDim)]]) set(name, css);
   for (const name of ['base-rgb', 'ink-rgb', 'accent', 'accent-ink-rgb', 'text']) set(name, colors[name]);
+  for (const card of element.querySelectorAll('.st-sable-card')) applyCardColor(card, value.cardColors[card.dataset.section]);
   // Light bases need darker status colours; see style.css.
   flag('stSableTone', colors.tone || null);
   flag('stSableMotion', value.motion ? null : 'off');
@@ -548,6 +557,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   function buildCard(section) {
     const { id } = section, { mode, folded } = cardState(id);
     const card = node('section', 'card'); card.dataset.section = id; card.dataset.mode = mode;
+    applyCardColor(card, view.settings.visual?.cardColors?.[id]);
     card.classList.toggle('st-sable-off', mode === 'off');
     const body = node('div', 'card-body'); body.id = `st-sable-body-${id}`; body.hidden = folded;
     const editor = editors.get(id);
@@ -560,6 +570,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   function refreshCard(card, section) {
     const { mode, folded } = cardState(section.id);
     card.dataset.mode = mode;
+    applyCardColor(card, view.settings.visual?.cardColors?.[section.id]);
     card.classList.toggle('st-sable-off', mode === 'off');
     card.firstElementChild.replaceWith(buildHeader(section));
     card.querySelector('.st-sable-card-body').hidden = folded;

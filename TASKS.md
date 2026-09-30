@@ -62,6 +62,9 @@ Mode menu with keyboard support, header folding, hideOff with transient reveal, 
 ## Round 4a — in-flight request robustness [x]
 Cosmetic settings and modes preserve requests; refresh shares active work and forces all enabled sections due. Requests survive metadata replacement, report discarded/skipped results, and publish busy status with motion controls. MESSAGE_RECEIVED no longer blocks listeners; runtime.idle() supports explicit waits. Validation: 101 tests and changed JavaScript syntax checks pass. Live SillyTavern/Android verification remains manual. Working-tree delivery only; no commit.
 
+## Round 4b — per-card colours [x]
+Normalized per-card colours, preset preservation and theme round-trips; ordered built-in/custom colour controls with auto reset and live preview; scoped drawer accents and borders, including retained editors. English/Russian labels and README updated. Validation: 106 tests pass and changed JavaScript syntax checks pass. Live Android layout remains unverified. Working-tree delivery only; no commit.
+
 ## Notes from previous tasks
 (append here)
 - T5 complete: Extensions settings with localized fields, cc-only profile selection and refresh, per-chat override reset, legacy import and manual run; English README with Russian quick start. jsdom coverage and syntax checks pass. No commit created (requested).

@@ -51,7 +51,7 @@ test('appearance group: panel / cards / background / theme sub-groups with the n
   assert.deepEqual([...ui.element.querySelectorAll('.st-sable-settings-heading')].map(item => item.textContent),
     ['Connection', 'Context', 'Sections', 'Custom blocks', 'Appearance', 'Actions'], 'top-level groups unchanged');
   const group = query('[data-group="visual"]');
-  assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Panel', 'Cards', 'Background', 'Theme']);
+  assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Panel', 'Card colours', 'Cards', 'Background', 'Theme']);
   for (const name of ['opacity', 'blur', 'fontSize', 'widthVw', 'base', 'text', 'accent', 'motion', 'radius', 'cardFill', 'border', 'titleWeight',
     'titleFont', 'chipStyle', 'spacing', 'icons', 'accentBar', 'bgFile', 'bgUrl', 'bgDim', 'bgFit', 'preset', 'themeFile']) {
     assert.ok(group.querySelector(`[name="${name}"]`), name);
@@ -71,7 +71,7 @@ test('appearance group: panel / cards / background / theme sub-groups with the n
   assert.ok(button('Save theme file') && button('Load theme file') && button('Restore default look'));
   assert.equal(query('img'), null, 'the preview is a CSS background, not an <img>');
   runtime.updateSettings({ language: 'ru' });
-  assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Панель', 'Карточки', 'Фон', 'Тема']);
+  assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Панель', 'Цвета карточек', 'Карточки', 'Фон', 'Тема']);
   assert.equal(query('[name="motion"]').parentElement.textContent, 'Анимации');
   for (const label of ['Убрать фон', 'Выбрать картинку', 'Экспорт темы', 'Импорт темы', 'Сбросить вид']) assert.ok(button(label), label);
   assert.equal(query('[name="preset"]').selectedOptions[0].textContent, 'Стекло');
@@ -262,4 +262,28 @@ test('round 3 CSS: picture layer under the cards, ink-only overlays, readable ca
     if (value.includes('st-sable-pulse')) { assert.match(value, /1\.5s ease-in-out infinite/); continue; }
     for (const [, amount, unit] of value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)) assert.ok(Number(amount) * (unit === 's' ? 1000 : 1) <= 200);
   }
+});
+
+test('card colours normalize valid ids and hex values into fresh objects', () => {
+  const source = { world: '#ABC', c_0123abcd: '#123456', npcs: 'red', nope: '#fff', c_ABCDEF12: '#fff', constructor: '#fff' };
+  const visual = normalizeVisual({ cardColors: source });
+  assert.deepEqual(visual.cardColors, { world: '#aabbcc', c_0123abcd: '#123456' });
+  assert.notEqual(visual.cardColors, source);
+  assert.notEqual(normalizeVisual(visual).cardColors, visual.cardColors);
+  assert.equal(Object.getPrototypeOf(visual.cardColors), Object.prototype);
+  visual.cardColors.world = '#000000';
+  assert.equal(source.world, '#ABC');
+  for (const cardColors of [null, [], 'bad', 42, undefined]) {
+    const result = normalizeVisual({ cardColors });
+    assert.deepEqual(result.cardColors, {});
+    assert.notEqual(result.cardColors, VISUAL_DEFAULTS.cardColors);
+  }
+  assert.deepEqual(VISUAL_DEFAULTS.cardColors, {});
+  assert.ok(Object.isFrozen(VISUAL_DEFAULTS.cardColors));
+});
+
+test('tinted card border has an rgba fallback before color-mix and leaves text alone', () => {
+  const rule = css.match(/\.st-sable-card\[data-st-sable-tinted="1"\]\s*\{([^}]+)\}/)[1];
+  assert.match(rule, /border-color: rgba\([^;]+;\s*border-color: color-mix\(in srgb, var\(--st-sable-accent\) 40%, transparent\)/);
+  assert.doesNotMatch(rule, /(?:^|;)\s*(?:color|background):/);
 });

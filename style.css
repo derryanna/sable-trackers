@@ -416,6 +416,10 @@
   box-shadow: inset 0 0 0 .5px var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238)));
 }
 .st-sable-drawer[data-st-sable-accent-bar="off"] .st-sable-card::before { display: none; }
+.st-sable-card[data-st-sable-tinted="1"] {
+  border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .4);
+  border-color: color-mix(in srgb, var(--st-sable-accent) 40%, transparent);
+}
 
 /* Compact spacing: tighter cards and rows; tap targets keep 36px. */
 .st-sable-drawer[data-st-sable-spacing="compact"] { gap: 6px; }

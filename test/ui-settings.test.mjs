@@ -334,3 +334,30 @@ test('Sections table moves built-ins and custom blocks, edits effective modes an
   assert.ok(parseFloat(computed.minHeight) >= 36);
   assert.ok(parseFloat(computed.minWidth) >= 36);
 });
+
+test('card colour rows follow sections, write colours, reset and refresh custom definitions', t => {
+  const { runtime, ui, query, change, input, button, dom } = setup(t);
+  const drawer = createDrawer(runtime, { document: dom.window.document }); t.after(() => drawer.dispose());
+  const custom = { id: 'c_0123abcd', title: '<Clues>', icon: '\u{1f50d}', shape: 'list', mode: 'show', period: 1 };
+  runtime.updateSettings({ customSections: [custom], order: [custom.id, 'threads', 'world'] });
+  const rows = () => [...ui.element.querySelectorAll('[data-card-color]')];
+  assert.deepEqual(rows().map(row => row.dataset.cardColor), runtime.snapshot().settings.order);
+  assert.equal(rows()[0].querySelector('label').textContent.trim(), '\u{1f50d} <Clues>');
+  assert.equal(rows()[0].querySelector('clues'), null);
+  const selector = '[name="cardColors.world"]';
+  input(selector, '#abcdef');
+  assert.equal(drawer.element.querySelector('[data-section="world"]').style.getPropertyValue('--st-sable-accent'), '#abcdef');
+  assert.equal(runtime.snapshot().settings.visual.cardColors.world, undefined);
+  change(selector, '#abcdef');
+  assert.equal(runtime.snapshot().settings.visual.cardColors.world, '#abcdef');
+  const auto = query('[data-card-color="world"] button');
+  assert.equal(auto.getAttribute('aria-pressed'), 'false'); auto.click();
+  assert.equal(Object.hasOwn(runtime.snapshot().settings.visual.cardColors, 'world'), false);
+  assert.equal(auto.getAttribute('aria-pressed'), 'true');
+  assert.equal(query(selector).value, runtime.snapshot().settings.visual.accent);
+  change('[name="accent"]', '#112233'); assert.equal(query(selector).value, '#112233');
+  button('Add block').click();
+  assert.deepEqual(rows().map(row => row.dataset.cardColor), runtime.snapshot().settings.order);
+  assert.equal(rows().length, 12);
+  runtime.updateSettings({ customSections: [] }); assert.equal(rows().length, 10);
+});

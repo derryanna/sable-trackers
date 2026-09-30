@@ -367,6 +367,41 @@ export function createSettings(runtime, { document = globalThis.document,
   optionalColor('text', '#eeeae7');
   const accent = node('input'); accent.type = 'color'; accent.name = 'accent';
   visualField('accent', accent);
+  const cardColorBlock = node('div', 'st-sable-card-colors st-sable-settings-wide');
+  cardColorBlock.append(text('h5', 'st-sable-settings-subheading', 'cardColors'), text('p', 'st-sable-settings-hint', 'cardColorsHint'));
+  const cardColorList = node('div', 'st-sable-settings-grid'); cardColorBlock.append(cardColorList); visualGrid.append(cardColorBlock);
+  const cardColorRows = new Map();
+  function renderCardColors() {
+    const sections = getSections(view.settings), order = orderedSectionIds(view.settings.order, sections), visual = normalizeVisual(view.settings.visual);
+    for (const [id, row] of cardColorRows) if (!order.includes(id)) { row.element.remove(); cardColorRows.delete(id); }
+    let previous = null;
+    for (const id of order) {
+      const section = sections.find(item => item.id === id);
+      if (!cardColorRows.has(id)) {
+        const element = node('div', 'st-sable-settings-visual st-sable-settings-inline st-sable-settings-optional'); element.dataset.cardColor = id;
+        const name = node('label', 'st-sable-settings-label');
+        const input = node('input'); input.type = 'color'; input.name = `cardColors.${id}`; input.id = `st-sable-color-${id}`; name.htmlFor = input.id;
+        const auto = node('button', 'menu_button st-sable-settings-auto'); auto.type = 'button';
+        const withColor = color => {
+          const colors = { ...runtime.snapshot().settings.visual.cardColors };
+          if (color) colors[id] = color; else delete colors[id];
+          return visualWith('cardColors', colors);
+        };
+        input.addEventListener('input', () => previewVisual(withColor(input.value)));
+        input.addEventListener('change', () => writeVisual(withColor(input.value)));
+        auto.addEventListener('click', () => writeVisual(withColor(null)));
+        element.append(name, input, auto); cardColorRows.set(id, { element, name, input, auto });
+      }
+      const row = cardColorRows.get(id), title = section.custom ? section.title : label(section.title);
+      row.name.replaceChildren(sectionGlyph(document, section, visual.icons), document.createTextNode(` ${title}`));
+      row.auto.textContent = label('visual.auto'); row.auto.setAttribute('aria-label', `${title}: ${label('visual.auto')}`);
+      row.auto.setAttribute('aria-pressed', String(!visual.cardColors[id]));
+      setValue(row.input, visual.cardColors[id] ?? visual.accent);
+      const expected = previous ? previous.nextSibling : cardColorList.firstChild;
+      if (row.element !== expected) cardColorList.insertBefore(row.element, expected);
+      previous = row.element;
+    }
+  }
   visualCheck('motion');
 
   subgroup('sub.cards');
@@ -503,6 +538,7 @@ export function createSettings(runtime, { document = globalThis.document,
       else if (key !== 'profileId') setValue(input, view.settings[key]);
     }
     renderSections();
+    renderCardColors();
     renderCustom();
     const visual = normalizeVisual(view.settings.visual);
     for (const [key, input] of visualControls) setValue(input, visual[key]);

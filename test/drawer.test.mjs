@@ -711,3 +711,22 @@ test('drawer shows running and skipped status, with refresh busy state and optio
   runtime.updateSettings({ language: 'en' });
   assert.match(query('.st-sable-status-text').textContent, / · ok · no request$/);
 });
+
+test('card colours scope accent and ink and clear on publish, including retained editors', t => {
+  const { runtime, card } = setup(t);
+  const check = (id, color) => {
+    assert.equal(card(id).style.getPropertyValue('--st-sable-accent'), color ?? '');
+    assert.equal(card(id).style.getPropertyValue('--st-sable-accent-ink-rgb'), color ? inkFor(color) : '');
+    assert.equal(card(id).getAttribute('data-st-sable-tinted'), color ? '1' : null);
+    assert.equal(card(id).style.color, '');
+  };
+  runtime.updateSettings({ visual: { cardColors: { world: '#abcdef' } } });
+  check('world', '#abcdef'); check('threads');
+  runtime.updateSettings({ visual: { cardColors: {} } }); runtime.publish(); check('world');
+  card('world').querySelector('[data-control="edit"]').click();
+  const retained = card('world');
+  runtime.updateSettings({ visual: { cardColors: { world: '#123456' } } });
+  assert.equal(card('world'), retained); check('world', '#123456');
+  runtime.updateSettings({ visual: { cardColors: {} } }); runtime.publish();
+  assert.equal(card('world'), retained); check('world');
+});

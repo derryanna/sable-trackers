@@ -5,7 +5,7 @@ export const SETTINGS_KEY = 'sableTrackers';
 // base/text: null = automatic (dark glass, theme text; a base derives its own ink). Hex colours override (SPEC §12).
 // bgImage: null or a sanitised data:/http(s) URL (normalizeBgImage); the other keys are numbers, booleans or choices.
 export const VISUAL_DEFAULTS = Object.freeze({ opacity: 0.93, blur: 14, fontSize: 13, widthVw: 80, accent: '#f5f4ee', base: null, text: null, icons: 'fa', radius: 18,
-  bgImage: null, bgDim: 0.45, bgFit: 'cover', motion: true,
+  bgImage: null, bgDim: 0.45, bgFit: 'cover', motion: true, cardColors: Object.freeze({}),
   cardFill: 0.05, border: 0.13, titleFont: 'theme', titleWeight: 700, chipStyle: 'filled', accentBar: true, spacing: 'cozy' });
 export const VISUAL_RANGES = Object.freeze({ opacity: [0.5, 1, 0.01], blur: [0, 30, 1], fontSize: [12, 16, 1], widthVw: [60, 100, 1], radius: [8, 24, 1],
   bgDim: [0, 0.9, 0.01], cardFill: [0, 0.3, 0.01], border: [0, 0.5, 0.01], titleWeight: [500, 800, 100] });
@@ -67,6 +67,13 @@ export function normalizeVisual(value) {
     if (step < 1) result[key] = Number(result[key].toFixed(2));
   }
   result.accent = normalizeHex(source.accent) ?? VISUAL_DEFAULTS.accent;
+  result.cardColors = {};
+  if (source.cardColors && typeof source.cardColors === 'object' && !Array.isArray(source.cardColors)) {
+    for (const [id, value] of Object.entries(source.cardColors)) {
+      const color = normalizeHex(value);
+      if ((SECTION_ORDER.includes(id) || /^c_[0-9a-f]{8}$/.test(id)) && color) result.cardColors[id] = color;
+    }
+  }
   result.base = normalizeHex(source.base);
   result.text = normalizeHex(source.text);
   for (const [key, values] of Object.entries(VISUAL_CHOICES)) result[key] = values.includes(source[key]) ? source[key] : VISUAL_DEFAULTS[key];
