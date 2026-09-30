@@ -290,3 +290,40 @@ test('failed replies still advance slow-section cadence on the next successful r
   assert.match(fake.calls.requests.at(-1)[1][0].content, /PLANNER:/);
   assert.equal(data(fake).ring.at(-1).turn, 3);
 });
+
+test('editState sanitizes, replaces one section in the current entry, clears stale, re-injects and saves', async t => {
+  const fake = setup(t);
+  fake.add('The guide opens the dome.');
+  loadStore(fake.ctx).ring.push({ mesId: 0, swipeId: 0, turn: 1, stale: true,
+    state: { world: { location: 'Dome' }, threads: [{ text: 'Old', priority: 'low' }], meta: { turn: 1 } } });
+  const before = Date.now();
+  assert.equal(fake.runtime.editState('threads', [{ text: '  Who cut the rope?  ', priority: 'high', extra: 'x' },
+    { text: 'Missing page', priority: 'nonsense' }, { priority: 'low' }]), true);
+  const entry = data(fake).ring[0];
+  assert.deepEqual(entry.state.threads, [{ text: 'Who cut the rope?', priority: 'high' }, { text: 'Missing page', priority: 'mid' }]);
+  assert.deepEqual(entry.state.world, { location: 'Dome' }, 'other sections untouched');
+  assert.ok(entry.state.meta.editedAt >= before);
+  assert.equal(entry.state.meta.turn, 1);
+  assert.equal(entry.stale, undefined);
+  assert.ok(injection(fake).includes('Who cut the rope?'));
+  assert.equal(injection(fake).includes('Old'), false);
+  await Promise.resolve(); await Promise.resolve();
+  assert.ok(fake.calls.metadata.length >= 1, 'metadata saved');
+  assert.equal(fake.runtime.editState('bonds', [{ id: 'maren', stats: { trust: 250, fear: -3, desire: null } }]), true);
+  assert.deepEqual(data(fake).ring[0].state.bonds[0].stats, { trust: 100, fear: 0, desire: null }, 'scores clamp');
+  assert.equal(fake.runtime.editState('nope', {}), false);
+  assert.equal(fake.runtime.editState('world', 'not an object'), false);
+});
+
+test('editState creates an entry for the last character reply when the chat has no state; custom kv sections work', t => {
+  const fake = setup(t);
+  assert.equal(fake.runtime.editState('world', { location: 'Dome' }), false, 'no character reply to attach to');
+  fake.add('Hello', { is_user: true }); fake.add('The guide bows.'); fake.add('Thanks', { is_user: true });
+  fake.ctx.extensionSettings.sableTrackers.customSections = [{ id: 'c_0123abcd', title: 'Clues', shape: 'kv', max: 2, mode: 'inject' }];
+  assert.equal(fake.runtime.editState('c_0123abcd', [{ key: 'Knife', value: 'under the stove' }, { key: 'Rope', value: 'cut' },
+    { key: 'Third', value: 'over the cap' }, { key: '', value: 'no key' }]), true);
+  const [entry] = data(fake).ring;
+  assert.deepEqual([entry.mesId, entry.swipeId, entry.turn], [1, 0, 1]);
+  assert.deepEqual(entry.state.c_0123abcd, [{ key: 'Knife', value: 'under the stove' }, { key: 'Rope', value: 'cut' }]);
+  assert.ok(injection(fake).includes('CLUES: Knife: under the stove · Rope: cut'));
+});

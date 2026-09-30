@@ -194,8 +194,9 @@ Re-inject on CHAT_CHANGED and after every merge.
   open while chatting), ⚙ (opens the settings section in the Extensions tab),
   ✕ close.
 - Section cards: drag handle (reorder, order saved), icon + title, a **mode chip**
-  (`inject` / `show` / `off`; tap cycles), chevron to fold (fold state saved).
-  Empty card body shows "—".
+  (`inject` / `show` / `off`; tap cycles), ✎ edit (§13), chevron to fold (fold state saved).
+  Empty card body shows "—". Title icons and list/meta markers (🌱 ⏳ 🕒 📍 🌦️) follow
+  `visual.icons`: Font Awesome by default, emoji on request.
 - Status line at the bottom: last run time, ok/error, token estimate
   (chars/4 if the API gives no usage).
 - Renders with plain DOM + template strings. No framework. Escape all
@@ -241,7 +242,7 @@ the legacy data.
 
 ## 10. Non-goals for v1
 
-Group chats · image generation · editing state by hand (v2) · streaming the
+Group chats · image generation · streaming the
 side-model reply · text-completion APIs (v1 supports chat-completion profiles
 only; show a clear error otherwise).
 
@@ -295,3 +296,17 @@ Rules: custom sections behave exactly like built-ins: requested from the side mo
 The drawer applies these as CSS custom properties on the drawer element and the edge tab (`--st-sable-opacity`, `--st-sable-blur`, `--st-sable-font`, `--st-sable-width`, `--st-sable-accent`, `--st-sable-radius`); `style.css` reads them with the defaults above as fallbacks. `icons` switches the title icon element. Missing keys are filled from defaults on load (settings.js); `accent`, `base` and `text` accept `#rrggbb` or `#rgb`, anything else becomes the default.
 
 Colours: with a `base`, the panel is `rgba(base, opacity)` (`--st-sable-base-rgb`) and the **ink** (`--st-sable-ink-rgb`) is black or white, whichever has the higher WCAG contrast ratio on the base (relative luminance crossover ≈ 0.179). Every overlay in the drawer and tab (borders, dividers, card fills, chips, tracks, hover states) is `rgba(ink, alpha)`, defaulting to white; the text is `text`, else `rgb(ink)`, else the theme colour (`--st-sable-text`). The ink comes from the base only, never from `text`. A default accent follows the ink. Text on a solid accent fill (the `inject` chip) uses `--st-sable-accent-ink-rgb`, derived from the accent in the same way. Light bases (`data-st-sable-tone="light"`) darken status colours and give coloured dots and bar tracks a faint rim.
+
+## 13. Manual editing
+
+`runtime.editState(sectionId, value)` validates the value with the section schema (`sanitizeSection` in `parse.js`, the same sanitizer as model output) and replaces that section in the current ring entry (`currentEntry`). With no entry yet, it creates one for the last character reply. It sets `state.meta.editedAt`, clears `stale`, cancels an in-flight side-model run (the edit wins), re-injects and saves. It returns `false` for an unknown section, an invalid value, or a chat without a character reply.
+
+The drawer editor is generated from the schema, so built-in and custom sections share it:
+- strings become text inputs (a textarea with 2 rows when the limit is 240 or more);
+- `integer` and `score` become number inputs (0–100 for scores, clamped; an empty score is `null`);
+- `enum` becomes a select, `boolean` a checkbox;
+- arrays get one row per item with ✕ and a «+» capped at the schema max;
+- nested objects recurse, and `changes` is read-only (recomputed on the next run);
+- `id` next to `name` is read-only, and new rows derive it from the name.
+
+An open editor keeps its node, draft and focus across runtime renders (only its header refreshes). It warns when its section changed underneath. Opening, cancelling and editing rows touch only that card.

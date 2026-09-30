@@ -145,3 +145,29 @@ Object.assign(STRINGS.ru, {
   'visual.baseAutoHint': 'Вернуть тёмное стекло по умолчанию',
   'visual.textAutoHint': 'Цвет текста темы или подобранный к основному цвету',
 });
+
+// Manual state editing in the drawer.
+Object.assign(STRINGS.en, {
+  edit: 'Edit', 'edit.save': 'Save', 'edit.cancel': 'Cancel', 'edit.add': 'Add', 'edit.remove': 'Remove',
+  'edit.changed': 'The state was updated while you were editing. Save overwrites it with your version.',
+  'edit.failed': 'Nothing to save to: there is no character reply in this chat yet.',
+  'edit.recomputed': 'Recomputed on the next update',
+  'field.summary': 'Summary', 'field.pc': 'Player character', 'field.name': 'Name', 'field.doing': 'Doing',
+  'field.text': 'Text', 'field.priority': 'Priority', 'field.seeds': 'Seeds', 'field.timers': 'Timers',
+  'field.planted_turn': 'Planted on turn', 'field.due': 'Due', 'field.present': 'In the scene', 'field.mood': 'Mood',
+  'field.thought': 'Thought', 'field.toward': 'Toward', 'field.stats': 'Scales', 'field.changes': 'Last changes',
+  'field.beats': 'Beats', 'field.beat': 'Beat', 'field.why': 'Why', 'field.remember': 'Do not forget',
+  'field.pattern': 'Pattern', 'field.example': 'Example', 'field.key': 'Key', 'field.value': 'Value',
+});
+Object.assign(STRINGS.ru, {
+  edit: 'Редактировать', 'edit.save': 'Сохранить', 'edit.cancel': 'Отмена', 'edit.add': 'Добавить', 'edit.remove': 'Удалить',
+  'edit.changed': 'Пока вы редактировали, состояние обновилось. «Сохранить» заменит его вашей версией.',
+  'edit.failed': 'Некуда сохранить: в этом чате ещё нет ответа персонажа.',
+  'edit.recomputed': 'Пересчитается при следующем обновлении',
+  'field.summary': 'Кратко', 'field.pc': 'Персонаж игрока', 'field.name': 'Имя', 'field.doing': 'Чем занят',
+  'field.text': 'Текст', 'field.priority': 'Важность', 'field.seeds': 'Зацепки', 'field.timers': 'Сроки',
+  'field.planted_turn': 'Посажено на ходу', 'field.due': 'Срок', 'field.present': 'В сцене', 'field.mood': 'Настроение',
+  'field.thought': 'Мысль', 'field.toward': 'К кому', 'field.stats': 'Шкалы', 'field.changes': 'Последние изменения',
+  'field.beats': 'Ходы сюжета', 'field.beat': 'Ход', 'field.why': 'Зачем', 'field.remember': 'Не забыть',
+  'field.pattern': 'Шаблон', 'field.example': 'Пример', 'field.key': 'Ключ', 'field.value': 'Значение',
+});

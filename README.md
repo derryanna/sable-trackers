@@ -13,7 +13,7 @@ Scene-state tracking for SillyTavern 1.19.x, with Russian output by default and 
 5. Choose the output language. Turn off any other tracker that writes tracking blocks into the reply.
 6. Open a character chat and generate a reply, or press **Run now** to update from the latest character reply.
 
-Open the scene drawer from the edge tab, the extensions wand menu, or the panel under the latest character reply. The gear opens settings. The drawer supports folding, reordering and pinning. Settings can hide the reply panel or edge tab.
+Open the scene drawer from the edge tab, the extensions wand menu, or the panel under the latest character reply. The gear opens settings. The drawer supports folding, reordering and pinning. The pen button on a card opens an editor for that section: fix a field, add or remove rows, then Save (the change is injected into the next reply) or Cancel. Settings can hide the reply panel or edge tab.
 
 ## Sections and modes
 

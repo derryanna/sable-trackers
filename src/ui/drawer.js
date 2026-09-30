@@ -1,6 +1,7 @@
 import { getSections, orderedSectionIds, BOND_SCALES } from '../sections.js';
 import { t } from '../i18n.js';
 import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
+import { sanitizeSection } from '../parse.js';
 
 export function displayNode(document, view, tag, className, text) {
   const element = document.createElement(tag);
@@ -89,6 +90,11 @@ export function sectionGlyph(document, section, icons = 'fa') {
   return glyphNode(document, icons !== 'emoji' && fa ? `fa-${fa}` : section?.icon);
 }
 
+// Markers inside cards: [Font Awesome name, emoji].
+const MARKERS = {
+  seed: ['seedling', '🌱'], timer: ['hourglass-half', '⏳'],
+  time: ['clock', '🕒'], location: ['location-dot', '📍'], weather: ['cloud-sun-rain', '🌦️'],
+};
 // Scales where a high value means friction; their bars get the warm tint.
 const FRICTION = new Set(['suspicion', 'fear', 'grudge', 'tension']);
 const PRIORITIES = ['high', 'mid', 'low'];
@@ -211,9 +217,15 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const key = `turns.${new Intl.PluralRules(view.settings.language).select(count)}`;
     return label(key) === key ? label('turns') : label(key);
   }
+  // List and meta markers follow visual.icons like the card titles.
+  function marker(name) {
+    const [fa, emoji] = MARKERS[name];
+    return view.settings.visual?.icons === 'emoji' ? node('span', 'emoji', emoji) : icon(fa);
+  }
   function listItem(glyph, text, meta) {
     const item = node('li', 'item');
-    const mark = node('span', 'glyph', glyph); mark.setAttribute('aria-hidden', 'true');
+    const mark = node('span', 'glyph', typeof glyph === 'string' ? glyph : undefined); mark.setAttribute('aria-hidden', 'true');
+    if (typeof glyph !== 'string') mark.append(glyph);
     item.append(mark, node('span', 'item-text', text));
     if (meta) item.append(node('span', 'item-meta', meta));
     return item;
@@ -238,10 +250,10 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     switch (id) {
       case 'world': {
         const meta = node('div', 'meta');
-        for (const [key, glyph] of [['time', 'clock'], ['location', 'location-dot'], ['weather', 'cloud-sun-rain']]) {
+        for (const key of ['time', 'location', 'weather']) {
           if (!value[key]) continue;
           const item = node('span', 'meta-item'); item.title = label(key);
-          item.append(icon(glyph), node('span', '', value[key]));
+          item.append(marker(key), node('span', '', value[key]));
           meta.append(item);
         }
         if (meta.childNodes.length) body.append(meta);
@@ -285,9 +297,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         const list = node('ul', 'list');
         for (const seed of value.seeds ?? []) {
           const age = Number.isFinite(seed.planted_turn) ? Math.max(0, (state.meta?.turn ?? 0) - seed.planted_turn) : null;
-          list.append(listItem('🌱', seed.text, age === null ? '' : `${age} ${turns(age)}`));
+          list.append(listItem(marker('seed'), seed.text, age === null ? '' : `${age} ${turns(age)}`));
         }
-        for (const timer of value.timers ?? []) list.append(listItem('⏳', timer.text, timer.due));
+        for (const timer of value.timers ?? []) list.append(listItem(marker('timer'), timer.text, timer.due));
         if (list.childNodes.length) body.append(list);
         break;
       }
@@ -388,6 +400,206 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     }
   }
 
+  const sectionTitle = section => (section.custom ? section.title : label(section.title));
+  const cardState = id => {
+    const mode = view.modes[id];
+    return { mode, folded: mode === 'off' || !!view.settings.folded[id] };
+  };
+  function buildHeader(section) {
+    const { id } = section, { mode, folded } = cardState(id), name = sectionTitle(section);
+    const heading = node('div', 'card-header');
+    const handle = button('', 'reorder', () => {}, 'handle'); handle.dataset.control = 'handle';
+    handle.append(icon('grip-vertical'));
+    handle.addEventListener('pointerdown', event => beginDrag(event, id));
+    handle.addEventListener('keydown', event => {
+      if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      event.preventDefault();
+      const order = [...view.settings.order], index = order.indexOf(id), target = index + (event.key === 'ArrowUp' ? -1 : 1);
+      if (target >= 0 && target < order.length) { [order[index], order[target]] = [order[target], order[index]]; runtime.updateSettings({ order }); }
+    });
+    const title = node('h3', 'card-title');
+    const glyph = sectionGlyph(document, section, view.settings.visual?.icons);
+    glyph.classList.add('st-sable-card-icon');
+    glyph.setAttribute('aria-hidden', 'true');
+    title.append(glyph, node('span', 'card-label', name));
+    const chip = button(label(mode), section.title, () => runtime.setMode(id, { inject: 'show', show: 'off', off: 'inject' }[mode]), 'mode');
+    chip.title = name;
+    chip.setAttribute('aria-label', `${name}: ${label(mode)}`); chip.dataset.control = 'mode'; chip.dataset.mode = mode;
+    const edit = button('', 'edit', () => toggleEditor(section), 'edit');
+    edit.append(icon('pen'));
+    edit.setAttribute('aria-label', `${label('edit')}: ${name}`);
+    edit.setAttribute('aria-pressed', String(editors.has(id)));
+    edit.dataset.control = 'edit'; edit.disabled = mode === 'off';
+    const fold = button('', 'fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [id]: !folded } }), 'fold');
+    fold.append(icon('chevron-down'));
+    fold.dataset.control = 'fold'; fold.disabled = mode === 'off'; fold.setAttribute('aria-expanded', String(!folded));
+    fold.setAttribute('aria-controls', `st-sable-body-${id}`);
+    heading.append(handle, title, chip, edit, fold);
+    return heading;
+  }
+  function buildCard(section) {
+    const { id } = section, { mode, folded } = cardState(id);
+    const card = node('section', 'card'); card.dataset.section = id; card.dataset.mode = mode;
+    card.classList.toggle('st-sable-off', mode === 'off');
+    const body = node('div', 'card-body'); body.id = `st-sable-body-${id}`; body.hidden = folded;
+    const editor = editors.get(id);
+    if (editor) { body.append(editor.element); editor.card = card; }
+    else if (mode !== 'off') renderBody(section, body, view.entry?.state ?? {});
+    if (!body.childNodes.length) body.append(node('span', 'empty', '—'));
+    card.append(buildHeader(section), body);
+    return card;
+  }
+  function refreshCard(card, section) {
+    const { mode, folded } = cardState(section.id);
+    card.dataset.mode = mode;
+    card.classList.toggle('st-sable-off', mode === 'off');
+    card.firstElementChild.replaceWith(buildHeader(section));
+    card.querySelector('.st-sable-card-body').hidden = folded;
+  }
+  /** Rebuild one card only (editor open/close); the other cards are untouched. */
+  function rebuildCard(id) {
+    const section = getSections(view.settings).find(item => item.id === id);
+    const old = [...cards.children].find(card => card.dataset.section === id);
+    if (!section || !old) return;
+    const role = old.contains(document.activeElement) ? document.activeElement.dataset.control : undefined;
+    for (const item of old.querySelectorAll('details[data-key]')) openRows.set(item.dataset.key, item.open);
+    const card = buildCard(section);
+    old.replaceWith(card);
+    if (role) card.querySelector(`[data-control="${role}"]`)?.focus();
+  }
+
+  // Manual editing: schema-driven fields, so built-in and custom sections share one editor.
+  const editors = new Map();
+  function fieldLabel(key) {
+    for (const candidate of [`field.${key}`, key]) if (label(candidate) !== candidate) return label(candidate);
+    return key;
+  }
+  const blank = value => value === undefined
+    || (value !== null && typeof value === 'object' && !Array.isArray(value) && !Object.keys(value).length);
+  const copy = value => (value === undefined ? undefined : structuredClone(value));
+  function fieldEditor(schema, value, key) {
+    switch (schema?.type) {
+      case 'string': {
+        const input = node(schema.max >= 240 ? 'textarea' : 'input', 'input');
+        if (input.tagName === 'TEXTAREA') input.rows = 2; else input.type = 'text';
+        input.maxLength = schema.max; input.value = typeof value === 'string' ? value : '';
+        return { element: input, read: () => input.value.trim() || undefined };
+      }
+      case 'integer': case 'score': {
+        const input = node('input', 'input'); input.type = 'number'; input.step = '1'; input.inputMode = 'numeric';
+        const [min, max] = schema.type === 'score' ? [0, 100] : [schema.min, schema.max];
+        if (min !== undefined) input.min = String(min);
+        if (max !== undefined) input.max = String(max);
+        input.value = Number.isFinite(value) ? String(value) : '';
+        const empty = schema.type === 'score' ? null : undefined;
+        const read = () => {
+          const number = Number(input.value);
+          if (input.value.trim() === '' || !Number.isFinite(number)) return empty;
+          return Math.min(max ?? Infinity, Math.max(min ?? -Infinity, Math.round(number)));
+        };
+        input.addEventListener('change', () => { const clamped = read(); input.value = clamped ?? ''; });
+        return { element: input, read };
+      }
+      case 'enum': {
+        const select = node('select', 'input');
+        for (const option of schema.values) {
+          const item = node('option', '', label(`${key}.${option}`) === `${key}.${option}` ? option : label(`${key}.${option}`));
+          item.value = option; select.append(item);
+        }
+        select.value = schema.values.includes(value) ? value : schema.fallback;
+        return { element: select, read: () => select.value };
+      }
+      case 'boolean': {
+        const input = node('input', 'check'); input.type = 'checkbox'; input.checked = value === true;
+        return { element: input, read: () => input.checked, inline: true };
+      }
+      case 'changes': {
+        const text = Object.entries(value ?? {}).map(([scale, change]) =>
+          `${label(scale)} ${change.delta > 0 ? '+' : '−'}${Math.abs(change.delta)}${change.reason ? ` (${change.reason})` : ''}`).join(' · ');
+        const element = node('div', 'editor-readonly', text || '—');
+        element.title = label('edit.recomputed');
+        return { element, read: () => copy(value) };
+      }
+      case 'object': {
+        if (schema.allowUnknown) return { element: null, read: () => copy(value) };
+        const box = node('div', 'editor-object'), parts = [];
+        const entries = Object.entries(schema.fields ?? {});
+        if (entries.every(([, child]) => ['score', 'integer'].includes(child.type))) box.classList.add('st-sable-editor-grid');
+        for (const [name, child] of entries) {
+          if (name === 'id' && schema.fields.name) {
+            // Stable ids link NPCs, thoughts and bonds: read-only; new rows derive theirs from the name.
+            if (value?.id) box.append(node('div', 'editor-id', `id: ${value.id}`));
+            parts.push([name, { read: () => value?.id }]);
+            continue;
+          }
+          const editor = fieldEditor(child, value?.[name], name);
+          if (editor.element) box.append(fieldRow(name, editor));
+          parts.push([name, editor]);
+        }
+        return { element: box, read: () => {
+          const result = {};
+          for (const [name, editor] of parts) { const item = editor.read(); if (item !== undefined) result[name] = item; }
+          return result;
+        } };
+      }
+      case 'array': {
+        const box = node('div', 'editor-array'), list = node('div', 'editor-items'), items = [];
+        const add = button('', 'edit.add', () => addItem(undefined, true), 'editor-add');
+        add.append(icon('plus'), node('span', '', label('edit.add')));
+        const sync = () => { add.disabled = items.length >= (schema.max ?? Infinity); };
+        function addItem(item, focus) {
+          const editor = fieldEditor(schema.item, item, key), row = node('div', 'editor-item');
+          const remove = button('', 'edit.remove', () => { row.remove(); items.splice(items.indexOf(editor), 1); sync(); }, 'editor-remove');
+          remove.append(icon('xmark'));
+          row.append(editor.element ?? node('span'), remove);
+          items.push(editor); list.append(row); sync();
+          if (focus) row.querySelector('input, textarea, select')?.focus();
+        }
+        for (const item of Array.isArray(value) ? value : []) addItem(item);
+        box.append(list, add);
+        return { element: box, read: () => items.map(editor => editor.read()).filter(item => !blank(item)) };
+      }
+      default: return { element: null, read: () => copy(value) };
+    }
+  }
+  function fieldRow(name, editor) {
+    const single = ['INPUT', 'TEXTAREA', 'SELECT'].includes(editor.element.tagName);
+    const row = node(single ? 'label' : 'div', editor.inline ? 'editor-check' : 'editor-field');
+    const caption = node('span', 'editor-label', fieldLabel(name));
+    if (editor.inline) row.append(editor.element, caption); else row.append(caption, editor.element);
+    return row;
+  }
+  function createEditor(section) {
+    const original = view.entry?.state?.[section.id];
+    const root = fieldEditor(section.schema, copy(original), section.id);
+    const element = node('div', 'editor'); element.dataset.editor = section.id;
+    const warning = node('p', 'editor-note', label('edit.changed')); warning.hidden = true;
+    const error = node('p', 'editor-note', label('edit.failed')); error.classList.add('st-sable-editor-error'); error.hidden = true;
+    const actions = node('div', 'editor-actions');
+    actions.append(button(label('edit.save'), 'edit.save', () => saveEditor(section.id), 'editor-save'),
+      button(label('edit.cancel'), 'edit.cancel', () => { editors.delete(section.id); rebuildCard(section.id); }, 'editor-cancel'));
+    element.append(warning, root.element ?? node('span'), error, actions);
+    const empty = { string: '', array: [] }[section.schema.type] ?? {};
+    return { element, warning, error, base: JSON.stringify(original ?? null), read: () => root.read() ?? empty };
+  }
+  function saveEditor(id) {
+    const editor = editors.get(id);
+    const section = getSections(view.settings).find(item => item.id === id);
+    if (!editor || !section) return;
+    // Same schema as model output: rows missing required fields drop, strings trim, numbers clamp.
+    const value = sanitizeSection(section, editor.read());
+    // Removed first: a successful save publishes, and that render must rebuild the card from the new state.
+    editors.delete(id);
+    if (value === undefined || runtime.editState(id, value) === false) { editors.set(id, editor); editor.error.hidden = false; }
+  }
+  function toggleEditor(section) {
+    const { id } = section;
+    if (editors.has(id)) { editors.delete(id); rebuildCard(id); return; }
+    editors.set(id, createEditor(section));
+    if (view.settings.folded[id]) runtime.updateSettings({ folded: { ...view.settings.folded, [id]: false } });
+    else rebuildCard(id);
+  }
+
   function render(next) {
     // Notifications are the only source of state renders after initial mounting.
     drag = undefined;
@@ -395,6 +607,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const focusId = focused?.closest('[data-section]')?.dataset.section;
     const focusRole = focused?.dataset.control;
     view = next;
+    drawer.lang = view.settings.language;
     seed.hidden = !view.canSeedLegacy;
     seed.textContent = label('seedLegacy');
     seed.title = label('seedLegacy');
@@ -410,40 +623,22 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     syncExpanded();
     openRows = new Map([...cards.querySelectorAll('details[data-key]')].map(item => [item.dataset.key, item.open]));
     const scrollTop = cards.scrollTop;
-    cards.replaceChildren();
-    const sections = getSections(view.settings);
+    const sections = getSections(view.settings), ordered = [];
     for (const id of orderedSectionIds(view.settings.order, sections)) {
-      const section = sections.find(item => item.id === id);
-      const sectionTitle = section.custom ? section.title : label(section.title);
-      const mode = view.modes[id], folded = mode === 'off' || !!view.settings.folded[id];
-      const card = node('section', 'card'); card.dataset.section = id; card.dataset.mode = mode;
-      card.classList.toggle('st-sable-off', mode === 'off');
-      const heading = node('div', 'card-header');
-      const handle = button('', 'reorder', () => {}, 'handle'); handle.dataset.control = 'handle';
-      handle.append(icon('grip-vertical'));
-      handle.addEventListener('pointerdown', event => beginDrag(event, id));
-      handle.addEventListener('keydown', event => {
-        if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
-        event.preventDefault();
-        const order = [...view.settings.order], index = order.indexOf(id), target = index + (event.key === 'ArrowUp' ? -1 : 1);
-        if (target >= 0 && target < order.length) { [order[index], order[target]] = [order[target], order[index]]; runtime.updateSettings({ order }); }
-      });
-      const title = node('h3', 'card-title');
-      const glyph = sectionGlyph(document, section, view.settings.visual?.icons);
-      glyph.classList.add('st-sable-card-icon');
-      glyph.setAttribute('aria-hidden', 'true');
-      title.append(glyph, node('span', 'card-label', sectionTitle));
-      const chip = button(label(mode), section.title, () => runtime.setMode(id, { inject: 'show', show: 'off', off: 'inject' }[mode]), 'mode');
-      chip.title = sectionTitle;
-      chip.setAttribute('aria-label', `${sectionTitle}: ${label(mode)}`); chip.dataset.control = 'mode'; chip.dataset.mode = mode;
-      const fold = button('', 'fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [id]: !folded } }), 'fold');
-      fold.append(icon('chevron-down'));
-      fold.dataset.control = 'fold'; fold.disabled = mode === 'off'; fold.setAttribute('aria-expanded', String(!folded));
-      const body = node('div', 'card-body'); body.id = `st-sable-body-${id}`; body.hidden = folded;
-      fold.setAttribute('aria-controls', body.id);
-      if (mode !== 'off') renderBody(section, body, view.entry?.state ?? {});
-      if (!body.childNodes.length) body.append(node('span', 'empty', '—'));
-      heading.append(handle, title, chip, fold); card.append(heading, body); cards.append(card);
+      const section = sections.find(item => item.id === id), editor = editors.get(id);
+      if (editor && view.modes[id] === 'off') editors.delete(id);
+      if (editors.has(id) && editor.card?.isConnected) {
+        // An open editor keeps its node, draft and focus; only its header follows the new view.
+        refreshCard(editor.card, section);
+        editor.warning.hidden = JSON.stringify(view.entry?.state?.[id] ?? null) === editor.base;
+        ordered.push(editor.card);
+      } else ordered.push(buildCard(section));
+    }
+    for (const child of [...cards.children]) if (!ordered.includes(child)) child.remove();
+    let cursor = cards.firstElementChild;
+    for (const card of ordered) {
+      if (card === cursor) cursor = cursor.nextElementSibling;
+      else cards.insertBefore(card, cursor);
     }
     cards.scrollTop = scrollTop;
     const last = view.store.lastRun;

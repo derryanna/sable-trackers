@@ -1,7 +1,7 @@
 import { seedFromLegacy } from './legacy.js';
 import { getSections } from './sections.js';
 import { buildPrompt } from './prompt.js';
-import { parseStateOutput } from './parse.js';
+import { parseStateOutput, sanitizeSection } from './parse.js';
 import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
@@ -176,6 +176,32 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     publish();
   }
 
+  /** Manual edit: replace one section in the current state. Returns false when nothing could be saved. */
+  function editState(id, value) {
+    const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
+    const section = getSections(settings).find(item => item.id === id);
+    const cleaned = sanitizeSection(section, value);
+    if (!section || cleaned === undefined) return false;
+    let entry = currentEntry(data, ctx.chat);
+    if (!entry) {
+      const mesId = lastCharacterId(ctx);
+      if (mesId < 0) return false;
+      const swipeId = ctx.chat[mesId].swipe_id ?? 0;
+      const turn = ctx.chat.slice(0, mesId + 1).filter(characterMessage).length;
+      putEntry(data, { mesId, swipeId, turn, turnsSince: structuredClone(data.turnsSince),
+        state: { meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } } }, settings.keep);
+      entry = currentEntry(data, ctx.chat);
+    }
+    // The user's edit wins over a side-model reply that was computed from the old state.
+    cancel(); lastFingerprint = undefined;
+    entry.state[id] = cleaned;
+    entry.state.meta = { ...entry.state.meta, editedAt: Date.now() };
+    delete entry.stale;
+    publish();
+    void saveStore(ctx);
+    return true;
+  }
+
   async function seedLegacy() {
     const ctx = getContext(), data = loadStore(ctx);
     if (data.ring.length) return false;
@@ -209,7 +235,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   }
 
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
-    snapshot, publish, updateSettings, setMode, seedLegacy,
+    snapshot, publish, updateSettings, setMode, seedLegacy, editState,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },
   };

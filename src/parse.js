@@ -47,6 +47,11 @@ function sanitize(value, schema) {
   }
 }
 
+/** Validate one section value (model output or a manual edit) with the section's schema; undefined = invalid. */
+export function sanitizeSection(section, value) {
+  return sanitize(value, section?.schema);
+}
+
 export function extractJson(text) {
   const tagged = text.match(/<sable_state\b[^>]*>([\s\S]*?)<\/sable_state\s*>/i)?.[1];
   let candidate = tagged ?? text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);

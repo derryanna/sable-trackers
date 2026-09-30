@@ -395,3 +395,158 @@ test('drawer and tab overlays read the ink variable; only the reply panel and se
     assert.ok(css.includes(`.st-sable-drawer[data-st-sable-tone="light"] ${rule}`), `light-base rule for ${rule}`);
   }
 });
+
+test('list and meta markers follow visual.icons: Font Awesome by default, emoji on request', t => {
+  const { card, runtime } = setup(t);
+  const story = () => card('story');
+  assert.ok(story().querySelector('.st-sable-glyph > i.fa-solid.fa-seedling'));
+  assert.ok(story().querySelector('.st-sable-glyph > i.fa-solid.fa-hourglass-half'));
+  assert.equal(/🌱|⏳/.test(story().textContent), false, 'no emoji markers in FA mode');
+  assert.deepEqual([...card('world').querySelectorAll('.st-sable-meta-item > i.fa-solid')].map(item => item.classList[1]),
+    ['fa-clock', 'fa-location-dot', 'fa-cloud-sun-rain']);
+  runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS, icons: 'emoji' } });
+  assert.deepEqual([...story().querySelectorAll('.st-sable-glyph')].map(item => item.textContent), ['🌱', '⏳']);
+  assert.equal(story().querySelector('.st-sable-glyph .fa-solid'), null);
+  assert.deepEqual([...card('world').querySelectorAll('.st-sable-meta-item > .st-sable-emoji')].map(item => item.textContent), ['🕒', '📍', '🌦️']);
+});
+
+function spyEdits(runtime) {
+  const calls = [], original = runtime.editState;
+  runtime.editState = (...args) => { calls.push(structuredClone(args)); return original(...args); };
+  return calls;
+}
+const field = (root, caption) => [...root.querySelectorAll('.st-sable-editor-field, .st-sable-editor-check')]
+  .find(row => row.querySelector('.st-sable-editor-label').textContent === caption)?.querySelector('input, textarea, select');
+function type(document, element, value) {
+  element.value = value;
+  element.dispatchEvent(new document.defaultView.Event('input', { bubbles: true }));
+  element.dispatchEvent(new document.defaultView.Event('change', { bubbles: true }));
+}
+
+test('editor: threads edit, add and remove rows, save sanitizes through runtime.editState and re-injects', t => {
+  const { card, runtime, fake, document, ui } = setup(t);
+  const calls = spyEdits(runtime);
+  const world = card('world');
+  const edit = card('threads').querySelector('[data-control="edit"]');
+  assert.equal(edit.getAttribute('aria-label'), 'Редактировать: Открытые нити');
+  edit.click();
+  assert.equal(card('world'), world, 'opening an editor leaves the other cards alone');
+  const editor = card('threads').querySelector('.st-sable-editor');
+  assert.ok(editor);
+  assert.equal(card('threads').querySelector('[data-control="edit"]').getAttribute('aria-pressed'), 'true');
+  let rows = editor.querySelectorAll('.st-sable-editor-item');
+  assert.equal(rows.length, 3);
+  const first = field(rows[0], 'Текст');
+  assert.equal(first.tagName, 'TEXTAREA');
+  assert.equal(first.rows, 2);
+  assert.equal(field(rows[0], 'Важность').value, 'high');
+  assert.deepEqual([...field(rows[0], 'Важность').options].map(option => option.textContent), ['важно', 'средне', 'фон']);
+  type(document, first, '  Who cut the rope, and when?  ');
+  rows[2].querySelector('.st-sable-editor-remove').click();
+  editor.querySelector('.st-sable-editor-add').click();
+  rows = editor.querySelectorAll('.st-sable-editor-item');
+  assert.equal(rows.length, 3);
+  assert.equal(document.activeElement, field(rows[2], 'Текст'), 'a new row takes focus');
+  type(document, field(rows[2], 'Текст'), 'A second boat was seen');
+  type(document, field(rows[2], 'Важность'), 'high');
+  editor.querySelector('.st-sable-editor-add').click();
+  assert.equal(editor.querySelectorAll('.st-sable-editor-item').length, 4, 'an empty row is allowed while editing');
+  for (let index = 0; index < 3; index++) editor.querySelector('.st-sable-editor-add').click();
+  assert.equal(editor.querySelectorAll('.st-sable-editor-item').length, 6);
+  assert.equal(editor.querySelector('.st-sable-editor-add').disabled, true, 'the schema max (6) caps rows');
+  editor.querySelector('.st-sable-editor-save').click();
+  const expected = [{ text: 'Who cut the rope, and when?', priority: 'high' }, { text: 'The missing logbook page', priority: 'mid' },
+    { text: 'A second boat was seen', priority: 'high' }];
+  assert.deepEqual(calls, [['threads', expected]], 'editState receives the schema-sanitized value');
+  assert.deepEqual(runtime.snapshot().entry.state.threads, expected, 'rows without text are dropped by the schema');
+  assert.equal(card('threads').querySelector('.st-sable-editor'), null, 'saving closes the editor');
+  assert.ok(card('threads').textContent.includes('A second boat was seen'));
+  assert.ok(fake.calls.prompts.at(-1)[1].includes('A second boat was seen'));
+  assert.equal(fake.calls.prompts.at(-1)[1].includes('lamp failed'), false);
+  assert.ok(runtime.snapshot().entry.state.meta.editedAt);
+  assert.equal(runtime.snapshot().entry.stale, undefined, 'a manual edit clears the outdated mark');
+  assert.equal(ui.element.querySelector('img, script'), null);
+});
+
+test('editor: cancel restores, a draft survives runtime notifications, and a changed state shows a warning', t => {
+  const { card, runtime, document } = setup(t);
+  const calls = spyEdits(runtime);
+  card('world').querySelector('[data-control="edit"]').click();
+  const editor = card('world').querySelector('.st-sable-editor');
+  const location = field(editor, 'Место');
+  assert.equal(location.value, "lighthouse keeper's cottage");
+  assert.equal(field(editor, 'Кратко').value, 'Maren shows {{user}} the torn logbook by the stove.', 'raw text, macros kept');
+  assert.equal(field(editor, 'Одежда').value, 'oilskin coat', 'nested pc object recurses');
+  location.focus();
+  location.value = 'the chapel';
+  runtime.publish();
+  assert.equal(card('world').querySelector('.st-sable-editor'), editor, 'the editor node survives a render');
+  assert.equal(location.value, 'the chapel');
+  assert.equal(document.activeElement, location, 'focus stays in the draft');
+  assert.equal(editor.querySelector('.st-sable-editor-note').hidden, true);
+  card('world').querySelector('.st-sable-mode').click();
+  assert.equal(runtime.snapshot().settings.sections.world.mode, 'show');
+  assert.equal(card('world').querySelector('.st-sable-editor'), editor, 'the mode chip still works on an editing card');
+  runtime.editState('threads', []);
+  assert.equal(editor.querySelector('.st-sable-editor-note').hidden, true, 'another section changing is not a conflict');
+  runtime.editState('world', { location: 'Harbour' });
+  assert.equal(editor.querySelector('.st-sable-editor-note').hidden, false, 'warn when this section changed underneath');
+  assert.equal(location.value, 'the chapel', 'the draft is kept');
+  editor.querySelector('.st-sable-editor-cancel').click();
+  assert.equal(card('world').querySelector('.st-sable-editor'), null);
+  assert.ok(card('world').textContent.includes('Harbour'));
+  assert.equal(card('world').textContent.includes('the chapel'), false);
+  assert.deepEqual(calls.map(call => call[0]), ['threads', 'world'], 'cancel does not save');
+  card('world').querySelector('[data-control="edit"]').click();
+  card('world').querySelector('[data-control="edit"]').click();
+  assert.equal(card('world').querySelector('.st-sable-editor'), null, 'the pen toggles the editor off');
+});
+
+test('editor: scores clamp, empty score is unknown, changes are read-only; a folded card unfolds to edit', t => {
+  const { card, runtime, document } = setup(t);
+  runtime.updateSettings({ folded: { bonds: true } });
+  card('bonds').querySelector('[data-control="edit"]').click();
+  assert.equal(runtime.snapshot().settings.folded.bonds, false);
+  const editor = card('bonds').querySelector('.st-sable-editor');
+  assert.equal(editor.querySelector('.st-sable-editor-id').textContent, 'id: maren');
+  assert.ok(editor.querySelector('.st-sable-editor-grid'), 'scales use a compact grid');
+  const trust = field(editor, 'Доверие'), fear = field(editor, 'Страх'), desire = field(editor, 'Влечение');
+  assert.deepEqual([trust.type, trust.min, trust.max, desire.value], ['number', '0', '100', '']);
+  type(document, trust, '150');
+  assert.equal(trust.value, '100', 'clamped on change');
+  type(document, fear, '-4');
+  assert.equal(fear.value, '0');
+  assert.ok(editor.querySelector('.st-sable-editor-readonly').textContent.includes('you gave her the key'));
+  editor.querySelector('.st-sable-editor-save').click();
+  const [bond] = runtime.snapshot().entry.state.bonds;
+  assert.equal(bond.id, 'maren');
+  assert.deepEqual(bond.stats, { affection: 22, trust: 100, desire: null, reputation: 40, suspicion: 45, respect: 38, fear: 0, grudge: 0, tension: 60 });
+  assert.deepEqual(bond.changes, { trust: { delta: 5, reason: 'you gave her the key' } }, 'changes pass through untouched');
+});
+
+test('editor: custom kv sections and NPC booleans are editable', t => {
+  const { card, runtime, fake, document } = setup(t);
+  runtime.updateSettings({ customSections: [{ id: 'c_0123abcd', title: 'Clues', shape: 'kv', max: 3, mode: 'inject', period: 1 }] });
+  card('c_0123abcd').querySelector('[data-control="edit"]').click();
+  const editor = card('c_0123abcd').querySelector('.st-sable-editor');
+  editor.querySelector('.st-sable-editor-add').click();
+  type(document, field(editor, 'Ключ'), 'Knife');
+  type(document, field(editor, 'Значение'), 'under the stove');
+  editor.querySelector('.st-sable-editor-save').click();
+  assert.deepEqual(runtime.snapshot().entry.state.c_0123abcd, [{ key: 'Knife', value: 'under the stove' }]);
+  assert.ok(fake.calls.prompts.at(-1)[1].includes('CLUES: Knife: under the stove'));
+  assert.ok(card('c_0123abcd').textContent.includes('under the stove'));
+  card('npcs').querySelector('[data-control="edit"]').click();
+  const npcs = card('npcs').querySelector('.st-sable-editor');
+  const [maren, tomas] = npcs.querySelectorAll(':scope > .st-sable-editor-array > .st-sable-editor-items > .st-sable-editor-item');
+  const present = field(tomas, 'В сцене');
+  assert.deepEqual([field(maren, 'В сцене').checked, present.type, present.checked], [true, 'checkbox', false]);
+  present.checked = true;
+  npcs.querySelector('.st-sable-editor-add').click();
+  const rows = npcs.querySelectorAll(':scope > .st-sable-editor-array > .st-sable-editor-items > .st-sable-editor-item');
+  type(document, field(rows.at?.(-1) ?? rows[rows.length - 1], 'Имя'), 'Old Ilse');
+  npcs.querySelector('.st-sable-editor-save').click();
+  const saved = runtime.snapshot().entry.state.npcs;
+  assert.equal(saved.find(npc => npc.id === 'tomas').present, true);
+  assert.deepEqual(saved.at(-1), { id: 'old_ilse', name: 'Old Ilse', present: false }, 'a new NPC derives its id from the name');
+});
