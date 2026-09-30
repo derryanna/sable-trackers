@@ -1,0 +1,284 @@
+/* Visual settings (SPEC §12) arrive as inline custom properties on the drawer and the tab:
+   --st-sable-opacity, --st-sable-blur, --st-sable-font, --st-sable-width, --st-sable-accent, --st-sable-radius.
+   Every use below falls back to the default look. Text sizes are offsets from the base font. */
+/* Side panel. SillyTavern puts transform/perspective on <html>, so the 0px-tall <html> is the
+   containing block of every fixed box here: percentages of its height and top+bottom stretching
+   resolve to 0. Fixed boxes therefore get explicit viewport-unit heights and top/left/right. */
+.st-sable-drawer, .st-sable-tab { --st-sable-panel-w: min(420px, 100vw); }
+@media (max-width: 700px) { .st-sable-drawer, .st-sable-tab { --st-sable-panel-w: min(var(--st-sable-width, 80vw), 420px); } }
+
+.st-sable-drawer {
+  position: fixed; top: 0; right: 0; left: auto; bottom: auto;
+  width: var(--st-sable-panel-w); max-width: 100vw; height: 100vh; height: 100dvh; max-height: 100dvh;
+  z-index: 9500; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 10px; overflow-x: hidden; overflow-wrap: anywhere;
+  padding: max(14px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom));
+  color: var(--SmartThemeBodyColor, #eeeae7);
+  --st-sable-fs: var(--st-sable-font, 13px);
+  background: rgba(14,14,18,var(--st-sable-opacity, .93));
+  backdrop-filter: blur(var(--st-sable-blur, 14px)) saturate(120%); -webkit-backdrop-filter: blur(var(--st-sable-blur, 14px)) saturate(120%);
+  border: 1px solid rgba(255,255,255,.1); border-right: 0; border-radius: var(--st-sable-radius, 18px) 0 0 var(--st-sable-radius, 18px);
+  box-shadow: -14px 0 36px rgba(0,0,0,.38);
+  font-family: inherit; font-size: var(--st-sable-font, 13px); line-height: 1.4; text-align: left;
+  animation: st-sable-in 140ms ease-out;
+}
+.st-sable-drawer, .st-sable-drawer *, .st-sable-drawer *::before, .st-sable-drawer *::after, .st-sable-tab, .st-sable-tab::before { box-sizing: border-box; }
+.st-sable-drawer * { min-width: 0; max-width: 100%; }
+.st-sable-drawer [hidden], .st-sable-drawer[hidden], .st-sable-tab[hidden] { display: none !important; }
+.st-sable-drawer :where(h2, h3, p, ul, ol, dl, dd, blockquote) { margin: 0; }
+.st-sable-drawer summary { list-style: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.st-sable-drawer summary::-webkit-details-marker { display: none; }
+@keyframes st-sable-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+
+/* Header: wand + title, four glass buttons like the reference. */
+.st-sable-header { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 2px 0 8px; }
+.st-sable-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; color: inherit; font-size: calc(var(--st-sable-fs) + 4px); font-weight: 700; line-height: 1.2; letter-spacing: .01em; }
+.st-sable-title > .fa-solid { font-size: 15px; }
+.st-sable-icon-button, .st-sable-mode, .st-sable-fold, .st-sable-handle, .st-sable-legacy-button, .st-sable-tab {
+  color: inherit; font: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  margin: 0; flex-shrink: 0; text-shadow: none; -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent;
+}
+.st-sable-icon-button {
+  width: 36px; height: 36px; min-width: 36px; min-height: 36px; padding: 0; font-size: 14px; border-radius: 12px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+  transition: background-color 120ms, border-color 120ms;
+}
+.st-sable-icon-button:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); }
+.st-sable-icon-button[aria-pressed="true"] { background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.6); }
+.st-sable-legacy-button {
+  width: 100%; min-height: 36px; padding: 6px 12px; border-radius: 12px; white-space: normal;
+  font-size: calc(var(--st-sable-fs) - .5px); border: 1px dashed rgba(255,255,255,.24); background: rgba(255,255,255,.05);
+}
+.st-sable-legacy-button[hidden] { display: none; }
+
+/* Cards: rounded glass, thin light border, white accent bar (bright = in the prompt, faint = shown only). */
+.st-sable-cards { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 4px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent; }
+.st-sable-card {
+  position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,.13); border-radius: var(--st-sable-radius, 18px);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  box-shadow: 0 6px 18px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.st-sable-card + .st-sable-card { margin-top: 10px; }
+.st-sable-card::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--st-sable-accent, #f5f4ee); pointer-events: none; }
+.st-sable-card[data-mode="show"]::before { background: rgba(245,244,238,.38); background: color-mix(in srgb, var(--st-sable-accent, #f5f4ee) 38%, transparent); }
+.st-sable-card[data-mode="off"]::before { display: none; }
+.st-sable-card.st-sable-dragging { border-color: rgba(255,255,255,.42); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.st-sable-off { opacity: .5; }
+.st-sable-card-header { display: flex; align-items: center; gap: 2px; min-height: 44px; padding: 4px 4px 4px 2px; }
+.st-sable-card-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; color: inherit; font-size: calc(var(--st-sable-fs) + 1px); font-weight: 700; line-height: 1.2; }
+.st-sable-card-icon { flex: none; width: 1.25em; text-align: center; font-size: var(--st-sable-fs); }
+.st-sable-handle, .st-sable-fold { width: 36px; height: 36px; min-width: 36px; min-height: 36px; padding: 0; border: 0; border-radius: 10px; background: transparent; }
+.st-sable-handle { cursor: grab; touch-action: none; font-size: 12px; }
+.st-sable-handle > .fa-solid { opacity: .42; }
+.st-sable-fold { font-size: 12px; }
+.st-sable-fold > .fa-solid { opacity: .8; }
+.st-sable-fold[aria-expanded="true"] > .fa-solid { transform: rotate(180deg); }
+.st-sable-fold:disabled { cursor: default; opacity: .4; }
+.st-sable-mode {
+  height: 32px; min-height: 32px; padding: 0 10px; border-radius: 999px; white-space: nowrap;
+  font-size: calc(var(--st-sable-fs) - 2px); font-weight: 600; line-height: 1; letter-spacing: .02em;
+  background: transparent; border: 1px solid rgba(255,255,255,.18); transition: background-color 120ms, border-color 120ms;
+}
+.st-sable-mode[data-mode="inject"] {
+  background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.42);
+  background: color-mix(in srgb, var(--st-sable-accent, #f5f4ee) 16%, transparent); border-color: color-mix(in srgb, var(--st-sable-accent, #f5f4ee) 55%, transparent);
+}
+.st-sable-mode[data-mode="show"] { opacity: .85; }
+.st-sable-mode[data-mode="off"] { border-style: dashed; }
+.st-sable-card-body { border-top: 1px solid rgba(255,255,255,.07); padding: 10px 14px 12px; font-size: var(--st-sable-fs); line-height: 1.45; }
+.st-sable-empty { opacity: .4; }
+
+/* Shared bits. */
+.st-sable-muted { opacity: .62; }
+.st-sable-name { font-weight: 700; }
+.st-sable-key { margin-right: 6px; font-size: calc(var(--st-sable-fs) - 3px); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .55; }
+.st-sable-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-sable-tag { display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); font-size: calc(var(--st-sable-fs) - 1.5px); line-height: 1.35; }
+.st-sable-tag-key { opacity: .6; }
+.st-sable-kv { display: grid; grid-template-columns: fit-content(42%) minmax(0, 1fr); gap: 4px 12px; margin: 0 0 10px 15px; font-size: calc(var(--st-sable-fs) - .5px); }
+.st-sable-kv > dt { opacity: .55; }
+
+/* World: icon meta row, summary, then the user character line. */
+.st-sable-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-bottom: 6px; font-size: calc(var(--st-sable-fs) - 1px); opacity: .72; }
+.st-sable-meta-item { display: inline-flex; align-items: baseline; gap: 5px; }
+.st-sable-meta-item > .fa-solid { flex: none; font-size: 10.5px; }
+.st-sable-you { margin-top: 6px; font-size: calc(var(--st-sable-fs) - .5px); }
+
+/* Lists: offscreen, threads, story. */
+.st-sable-person + .st-sable-person, .st-sable-thread + .st-sable-thread, .st-sable-item + .st-sable-item { margin-top: 6px; }
+.st-sable-thread { display: flex; align-items: flex-start; gap: 9px; }
+.st-sable-dot { flex: none; width: 7px; height: 7px; margin-top: calc((1.45em - 7px) / 2); border-radius: 50%; background: currentColor; }
+.st-sable-priority-high { color: #f08c8c; box-shadow: 0 0 0 3px rgba(240,140,140,.16); }
+.st-sable-priority-mid { color: #e9c16f; }
+.st-sable-priority-low { color: rgba(255,255,255,.36); }
+.st-sable-chips + .st-sable-list { margin-top: 9px; }
+.st-sable-list { list-style: none; padding: 0; }
+.st-sable-item { display: flex; align-items: flex-start; gap: 8px; }
+.st-sable-glyph { flex: none; width: 16px; text-align: center; font-size: calc(var(--st-sable-fs) - 1px); }
+.st-sable-item-text { flex: 1 1 auto; }
+.st-sable-item-meta { flex: 0 1 auto; max-width: 45%; margin-left: auto; padding-top: 1px; text-align: right; font-size: calc(var(--st-sable-fs) - 1.5px); opacity: .6; }
+
+/* NPCs and dossiers: one foldable row each; present first, absent dim. */
+.st-sable-detail + .st-sable-detail { border-top: 1px solid rgba(255,255,255,.06); }
+.st-sable-summary { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 0; }
+.st-sable-summary::after {
+  content: ''; flex: none; width: 6px; height: 6px; margin: 0 4px 0 auto; opacity: .55;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg);
+}
+.st-sable-detail[open] > .st-sable-summary::after { transform: translateY(1px) rotate(-135deg); }
+.st-sable-summary > .st-sable-name { flex: 0 1 auto; }
+.st-sable-mood { flex: 1 1 auto; font-size: calc(var(--st-sable-fs) - .5px); opacity: .62; }
+.st-sable-presence { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid currentColor; }
+.st-sable-present .st-sable-presence { color: #93dca5; background: currentColor; }
+.st-sable-absent { opacity: .58; }
+.st-sable-pill { flex: none; padding: 1px 7px; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); font-size: calc(var(--st-sable-fs) - 2.5px); white-space: nowrap; }
+
+/* Thoughts. */
+.st-sable-thought + .st-sable-thought { margin-top: 10px; }
+.st-sable-speaker { margin-bottom: 2px; font-size: calc(var(--st-sable-fs) - 1.5px); font-weight: 700; opacity: .6; }
+.st-sable-quote { padding: 0; border: 0; font-style: italic; line-height: 1.5; }
+
+/* Bonds: label | bar | number | delta. A row with a delta is a <summary>; tap shows the reason. */
+.st-sable-bond + .st-sable-bond { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
+.st-sable-bond-name { margin-bottom: 4px; }
+.st-sable-scale-row { display: grid; grid-template-columns: 8em minmax(36px, 1fr) 2.1em 3.4em; align-items: center; gap: 8px; min-height: 28px; font-size: calc(var(--st-sable-fs) - 1px); }
+.st-sable-drawer summary.st-sable-scale-row { min-height: 36px; }
+.st-sable-scale-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .72; }
+.st-sable-bar { display: block; height: 6px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.09); }
+.st-sable-bar-fill { display: block; height: 100%; border-radius: inherit; background: rgba(245,244,238,.82); }
+.st-sable-friction > .st-sable-bar-fill { background: #e39a8d; }
+.st-sable-score { text-align: right; font-size: calc(var(--st-sable-fs) - .5px); font-weight: 700; font-variant-numeric: tabular-nums; }
+.st-sable-badge { justify-self: start; padding: 2px 6px; border-radius: 999px; font-size: calc(var(--st-sable-fs) - 2px); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.st-sable-up { color: #93dca5; background: rgba(120,200,140,.16); }
+.st-sable-down { color: #f29d9d; background: rgba(235,120,120,.16); }
+.st-sable-delta[open] .st-sable-badge { box-shadow: 0 0 0 1px currentColor; }
+.st-sable-reason { margin: 0 0 6px calc(8em + 8px); font-size: calc(var(--st-sable-fs) - 1px); font-style: italic; opacity: .75; }
+
+/* Planner and ban list. */
+.st-sable-beats { list-style: none; counter-reset: st-sable-beat; padding: 0; }
+.st-sable-beats > li { position: relative; min-height: 20px; padding-left: 28px; counter-increment: st-sable-beat; }
+.st-sable-beats > li + li { margin-top: 8px; }
+.st-sable-beats > li::before {
+  content: counter(st-sable-beat); position: absolute; left: 0; top: 0; width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); font-size: calc(var(--st-sable-fs) - 2px); font-weight: 700;
+}
+.st-sable-why { margin-top: 1px; font-size: calc(var(--st-sable-fs) - 1px); opacity: .62; }
+.st-sable-note { margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.05); font-size: calc(var(--st-sable-fs) - .5px); }
+.st-sable-beats + .st-sable-note { margin-top: 12px; }
+.st-sable-ban { display: inline-block; border-radius: 10px; }
+.st-sable-example { font-style: italic; opacity: .6; }
+
+/* Status: small and quiet at the bottom. */
+.st-sable-status { padding: 8px 8px 0; border-top: 1px solid rgba(255,255,255,.06); font-size: calc(var(--st-sable-fs) - 2px); line-height: 1.4; opacity: .62; }
+.st-sable-status-dot { display: inline-block; width: 6px; height: 6px; margin: 0 6px 1px 0; border-radius: 50%; vertical-align: middle; }
+.st-sable-ok { background: #93dca5; }
+.st-sable-fail { background: #f29d9d; }
+.st-sable-status-error { display: block; color: #f29d9d; }
+.st-sable-stale { margin-left: 8px; color: #e9c16f; }
+
+/* Edge pull tab: 22x72 glass on the right edge, vertically centred with viewport units (50% of the
+   0px <html> would be 0). A transparent ::before widens the hit area to 36px. When open it sits on
+   the panel's left edge: right = the panel width. */
+.st-sable-tab {
+  position: fixed; z-index: 9501; top: 50vh; top: 50dvh; right: 0; left: auto; bottom: auto;
+  width: 22px; min-width: 22px; height: 72px; min-height: 72px; padding: 0;
+  transform: translateY(-50%); touch-action: manipulation;
+  color: var(--SmartThemeBodyColor, #eeeae7); font-size: 12px;
+  background: rgba(24,24,30,.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.22); border-right: 0; border-radius: 12px 0 0 12px;
+  box-shadow: -4px 0 14px rgba(0,0,0,.3);
+}
+.st-sable-tab::before { content: ''; position: absolute; top: -4px; bottom: -4px; left: -14px; right: 0; }
+.st-sable-tab:hover { background: rgba(34,34,42,.8); }
+.st-sable-tab > .fa-chevron-right { display: none; }
+.st-sable-tab[aria-expanded="true"] { right: var(--st-sable-panel-w); background: rgba(14,14,18,var(--st-sable-opacity, .93)); animation: st-sable-tab-in 140ms ease-out; }
+.st-sable-tab[aria-expanded="true"] > .fa-wand-magic-sparkles { display: none; }
+.st-sable-tab[aria-expanded="true"] > .fa-chevron-right { display: inline-block; }
+@keyframes st-sable-tab-in { from { opacity: 0; transform: translate(16px, -50%); } to { opacity: 1; transform: translate(0, -50%); } }
+
+.st-sable-menu-entry { min-height: 36px; cursor: pointer; }
+.st-sable-drawer button:focus-visible, .st-sable-drawer summary:focus-visible, .st-sable-tab:focus-visible, .st-sable-menu-entry:focus-visible { outline: 2px solid var(--SmartThemeBodyColor, #eee); outline-offset: -3px; }
+@media (max-width: 379px) { .st-sable-mode { padding-inline: 7px; } .st-sable-card-body { padding-inline: 12px; } }
+@media (max-width: 359px) { .st-sable-header { gap: 4px; padding-inline: 2px; } }
+@media (prefers-reduced-motion: reduce) { .st-sable-drawer, .st-sable-tab[aria-expanded="true"] { animation: none; } .st-sable-drawer * { transition: none !important; } }
+
+/* Compact scene strip; all text remains inside the available message width. */
+.st-sable-panel { min-height: 36px; padding: 8px 10px; margin-top: 8px; border-radius: 10px; background: rgba(25, 25, 32, .8); color: #eee; cursor: pointer; overflow-wrap: anywhere; font-size: .85em; }
+.st-sable-panel:focus-visible { outline: 2px solid #ddd; }
+.st-sable-panel-badge { display: inline-block; margin: 4px 6px 0 0; padding: 2px 6px; border-radius: 8px; background: rgba(255, 255, 255, .1); }
+
+/* Extensions settings: compact groups built from SillyTavern's own controls, so the theme applies. */
+.st-sable-settings-group { margin: 0; padding: 10px 0 8px; border-top: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,.12)); }
+.st-sable-settings-group:first-child { padding-top: 4px; border-top: 0; }
+.st-sable-settings-heading { margin: 0 0 6px; font-size: .74em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .6; }
+.st-sable-settings :is(select, input:not([type="checkbox"]):not([type="range"]):not([type="color"]), button, summary, .checkbox_label, .inline-drawer-toggle) { min-height: 36px; }
+/* Theme checkboxes keep their own size; stretching them made tall ovals on some themes. */
+.st-sable-settings input[type="checkbox"] { min-height: 0; flex: none; align-self: center; }
+.st-sable-settings .text_pole { box-sizing: border-box; min-width: 0; margin: 0; }
+.st-sable-settings .checkbox_label { display: flex; align-items: center; gap: 8px; margin: 0; }
+.st-sable-settings-label { min-width: 0; line-height: 1.2; overflow-wrap: anywhere; }
+.st-sable-settings-hint { margin: 6px 0 0; font-size: .8em; line-height: 1.35; opacity: .6; }
+.st-sable-settings-hint[hidden] { display: none; }
+
+/* Label left, control right; two such cells per line in the grids. */
+.st-sable-settings-row { display: grid; grid-template-columns: minmax(6em, 36%) minmax(0, 1fr); align-items: center; gap: 4px 10px; margin: 2px 0; }
+.st-sable-settings-row > .text_pole { width: 100%; }
+.st-sable-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 18px; }
+.st-sable-settings-num, .st-sable-settings-inline { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; }
+.st-sable-settings-num > .st-sable-settings-label, .st-sable-settings-inline > .st-sable-settings-label { flex: 1 1 auto; }
+.st-sable-settings-num > .text_pole { flex: none; width: 90px; }
+.st-sable-settings-inline > .text_pole { flex: none; width: 9em; }
+
+/* Built-in sections: icon + title | mode | period. */
+.st-sable-settings-thead, .st-sable-settings-section { display: grid; grid-template-columns: minmax(0, 1fr) 10.5em 4.2em; align-items: center; gap: 6px; }
+.st-sable-settings-section > select.text_pole { text-overflow: ellipsis; padding-right: 1.6em; }
+.st-sable-settings-section + .st-sable-settings-section { margin-top: 3px; }
+.st-sable-settings-thead { padding-bottom: 2px; font-size: .72em; letter-spacing: .06em; text-transform: uppercase; opacity: .5; }
+.st-sable-settings-section > .text_pole { width: 100%; }
+.st-sable-settings-section-name { display: flex; align-items: center; gap: 8px; min-width: 0; line-height: 1.2; overflow-wrap: anywhere; }
+.st-sable-settings-glyph { flex: none; width: 1.3em; text-align: center; opacity: .8; }
+
+/* Custom blocks: one foldable editor each. */
+.st-sable-custom { margin: 0 0 6px; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,.14)); border-radius: 10px; }
+.st-sable-custom-summary { display: flex; align-items: center; gap: 8px; padding: 2px 10px; cursor: pointer; list-style: none; }
+.st-sable-custom-summary::-webkit-details-marker { display: none; }
+.st-sable-custom-summary::after {
+  content: ''; flex: none; width: 6px; height: 6px; margin: 0 2px 0 4px; opacity: .55;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg);
+}
+.st-sable-custom[open] > .st-sable-custom-summary::after { transform: translateY(1px) rotate(-135deg); }
+.st-sable-custom-name { flex: 1 1 auto; min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.st-sable-custom-mode { flex: none; padding: 1px 8px; border: 1px solid currentColor; border-radius: 999px; font-size: .78em; opacity: .6; }
+.st-sable-custom-mode[data-mode="off"] { border-style: dashed; }
+.st-sable-custom-body { display: flex; flex-direction: column; gap: 6px; padding: 2px 10px 10px; }
+.st-sable-custom-fields { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.st-sable-custom-field { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.st-sable-custom-field > .st-sable-settings-label { font-size: .78em; opacity: .7; }
+.st-sable-custom-field > .text_pole { width: 100%; }
+.st-sable-custom-field[data-field="icon"] { width: 6.5em; }
+.st-sable-custom-field[data-field="shape"] { width: 9.5em; }
+.st-sable-custom-field[data-field="mode"] { width: 8.5em; }
+.st-sable-custom-field:is([data-field="max"], [data-field="period"]) { width: 4.5em; }
+.st-sable-custom-field > textarea.text_pole { min-height: 4.5em; resize: vertical; }
+.st-sable-custom-actions { display: flex; justify-content: flex-end; }
+.st-sable-settings .menu_button.st-sable-armed { color: #f29d9d; border-color: currentColor; }
+
+/* Appearance: label + value on one line, slider underneath. */
+.st-sable-settings-range { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; margin: 0; }
+.st-sable-settings-range > input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; cursor: pointer; accent-color: var(--SmartThemeQuoteColor, currentColor); }
+.st-sable-settings-value { font-size: .8em; font-variant-numeric: tabular-nums; opacity: .7; }
+.st-sable-settings-inline > input[type="color"] {
+  flex: none; width: 48px; height: 36px; padding: 0 2px; cursor: pointer;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,.2)); border-radius: 8px; background: transparent;
+}
+
+/* Action buttons wrap as a row instead of full-width bars. */
+.st-sable-settings-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.st-sable-settings .menu_button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: auto; margin: 0; padding: 4px 12px; white-space: normal; }
+.st-sable-settings .menu_button:disabled { cursor: default; opacity: .45; }
+
+@media (max-width: 500px) {
+  .st-sable-settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .st-sable-settings-thead, .st-sable-settings-section { grid-template-columns: minmax(0, 1fr) 9.5em 3.6em; }
+}

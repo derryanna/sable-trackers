@@ -1,0 +1,46 @@
+{
+  "world": {
+    "time": "Tue 3 Mar, ~21:10",
+    "location": "lighthouse keeper's cottage",
+    "weather": "rain, strong wind",
+    "summary": "Maren shows {{user}} the torn logbook by the stove.",
+    "pc": { "outfit": "oilskin coat", "position": "by the stove", "visible_condition": "soaked, cold hands", "carrying": "brass key" }
+  },
+  "offscreen": [
+    { "name": "Tomas", "doing": "last seen mending nets at the harbour" },
+    { "name": "Old Ilse", "doing": "at the chapel for the evening bell" }
+  ],
+  "threads": [
+    { "text": "Who cut the boat's rope", "priority": "high" },
+    { "text": "The missing logbook page", "priority": "mid" },
+    { "text": "Why the lamp failed on Sunday", "priority": "low" }
+  ],
+  "story": {
+    "seeds": [ { "text": "the brass key has a chapel mark", "planted_turn": 12 } ],
+    "timers": [ { "text": "supply boat arrives", "due": "in 2 days" } ],
+    "arc_phase": "setup → escalation",
+    "scene_phase": "breather"
+  },
+  "npcs": [
+    { "id": "maren", "name": "Maren", "present": true, "outfit": "grey wool dress, apron", "position": "at the table", "mood": "guarded, tired", "agenda": "Find out what {{user}} knows about the rope.", "action": "turning the logbook pages", "wants_toward": "{{user}}", "secret": "She saw Tomas at the boathouse that night." },
+    { "id": "tomas", "name": "Tomas", "present": false, "outfit": "", "position": "harbour", "mood": "unknown", "agenda": "", "action": "", "wants_toward": "", "secret": "" }
+  ],
+  "thoughts": [
+    { "id": "maren", "name": "Maren", "thought": "If I tell them about Tomas, the whole village turns on him. Not yet." }
+  ],
+  "bonds": [
+    { "id": "maren", "name": "Maren", "toward": "{{user}}", "stats": { "affection": 22, "trust": 34, "desire": null, "reputation": 40, "suspicion": 45, "respect": 38, "fear": 5, "grudge": 0, "tension": 60 }, "changes": { "trust": { "delta": 5, "reason": "you gave her the key" } } }
+  ],
+  "dossiers": [
+    { "name": "Maren", "role": "lighthouse keeper's widow", "look": "tall, weathered, grey braid", "voice": "short sentences, dry", "hook": "knows more about the night of the storm than she says" }
+  ],
+  "planner": {
+    "beats": [ { "beat": "Tomas arrives soaked, asking for Maren", "why": "pays off the rope thread" } ],
+    "remember": "the lamp has not been checked since Sunday"
+  },
+  "banlist": [
+    { "pattern": "closing aphorism", "example": "Some doors, once opened, stay open." },
+    { "pattern": "filter verbs", "example": "she noticed that the wind…" }
+  ],
+  "meta": { "turn": 14, "updatedAt": "2026-03-03T21:10:00Z", "forMesId": 27, "forSwipeId": 0 }
+}

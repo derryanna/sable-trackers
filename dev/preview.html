@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sable Trackers preview</title>
+<link rel="stylesheet" href="../style.css">
+<style>body{margin:0;min-height:100vh;background:linear-gradient(160deg,#3a2a4a,#1b1424 60%,#2a1f1a);font-family:system-ui,sans-serif;color:#eee}
+#chat{padding:16px;opacity:.6;font-size:18px;line-height:1.5}</style></head>
+<body><div id="extensionsMenu"></div><div id="chat">Chat text behind the drawer…</div>
+<script type="module">
+import { createFakeST } from '../test/fakes/st.mjs';
+import { createRuntime } from '../src/run.js';
+import { createDrawer } from '../src/ui/drawer.js';
+const state = await (await fetch('../fixtures/state-full.json')).json();
+const fake = createFakeST(); fake.add();
+fake.ctx.chatMetadata.sableTrackers = { ring: [{ mesId: 0, swipeId: 0, turn: 14, state }],
+  lastRun: { at: Date.now() - 60000, ok: true, ms: 2400, inTok: 3100, outTok: 900 } };
+const q = new URLSearchParams(location.search);
+if (q.get('fold') === 'all') fake.ctx.extensionSettings.sableTrackers.folded = Object.fromEntries(Object.keys(state).map(k => [k, true]));
+const runtime = createRuntime(fake.getContext); runtime.start();
+const ui = createDrawer(runtime, { document });
+document.querySelector('.st-sable-tab, .st-sable-floating')?.click();
+document.title = 'ready';
+</script></body></html>

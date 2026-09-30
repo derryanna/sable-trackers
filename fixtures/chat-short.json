@@ -1,0 +1,6 @@
+[
+  { "name": "You", "is_user": true, "mes": "I hand her the brass key. \"Found it in the boathouse.\"" },
+  { "name": "Maren", "is_user": false, "mes": "<plan>1. beat: she recognises the mark</plan>Maren turns the key over. The chapel mark catches the lamplight. <details><summary>stats</summary>junk</details>\"Where exactly?\" she asks." },
+  { "name": "You", "is_user": true, "mes": "\"Under the net pile. Someone hid it.\"" },
+  { "name": "Maren", "is_user": false, "mes": "<think>internal</think>She sets the logbook down, open at the torn page. <Blocks><World_State>x</World_State>" }
+]

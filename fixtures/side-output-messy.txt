@@ -1,0 +1,12 @@
+Sure! Here is the updated state:
+```json
+<sable_state>
+{
+  "world": {"time": "Tue 3 Mar, ~21:10", "location": "lighthouse keeper's cottage", "weather": "rain, strong wind", "summary": "Maren shows {{user}} the torn logbook.", "pc": {"outfit": "oilskin coat", "position": "by the stove", "visible_condition": "soaked", "carrying": "brass key",}},
+  "threads": [{"text": "Who cut the boat's rope", "priority": "high"}, {"text": "The missing logbook page", "priority": "mid"}, {"text": "x", "priority": "urgent!!"}],
+  "bonds": [{"id": "maren", "name": "Maren", "toward": "{{user}}", "stats": {"trust": 139, "tension": "60", "fear": null}, "changes": {"trust": {"delta": 5, "reason": "you gave her the key"}}}],
+  "unknown_section": {"foo": 1},
+}
+</sable_state>
+```
+Let me know if you need anything else.

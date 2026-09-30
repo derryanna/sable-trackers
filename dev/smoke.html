@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="../style.css">
+<body><div id="extensionsMenu"></div><div id="extensions_settings2"></div><div id="chat"><div class="mes" mesid="0" is_user="false"><div class="mes_text">Hello</div></div></div>
+<pre id="out"></pre>
+<script type="module">
+const out = document.getElementById('out'); const log = m => { out.textContent += m + '\n'; };
+window.addEventListener('error', e => log('ERROR ' + e.message));
+window.addEventListener('unhandledrejection', e => log('REJECT ' + (e.reason?.message || e.reason)));
+const { createFakeST } = await import('../test/fakes/st.mjs');
+const state = await (await fetch('../fixtures/state-full.json')).json();
+const fake = createFakeST(); fake.add();
+fake.ctx.chatMetadata.sableTrackers = { ring: [{ mesId: 0, swipeId: 0, turn: 3, state }] };
+fake.ctx.eventTypes.CHARACTER_MESSAGE_RENDERED = 'CHARACTER_MESSAGE_RENDERED';
+fake.install();
+try { await import('../index.js'); log('index loaded'); } catch (e) { log('IMPORT FAIL ' + e.message); }
+await new Promise(r => setTimeout(r, 300));
+await fake.emit('CHARACTER_MESSAGE_RENDERED', 0);
+await new Promise(r => setTimeout(r, 300));
+log('floating=' + !!document.querySelector('.st-sable-floating') + ' menu=' + !!document.querySelector('#extensionsMenu .st-sable-menu-entry') + ' settings=' + !!document.querySelector('#extensions_settings2 .sable-trackers-settings') + ' panel=' + !!document.querySelector('#chat .st-sable-panel') + ' prompts=' + fake.calls.prompts.length);
+document.title = 'done';
+</script></body>

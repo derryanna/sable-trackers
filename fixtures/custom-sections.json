@@ -1,0 +1,10 @@
+{
+  "customSections": [
+    { "id": "c_1a2b3c4d", "title": "Улики", "icon": "🔍", "instructions": "Track only established clues.", "shape": "list", "max": 3, "mode": "inject", "period": 1 },
+    { "id": "c_5e6f7890", "title": "Часы", "icon": "fa-clock", "instructions": "Track established deadlines and their remaining time.", "shape": "kv", "max": 2, "mode": "inject", "period": 2 }
+  ],
+  "state": {
+    "c_1a2b3c4d": ["След у двери", "Пустой конверт"],
+    "c_5e6f7890": [{ "key": "До рассвета", "value": "Два часа" }]
+  }
+}

@@ -1,0 +1,30 @@
+{
+ "name": "Maren",
+ "is_user": false,
+ "mes": "Maren opens the door.",
+ "extra": {
+  "extblocks": "<image_local>\n  <img src=\"x.png\">\n</image_local>\n<sable_state>{\"version\": 2, \"usage\": \"(helper note added by the legacy script)\", \"world\": {\"time\": \"Tue 3 Mar, ~20:40\", \"location\": \"lighthouse keeper's cottage\", \"weather\": \"rain\", \"summary\": \"{{user}} arrives soaked; Maren lets them in.\", \"pc\": {\"name\": \"{{user}}\", \"outfit\": \"oilskin coat\", \"position\": \"at the door\", \"visible_condition\": \"soaked\", \"carrying\": \"brass key\"}, \"threads\": [\"Who cut the boat's rope\", \"The missing logbook page\"]}, \"npcs\": [{\"id\": \"maren\", \"name\": \"Maren\", \"present\": true, \"toward\": \"{{user}}\", \"outfit\": \"grey wool dress\", \"position\": \"by the stove\", \"mood\": \"wary\", \"agenda\": \"Find out why {{user}} came.\", \"secret\": \"She saw Tomas at the boathouse.\", \"thought\": \"Another stranger in a storm. Bad luck, or worse.\", \"action\": \"holding the door\", \"wants_toward\": \"{{user}}\", \"stats\": {\"affection\": 20, \"trust\": 29, \"desire\": null, \"reputation\": 40, \"suspicion\": 50, \"respect\": 35, \"fear\": 5, \"grudge\": 0, \"tension\": 55}, \"changes\": {\"trust\": {\"delta\": 4, \"reason\": \"came back with the key\"}}}, {\"id\": \"tomas\", \"name\": \"Tomas\", \"present\": false, \"toward\": \"{{user}}\", \"outfit\": \"\", \"position\": \"harbour\", \"mood\": \"\", \"agenda\": \"\", \"secret\": \"\", \"thought\": \"\", \"action\": \"\", \"wants_toward\": \"\", \"stats\": {\"affection\": null, \"trust\": 10, \"desire\": null, \"reputation\": null, \"suspicion\": 30, \"respect\": null, \"fear\": null, \"grudge\": null, \"tension\": null}, \"changes\": {}}]}</sable_state>\n<sable_panel><div class=\"sable\">…rendered panel HTML…</div></sable_panel>",
+  "sable_scene_v2": {
+   "normalized": "<sable_state>{\"version\": 2, \"usage\": \"(helper note added by the legacy script)\", \"world\": {\"time\": \"Tue 3 Mar, ~20:40\", \"location\": \"lighthouse keeper's cottage\", \"weather\": \"rain\", \"summary\": \"{{user}} arrives soaked; Maren lets them in.\", \"pc\": {\"name\": \"{{user}}\", \"outfit\": \"oilskin coat\", \"position\": \"at the door\", \"visible_condition\": \"soaked\", \"carrying\": \"brass key\"}, \"threads\": [\"Who cut the boat's rope\", \"The missing logbook page\"]}, \"npcs\": [{\"id\": \"maren\", \"name\": \"Maren\", \"present\": true, \"toward\": \"{{user}}\", \"outfit\": \"grey wool dress\", \"position\": \"by the stove\", \"mood\": \"wary\", \"agenda\": \"Find out why {{user}} came.\", \"secret\": \"She saw Tomas at the boathouse.\", \"thought\": \"Another stranger in a storm. Bad luck, or worse.\", \"action\": \"holding the door\", \"wants_toward\": \"{{user}}\", \"stats\": {\"affection\": 20, \"trust\": 29, \"desire\": null, \"reputation\": 40, \"suspicion\": 50, \"respect\": 35, \"fear\": 5, \"grudge\": 0, \"tension\": 55}, \"changes\": {\"trust\": {\"delta\": 4, \"reason\": \"came back with the key\"}}}, {\"id\": \"tomas\", \"name\": \"Tomas\", \"present\": false, \"toward\": \"{{user}}\", \"outfit\": \"\", \"position\": \"harbour\", \"mood\": \"\", \"agenda\": \"\", \"secret\": \"\", \"thought\": \"\", \"action\": \"\", \"wants_toward\": \"\", \"stats\": {\"affection\": null, \"trust\": 10, \"desire\": null, \"reputation\": null, \"suspicion\": 30, \"respect\": null, \"fear\": null, \"grudge\": null, \"tension\": null}, \"changes\": {}}]}</sable_state>",
+   "panel_version": 21,
+   "fold": 2
+  },
+  "display_text": "Maren opens the door.<div>…panel…</div>"
+ },
+ "swipe_id": 0,
+ "swipes": [
+  "Maren opens the door."
+ ],
+ "swipe_info": [
+  {
+   "extra": {
+    "extblocks": "(same as extra.extblocks)",
+    "sable_scene_v2": {
+     "normalized": "<sable_state>{\"version\": 2, \"usage\": \"(helper note added by the legacy script)\", \"world\": {\"time\": \"Tue 3 Mar, ~20:40\", \"location\": \"lighthouse keeper's cottage\", \"weather\": \"rain\", \"summary\": \"{{user}} arrives soaked; Maren lets them in.\", \"pc\": {\"name\": \"{{user}}\", \"outfit\": \"oilskin coat\", \"position\": \"at the door\", \"visible_condition\": \"soaked\", \"carrying\": \"brass key\"}, \"threads\": [\"Who cut the boat's rope\", \"The missing logbook page\"]}, \"npcs\": [{\"id\": \"maren\", \"name\": \"Maren\", \"present\": true, \"toward\": \"{{user}}\", \"outfit\": \"grey wool dress\", \"position\": \"by the stove\", \"mood\": \"wary\", \"agenda\": \"Find out why {{user}} came.\", \"secret\": \"She saw Tomas at the boathouse.\", \"thought\": \"Another stranger in a storm. Bad luck, or worse.\", \"action\": \"holding the door\", \"wants_toward\": \"{{user}}\", \"stats\": {\"affection\": 20, \"trust\": 29, \"desire\": null, \"reputation\": 40, \"suspicion\": 50, \"respect\": 35, \"fear\": 5, \"grudge\": 0, \"tension\": 55}, \"changes\": {\"trust\": {\"delta\": 4, \"reason\": \"came back with the key\"}}}, {\"id\": \"tomas\", \"name\": \"Tomas\", \"present\": false, \"toward\": \"{{user}}\", \"outfit\": \"\", \"position\": \"harbour\", \"mood\": \"\", \"agenda\": \"\", \"secret\": \"\", \"thought\": \"\", \"action\": \"\", \"wants_toward\": \"\", \"stats\": {\"affection\": null, \"trust\": 10, \"desire\": null, \"reputation\": null, \"suspicion\": 30, \"respect\": null, \"fear\": null, \"grudge\": null, \"tension\": null}, \"changes\": {}}]}</sable_state>",
+     "panel_version": 21,
+     "fold": 2
+    }
+   }
+  }
+ ]
+}
