@@ -372,3 +372,103 @@
 /* Reorder buttons occupy their own line, leaving the existing phone columns room for labels. */
 .st-sable-section-moves { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 4px; }
 .st-sable-settings .st-sable-section-moves button { min-width: 36px; min-height: 36px; margin: 0; padding: 4px 8px; }
+
+/* Round 3: appearance */
+/* More visual settings (SPEC §12). Numbers arrive as variables on the drawer and the tab: --st-sable-card-fill (card tint
+   on the ink), --st-sable-border (card borders; dividers use half of it), --st-sable-title-weight, --st-sable-bg-dim and,
+   on the drawer only, --st-sable-bg-image. Choices arrive as data attributes that exist only while they differ from the
+   default look: data-st-sable-title-font, -chip, -accent-bar, -spacing, -bg, -fit, -motion. Overlays stay on the ink.
+   The first two rules replace literal alphas above with the adjustable ones (same defaults). */
+.st-sable-card {
+  border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), var(--st-sable-border, .13));
+  background: linear-gradient(180deg, rgba(var(--st-sable-ink-rgb, 255,255,255), var(--st-sable-card-fill, .05)), rgba(var(--st-sable-ink-rgb, 255,255,255), calc(var(--st-sable-card-fill, .05) * .4)));
+}
+.st-sable-card-body, .st-sable-status, .st-sable-detail + .st-sable-detail, .st-sable-bond + .st-sable-bond { border-top-color: rgba(var(--st-sable-ink-rgb, 255,255,255), calc(var(--st-sable-border, .13) * .5)); }
+.st-sable-title, .st-sable-card-title { font-weight: var(--st-sable-title-weight, 700); }
+.st-sable-drawer[data-st-sable-title-font="serif"] :is(.st-sable-title, .st-sable-card-title) { font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Noto Serif', 'Droid Serif', serif; letter-spacing: 0; }
+/* Noto Sans Mono ships with SillyTavern, so mono titles look the same on every device. */
+.st-sable-drawer[data-st-sable-title-font="mono"] :is(.st-sable-title, .st-sable-card-title) { font-family: 'Noto Sans Mono', ui-monospace, 'Cascadia Mono', Consolas, 'Roboto Mono', monospace; letter-spacing: -.02em; }
+.st-sable-drawer[data-st-sable-title-font="rounded"] :is(.st-sable-title, .st-sable-card-title) { font-family: ui-rounded, 'SF Pro Rounded', Nunito, 'Varela Round', Quicksand, Comfortaa, 'M PLUS Rounded 1c', system-ui, sans-serif; }
+/* Outline chip: accent ring and a faint accent tint; the label keeps the text colour, so any accent stays readable. */
+.st-sable-drawer[data-st-sable-chip="outline"] .st-sable-mode[data-mode="inject"] {
+  color: inherit; border-color: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238)));
+  background: rgba(var(--st-sable-ink-rgb, 255,255,255), .06); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 18%, transparent);
+  box-shadow: inset 0 0 0 .5px var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238)));
+}
+.st-sable-drawer[data-st-sable-accent-bar="off"] .st-sable-card::before { display: none; }
+
+/* Compact spacing: tighter cards and rows; tap targets keep 36px. */
+.st-sable-drawer[data-st-sable-spacing="compact"] { gap: 6px; }
+.st-sable-drawer[data-st-sable-spacing="compact"] .st-sable-card + .st-sable-card { margin-top: 6px; }
+.st-sable-drawer[data-st-sable-spacing="compact"] .st-sable-card-header { min-height: 40px; padding-block: 2px; }
+.st-sable-drawer[data-st-sable-spacing="compact"] .st-sable-card-body { padding: 7px 12px 8px; line-height: 1.38; }
+.st-sable-drawer[data-st-sable-spacing="compact"] .st-sable-card-footer { padding-bottom: 2px; }
+.st-sable-drawer[data-st-sable-spacing="compact"] :is(.st-sable-person + .st-sable-person, .st-sable-thread + .st-sable-thread, .st-sable-item + .st-sable-item) { margin-top: 3px; }
+.st-sable-drawer[data-st-sable-spacing="compact"] .st-sable-thought + .st-sable-thought { margin-top: 6px; }
+.st-sable-drawer[data-st-sable-spacing="compact"] .st-sable-bond + .st-sable-bond { margin-top: 8px; padding-top: 6px; }
+.st-sable-drawer[data-st-sable-spacing="compact"] .st-sable-summary { padding-block: 2px; }
+.st-sable-drawer[data-st-sable-spacing="compact"] .st-sable-kv { margin-bottom: 6px; gap: 2px 10px; }
+
+/* Background image: a layer inside the panel, which is its containing block (explicit 100dvh height, so the
+   html transform does not matter here). z-index -1 keeps it above the panel fill and under the cards; it does not
+   scroll with them. The dim is a wash of the base colour painted over the image in the same layer. */
+.st-sable-drawer[data-st-sable-bg="1"]::before {
+  content: ''; position: absolute; z-index: -1; top: 0; left: 0; right: 0; height: 100%; border-radius: inherit; pointer-events: none;
+  background-image: linear-gradient(rgba(var(--st-sable-base-rgb, 14,14,18), var(--st-sable-bg-dim, .45)), rgba(var(--st-sable-base-rgb, 14,14,18), var(--st-sable-bg-dim, .45))), var(--st-sable-bg-image, none);
+  background-position: center; background-repeat: no-repeat; background-size: 100% 100%, cover;
+}
+.st-sable-drawer[data-st-sable-fit="contain"]::before { background-size: 100% 100%, contain; }
+.st-sable-drawer[data-st-sable-fit="tile"]::before { background-size: 100% 100%, auto; background-repeat: no-repeat, repeat; }
+/* Over a busy picture the cards get a base-coloured backing and a stronger ink tint, so their text stays readable.
+   The header and the status line get a lighter backing of their own (a text-shadow halo is not an option: the
+   SillyTavern "no text shadows" setting removes every text-shadow with !important). */
+.st-sable-drawer[data-st-sable-bg="1"] .st-sable-card {
+  background: linear-gradient(180deg, rgba(var(--st-sable-ink-rgb, 255,255,255), calc(var(--st-sable-card-fill, .05) + .04)), rgba(var(--st-sable-ink-rgb, 255,255,255), calc(var(--st-sable-card-fill, .05) * .4 + .04))), rgba(var(--st-sable-base-rgb, 14,14,18), .72);
+}
+.st-sable-drawer[data-st-sable-bg="1"] :is(.st-sable-header, .st-sable-status) { background: rgba(var(--st-sable-base-rgb, 14,14,18), .66); border-radius: 14px; }
+.st-sable-drawer[data-st-sable-bg="1"] .st-sable-header { padding-block: 4px; }
+.st-sable-drawer[data-st-sable-bg="1"] .st-sable-status { padding: 6px 10px; border-top-color: transparent; opacity: .9; }
+
+/* Motion (visual.motion). Unfolding: the card, which persists when only its body's [hidden] flips, transitions a
+   number that the body reads as opacity and a 4px slide. A card rebuilt by a full render has no previous style, so
+   re-renders never replay it; @starting-style on the body would replay on every card after every mode tap. */
+@property --st-sable-reveal { syntax: '<number>'; inherits: true; initial-value: 1; }
+.st-sable-card { transition: --st-sable-reveal 180ms ease-out; }
+.st-sable-card:has(> .st-sable-card-body[hidden]) { --st-sable-reveal: 0; transition-duration: 0s; }
+.st-sable-card-body { opacity: var(--st-sable-reveal, 1); translate: 0 calc((1 - var(--st-sable-reveal, 1)) * -4px); }
+.st-sable-fold > .fa-solid, .st-sable-summary::after { transition: transform 160ms ease-out; }
+/* Press feedback; the scale property composes with the tab's translateY instead of replacing it. */
+.st-sable-drawer button:not(.st-sable-handle), .st-sable-tab { transition: background-color 120ms, border-color 120ms, scale 90ms ease-out; }
+.st-sable-drawer button:not(.st-sable-handle):not(:disabled):active, .st-sable-tab:active { scale: .97; }
+/* The status line is rebuilt on every render; a fresh one fades in, except while focus sits on a card control
+   (mode taps, folds and edits re-render too and should not blink it). */
+@keyframes st-sable-flash { from { opacity: .25; } to { opacity: 1; } }
+.st-sable-drawer:not(:has(.st-sable-cards :focus)) .st-sable-status > :is(.st-sable-status-dot, .st-sable-status-text) { animation: st-sable-flash 200ms ease-out; }
+/* Off switch (data-st-sable-motion="off" on the drawer and the tab), and the system reduced-motion setting. */
+.st-sable-drawer[data-st-sable-motion="off"], .st-sable-drawer[data-st-sable-motion="off"]::before,
+.st-sable-drawer[data-st-sable-motion="off"] *, .st-sable-drawer[data-st-sable-motion="off"] *::before, .st-sable-drawer[data-st-sable-motion="off"] *::after,
+.st-sable-tab[data-st-sable-motion="off"] { animation: none !important; transition: none !important; }
+.st-sable-drawer[data-st-sable-motion="off"] button:active, .st-sable-tab[data-st-sable-motion="off"]:active { scale: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .st-sable-drawer *, .st-sable-drawer *::before, .st-sable-drawer *::after, .st-sable-tab { animation: none !important; transition: none !important; }
+  .st-sable-drawer button:active, .st-sable-tab:active { scale: none !important; }
+}
+
+/* Appearance settings: sub-headings, background picker, theme tools. */
+.st-sable-settings-subheading { margin: 12px 0 4px; font-size: .8em; font-weight: 600; letter-spacing: .02em; opacity: .8; }
+.st-sable-settings-heading + .st-sable-settings-subheading { margin-top: 2px; }
+.st-sable-settings-grid > .st-sable-settings-wide { grid-column: 1 / -1; }
+.st-sable-settings-group[data-group="visual"] .st-sable-settings-inline > select.text_pole { width: min(12em, 58%); text-overflow: ellipsis; }
+.st-sable-settings-bg { display: flex; align-items: center; gap: 10px; margin: 2px 0 4px; }
+.st-sable-settings-bg > .st-sable-settings-buttons { flex: 1 1 auto; margin: 0; }
+.st-sable-settings-thumb {
+  flex: none; display: flex; align-items: center; justify-content: center; width: 76px; height: 50px; overflow: hidden;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,.2)); border-radius: 8px;
+  background-color: rgba(0,0,0,.2); background-position: center; background-repeat: no-repeat; background-size: cover;
+  font-size: .72em; line-height: 1.2; text-align: center;
+}
+.st-sable-settings-thumb[data-empty] { border-style: dashed; background-color: transparent; opacity: .6; }
+.st-sable-settings-url { display: flex; flex-direction: column; gap: 3px; margin: 0; }
+.st-sable-settings-url > .text_pole { width: 100%; }
+.st-sable-settings input[type="file"] { display: none; }
+.st-sable-settings-visual.st-sable-settings-check { min-height: 36px; }

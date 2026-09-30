@@ -209,7 +209,7 @@ test('visual settings normalize with clamps; unknown top-level keys such as cust
   const custom = [{ id: 'c_0123abcd', title: 'Clues', shape: 'list' }];
   const settings = normalizeSettings({ customSections: custom,
     visual: { opacity: 2, blur: -5, fontSize: 'x', widthVw: '70.4', accent: '#ABC', icons: 'svg', radius: null } });
-  assert.deepEqual(settings.visual, { opacity: 1, blur: 0, fontSize: 13, widthVw: 70, accent: '#aabbcc', base: null, text: null, icons: 'fa', radius: 18 });
+  assert.deepEqual(settings.visual, { ...VISUAL_DEFAULTS, opacity: 1, blur: 0, fontSize: 13, widthVw: 70, accent: '#aabbcc', base: null, text: null, icons: 'fa', radius: 18 });
   // customSections are normalized by the §11 side: the id and the given fields survive, the rest is filled in.
   assert.equal(settings.customSections.length, 1);
   assert.deepEqual({ id: settings.customSections[0].id, title: settings.customSections[0].title, shape: settings.customSections[0].shape }, custom[0]);

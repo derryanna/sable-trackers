@@ -1,15 +1,33 @@
 import { getSections, orderedSectionIds } from '../sections.js';
 import { t } from '../i18n.js';
-import { VISUAL_DEFAULTS, VISUAL_RANGES, normalizeVisual } from '../settings.js';
+import { VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
+import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
 import { applyVisual, glyphNode, sectionGlyph } from './drawer.js';
 
 const CONTEXT_KEYS = ['messages', 'cardChars', 'loreChars', 'maxTokens', 'depth', 'keep'];
 const ZERO_ALLOWED = new Set(['cardChars', 'loreChars', 'depth']);
 const MODES = ['inject', 'show', 'off'];
 const SHAPES = ['text', 'list', 'kv'];
-const RANGE_KEYS = ['opacity', 'blur', 'fontSize', 'widthVw', 'radius'];
+const PERCENT_KEYS = new Set(['opacity', 'bgDim', 'cardFill', 'border']);
 const RANGE_UNITS = { blur: 'px', fontSize: 'px', widthVw: 'vw', radius: 'px' };
-const formatVisual = (key, value) => (key === 'opacity' ? `${Math.round(value * 100)}%` : `${value}${RANGE_UNITS[key]}`);
+const formatVisual = (key, value) => (PERCENT_KEYS.has(key) ? `${Math.round(value * 100)}%` : `${value}${RANGE_UNITS[key] ?? ''}`);
+const URL_PLACEHOLDER = 'https://…';
+
+/** Browser only: decodes an image file, shrinks its long side to 1280 px and returns a JPEG data URL. */
+export async function encodeImageFile(file, { document = globalThis.document, fill = '#0e0e12' } = {}) {
+  const bitmap = await document.defaultView.createImageBitmap(file);
+  try {
+    const { width, height } = fitWithin(bitmap.width, bitmap.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const context = canvas.getContext('2d');
+    // JPEG has no alpha: transparent parts take the panel colour instead of black.
+    context.fillStyle = fill; context.fillRect(0, 0, width, height);
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(bitmap, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', BG_QUALITY);
+  } finally { bitmap.close?.(); }
+}
 
 /** 'c_' + 8 hex, unique among the given ids (SPEC §11). */
 export function newCustomId(taken = new Set(), random = globalThis.crypto) {
@@ -21,7 +39,7 @@ export function newCustomId(taken = new Set(), random = globalThis.crypto) {
 
 /** Settings writes belong to the runtime, including per-chat mode overrides. */
 export function createSettings(runtime, { document = globalThis.document,
-  getContext = () => globalThis.SillyTavern.getContext() } = {}) {
+  getContext = () => globalThis.SillyTavern.getContext(), encodeImage = encodeImageFile } = {}) {
   const host = document.querySelector('#extensions_settings2') ?? document.querySelector('#extensions_settings');
   if (!host) return null;
   let view = runtime.snapshot(), forced, openCustom;
@@ -281,13 +299,22 @@ export function createSettings(runtime, { document = globalThis.document,
     if (added) { openCustom = undefined; added.element.open = true; added.inputs.title.focus(); added.inputs.title.select(); }
   }
 
-  // Appearance (SPEC §12): sliders preview live on input and persist on change.
+  // Appearance (SPEC §12): sliders preview live on input and persist on change. Sub-groups: panel, cards, background, theme.
   const visualGroup = group('visual', 'group.visual');
-  const visualGrid = node('div', 'st-sable-settings-grid'); visualGroup.append(visualGrid);
-  const visualControls = new Map(), visualOutputs = new Map();
+  let visualGrid;
+  function subgroup(key) {
+    visualGroup.append(text('h5', 'st-sable-settings-subheading', key));
+    visualGrid = node('div', 'st-sable-settings-grid'); visualGroup.append(visualGrid);
+  }
+  const visualControls = new Map(), visualOutputs = new Map(), visualChecks = new Map();
   const visualWith = (key, value) => normalizeVisual({ ...runtime.snapshot().settings.visual, [key]: value });
+  const writeVisual = visual => runtime.updateSettings({ visual });
   const previewVisual = visual => {
     for (const target of document.querySelectorAll('.st-sable-drawer, .st-sable-tab')) applyVisual(target, visual);
+  };
+  const notify = (type, message) => {
+    const toast = globalThis.toastr;
+    if (typeof toast?.[type] === 'function') toast[type](message); else console.warn(message);
   };
   function preview(key, value) {
     const visual = visualWith(key, value);
@@ -300,13 +327,23 @@ export function createSettings(runtime, { document = globalThis.document,
     if (withOutput) { const output = node('output', 'st-sable-settings-value'); visualOutputs.set(key, output); row.append(output); }
     row.append(input); visualGrid.append(row); visualControls.set(key, input);
     if (withOutput) input.addEventListener('input', () => preview(key, input.value));
-    input.addEventListener('change', () => runtime.updateSettings({ visual: visualWith(key, input.value) }));
+    input.addEventListener('change', () => writeVisual(visualWith(key, input.value)));
   }
-  for (const key of RANGE_KEYS) {
+  function range(key) {
     const [min, max, step] = VISUAL_RANGES[key];
     const input = node('input'); input.type = 'range'; input.name = key;
     input.min = String(min); input.max = String(max); input.step = String(step);
     visualField(key, input);
+  }
+  function choice(key, prefix) {
+    const input = options(node('select', 'text_pole'), VISUAL_CHOICES[key], value => `${prefix}.${value}`); input.name = key;
+    visualField(key, input, false);
+  }
+  function visualCheck(key) {
+    const row = node('label', 'checkbox_label st-sable-settings-check st-sable-settings-visual');
+    const input = node('input'); input.type = 'checkbox'; input.name = key;
+    input.addEventListener('change', () => writeVisual(visualWith(key, input.checked)));
+    row.append(input, text('span', '', `visual.${key}`)); visualGrid.append(row); visualChecks.set(key, input);
   }
   // Optional colours: a swatch plus «авто», which stores null (dark glass / theme text).
   const optionalColors = new Map();
@@ -324,14 +361,114 @@ export function createSettings(runtime, { document = globalThis.document,
     row.append(text('span', 'st-sable-settings-label', `visual.${key}`), input, auto); visualGrid.append(row);
     optionalColors.set(key, { input, auto, fallback });
   }
+  subgroup('sub.panel');
+  for (const key of ['opacity', 'blur', 'fontSize', 'widthVw']) range(key);
   optionalColor('base', '#0e0e12');
   optionalColor('text', '#eeeae7');
   const accent = node('input'); accent.type = 'color'; accent.name = 'accent';
   visualField('accent', accent);
-  const icons = options(node('select', 'text_pole'), ['fa', 'emoji'], value => `icons.${value}`); icons.name = 'icons';
-  visualField('icons', icons, false);
+  visualCheck('motion');
+
+  subgroup('sub.cards');
+  for (const key of ['radius', 'cardFill', 'border', 'titleWeight']) range(key);
+  choice('titleFont', 'font');
+  choice('chipStyle', 'chip');
+  choice('spacing', 'spacing');
+  choice('icons', 'icons');
+  visualCheck('accentBar');
+
+  // Background: a file (shrunk to a JPEG data URL) or an http(s) link, stored in the visual object like everything else.
+  subgroup('sub.background');
+  const bgRow = node('div', 'st-sable-settings-bg st-sable-settings-wide');
+  const thumb = node('div', 'st-sable-settings-thumb'); thumb.setAttribute('role', 'img');
+  bind(labels, thumb, 'bg.preview', 'aria-label');
+  const thumbText = node('span');
+  thumb.append(thumbText);
+  const bgButtons = node('div', 'st-sable-settings-buttons');
+  const bgFile = node('input'); bgFile.type = 'file'; bgFile.accept = 'image/*'; bgFile.name = 'bgFile'; bgFile.hidden = true;
+  button(bgButtons, 'bg.file', 'image', () => bgFile.click());
+  const bgRemove = button(bgButtons, 'bg.remove', 'trash-can', () => writeVisual(visualWith('bgImage', null)));
+  bgRow.append(thumb, bgButtons, bgFile); visualGrid.append(bgRow);
+  const bgUrlRow = node('label', 'st-sable-settings-url st-sable-settings-wide');
+  const bgUrl = node('input', 'text_pole'); bgUrl.type = 'url'; bgUrl.name = 'bgUrl'; bgUrl.inputMode = 'url';
+  bgUrl.autocomplete = 'off'; bgUrl.spellcheck = false;
+  bgUrlRow.append(text('span', 'st-sable-settings-label', 'bg.url'), bgUrl); visualGrid.append(bgUrlRow);
+  range('bgDim');
+  choice('bgFit', 'fit');
+  visualGroup.append(text('p', 'st-sable-settings-hint', 'bg.hint'));
+  function storeImage(value) {
+    const image = normalizeBgImage(value);
+    if (!image) notify('warning', label('bg.badUrl'));
+    else if (image.length > BG_MAX_STORED) notify('warning', label('bg.tooBig'));
+    else writeVisual(visualWith('bgImage', image));
+  }
+  bgFile.addEventListener('change', async () => {
+    const file = bgFile.files?.[0];
+    bgFile.value = '';
+    if (!file) return;
+    let url;
+    try {
+      url = await encodeImage(file, { document, fill: normalizeVisual(runtime.snapshot().settings.visual).base ?? '#0e0e12' });
+    } catch { notify('error', label('bg.readFailed')); return; }
+    storeImage(url);
+  });
+  bgUrl.addEventListener('change', () => {
+    const value = bgUrl.value.trim(), current = runtime.snapshot().settings.visual?.bgImage;
+    // Emptying the field removes a linked picture; a picture from a file is removed with the button.
+    if (value) storeImage(value);
+    else if (current && !current.startsWith('data:')) writeVisual(visualWith('bgImage', null));
+  });
+  let thumbImage = null;
+  function renderBackground(visual) {
+    const image = visual.bgImage, fromFile = !!image?.startsWith('data:');
+    // normalizeVisual already allows only quote- and bracket-free URLs; a data URL is only re-set when it changes.
+    if (image !== thumbImage) { thumb.style.backgroundImage = image ? `url("${image}")` : ''; thumbImage = image; }
+    thumb.toggleAttribute('data-empty', !image);
+    thumbText.textContent = image ? '' : label('bg.none');
+    bgRemove.disabled = !image;
+    for (const key of ['bgDim', 'bgFit']) visualControls.get(key).disabled = !image;
+    setValue(bgUrl, image && !fromFile ? image : '');
+    bgUrl.placeholder = fromFile ? label('bg.fromFile') : URL_PLACEHOLDER;
+  }
+
+  // Theme: presets, export/import of the whole visual object, reset.
+  subgroup('sub.theme');
+  const preset = node('select', 'text_pole'); preset.name = 'preset';
+  const customOption = bind(labels, node('option'), 'theme.custom'); customOption.value = ''; customOption.disabled = true;
+  preset.append(customOption);
+  options(preset, PRESET_IDS, id => `preset.${id}`);
+  const presetRow = node('label', 'st-sable-settings-visual st-sable-settings-inline');
+  presetRow.append(text('span', 'st-sable-settings-label', 'theme.preset'), preset); visualGrid.append(presetRow);
+  preset.addEventListener('change', () => { if (preset.value) writeVisual(applyPreset(runtime.snapshot().settings.visual, preset.value)); });
+  visualGroup.append(text('p', 'st-sable-settings-hint', 'theme.presetHint'));
   const visualActions = node('div', 'st-sable-settings-buttons'); visualGroup.append(visualActions);
+  const themeFile = node('input'); themeFile.type = 'file'; themeFile.accept = '.json,application/json'; themeFile.name = 'themeFile';
+  themeFile.hidden = true;
+  button(visualActions, 'theme.export', 'download', () => {
+    const win = document.defaultView;
+    const url = win.URL.createObjectURL(new win.Blob([exportTheme(runtime.snapshot().settings.visual)], { type: 'application/json' }));
+    const link = node('a'); link.href = url; link.download = THEME_FILE; link.hidden = true;
+    document.body.append(link); link.click(); link.remove();
+    win.setTimeout(() => win.URL.revokeObjectURL(url), 1000);
+  });
+  button(visualActions, 'theme.import', 'upload', () => themeFile.click());
   button(visualActions, 'resetVisual', 'eraser', () => runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS } }));
+  visualActions.append(themeFile);
+  themeFile.addEventListener('change', async () => {
+    const file = themeFile.files?.[0];
+    themeFile.value = '';
+    if (!file) return;
+    let visual = null;
+    try { visual = parseTheme(await file.text()); } catch { /* unreadable file: reported below */ }
+    if (!visual) { notify('warning', label('theme.invalid')); return; }
+    writeVisual(visual);
+    notify('success', label('theme.imported'));
+  });
+  function renderVisualExtras(visual) {
+    for (const [key, input] of visualChecks) input.checked = visual[key];
+    renderBackground(visual);
+    setValue(preset, presetOf(visual));
+  }
 
   // Actions.
   const actions = group('actions', 'group.actions');
@@ -369,6 +506,7 @@ export function createSettings(runtime, { document = globalThis.document,
     renderCustom();
     const visual = normalizeVisual(view.settings.visual);
     for (const [key, input] of visualControls) setValue(input, visual[key]);
+    renderVisualExtras(visual);
     for (const [key, output] of visualOutputs) output.textContent = key === 'accent' ? visual.accent : formatVisual(key, visual[key]);
     for (const [key, { input, auto, fallback }] of optionalColors) {
       setValue(input, visual[key] ?? fallback);
