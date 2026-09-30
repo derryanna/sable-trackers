@@ -37,7 +37,7 @@ function setup(t, state = structuredClone(fixture)) {
   return { dom, document, fake, runtime, ui, query, card, pointer, styled };
 }
 
-test('drawer renders full fixture safely and mode cycle updates settings and digest', t => {
+test('drawer renders full fixture safely and mode menu updates settings and digest', t => {
   const state = structuredClone(fixture);
   const xss = '<img src=x onerror="globalThis.pwned=true">';
   state.world.summary = xss;
@@ -58,16 +58,21 @@ test('drawer renders full fixture safely and mode cycle updates settings and dig
   assert.ok(query('.st-sable-stale').textContent.includes('устарело'));
   assert.ok(fake.calls.prompts.at(-1)[1].includes('МИР:'));
   card('world').querySelector('.st-sable-mode').click();
+  query('.st-sable-mode-option[data-mode="show"]').click();
   assert.equal(runtime.snapshot().settings.sections.world.mode, 'show');
   assert.equal(fake.calls.prompts.at(-1)[1].includes('МИР:'), false);
   card('world').querySelector('.st-sable-mode').click();
+  query('.st-sable-mode-option[data-mode="off"]').click();
+  query('.st-sable-hidden-toggle').click();
   assert.ok(card('world').classList.contains('st-sable-off'));
   assert.ok(card('world').querySelector('.st-sable-card-body').hidden);
   card('world').querySelector('.st-sable-mode').click();
+  query('.st-sable-mode-option[data-mode="inject"]').click();
   assert.equal(runtime.snapshot().settings.sections.world.mode, 'inject');
   assert.ok(fake.calls.prompts.at(-1)[1].includes('МИР:'));
   runtime.updateSettings({ perChatOverrides: true });
   card('world').querySelector('.st-sable-mode').click();
+  query('.st-sable-mode-option[data-mode="show"]').click();
   assert.equal(runtime.snapshot().settings.sections.world.mode, 'inject');
   assert.equal(runtime.snapshot().store.modeOverride.world, 'show');
 });
@@ -485,6 +490,7 @@ test('editor: cancel restores, a draft survives runtime notifications, and a cha
   assert.equal(document.activeElement, location, 'focus stays in the draft');
   assert.equal(editor.querySelector('.st-sable-editor-note').hidden, true);
   card('world').querySelector('.st-sable-mode').click();
+  card('world').querySelector('.st-sable-mode-option[data-mode="show"]').click();
   assert.equal(runtime.snapshot().settings.sections.world.mode, 'show');
   assert.equal(card('world').querySelector('.st-sable-editor'), editor, 'the mode chip still works on an editing card');
   runtime.editState('threads', []);
@@ -549,4 +555,133 @@ test('editor: custom kv sections and NPC booleans are editable', t => {
   const saved = runtime.snapshot().entry.state.npcs;
   assert.equal(saved.find(npc => npc.id === 'tomas').present, true);
   assert.deepEqual(saved.at(-1), { id: 'old_ilse', name: 'Old Ilse', present: false }, 'a new NPC derives its id from the name');
+});
+
+test('mode menu checks current mode, supports keyboard selection and restores chip focus', t => {
+  const { card, query, runtime, document, ui, styled } = setup(t);
+  ui.open();
+  const chip = () => card('world').querySelector('[data-control="mode"]');
+  const key = (element, key) => element.dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  assert.equal(chip().getAttribute('aria-haspopup'), 'menu');
+  assert.equal(chip().getAttribute('aria-expanded'), 'false');
+  chip().focus(); key(chip(), 'ArrowDown');
+  assert.equal(runtime.snapshot().modes.world, 'inject', 'opening never writes a mode');
+  assert.equal(chip().getAttribute('aria-expanded'), 'true');
+  const choices = [...query('[role="menu"]').children];
+  assert.deepEqual(choices.map(item => item.textContent), ['в промпт', 'показ', 'выкл']);
+  assert.deepEqual(choices.map(item => item.getAttribute('aria-checked')), ['true', 'false', 'false']);
+  assert.ok(choices[0].querySelector('.fa-check'));
+  assert.equal(document.activeElement, choices[0]);
+  key(document.activeElement, 'ArrowUp'); assert.equal(document.activeElement, choices[2]);
+  key(document.activeElement, 'ArrowDown'); assert.equal(document.activeElement, choices[0]);
+  key(document.activeElement, 'End'); assert.equal(document.activeElement, choices[2]);
+  key(document.activeElement, 'Home'); assert.equal(document.activeElement, choices[0]);
+  key(document.activeElement, 'ArrowDown'); key(document.activeElement, 'Enter');
+  assert.equal(runtime.snapshot().modes.world, 'show');
+  assert.equal(query('[role="menu"]'), null);
+  assert.equal(document.activeElement, chip());
+  chip().click(); key(document.activeElement, 'Escape');
+  assert.equal(query('[role="menu"]'), null);
+  assert.equal(document.activeElement, chip());
+  assert.equal(ui.element.hidden, false, 'Escape closes the menu before the drawer');
+  chip().click();
+  const computed = styled();
+  for (const item of query('[role="menu"]').children) {
+    assert.ok(parseFloat(computed(item).minHeight) >= 36);
+    assert.ok(parseFloat(computed(item).minWidth) >= 44);
+  }
+  assert.equal(computed(query('[role="menu"]')).right, '0px', 'menu aligns to chip right edge');
+  assert.equal(card('world').querySelector('.st-sable-card-header').children.length, 4, 'no fifth header control');
+});
+
+test('mode menu closes outside, on second tap, drawer close and render; only one opens', t => {
+  const { card, query, runtime, document, pointer, ui } = setup(t);
+  ui.open();
+  const chip = id => card(id).querySelector('[data-control="mode"]');
+  chip('world').click(); chip('threads').click();
+  assert.equal(document.querySelectorAll('[role="menu"]').length, 1);
+  assert.equal(chip('world').getAttribute('aria-expanded'), 'false');
+  assert.equal(chip('threads').getAttribute('aria-expanded'), 'true');
+  chip('threads').click(); assert.equal(query('[role="menu"]'), null);
+  chip('world').click(); pointer(query('.st-sable-status'), 'pointerdown', 0, 0);
+  assert.equal(query('[role="menu"]'), null);
+  assert.equal(ui.element.hidden, false);
+  chip('world').click(); query('.st-sable-status').click(); assert.equal(query('[role="menu"]'), null);
+  chip('world').click(); runtime.publish(); assert.equal(query('[role="menu"]'), null);
+  assert.equal(document.activeElement, chip('world'));
+  chip('world').click(); ui.close(); assert.equal(query('[role="menu"]'), null);
+});
+
+test('whole header folds except controls; off cards cannot fold', t => {
+  const { card, query, runtime } = setup(t);
+  const header = () => card('world').querySelector('.st-sable-card-header');
+  header().querySelector('.st-sable-card-icon').click();
+  assert.equal(runtime.snapshot().settings.folded.world, true);
+  assert.equal(header().getAttribute('role'), null);
+  header().click(); assert.equal(runtime.snapshot().settings.folded.world, false);
+  header().querySelector('.st-sable-handle').click();
+  header().querySelector('[data-control="mode"]').click();
+  query('[role="menu"]').click();
+  query('.st-sable-mode-option[data-mode="show"]').click();
+  assert.equal(runtime.snapshot().settings.folded.world, false);
+  header().querySelector('[data-control="fold"]').click();
+  assert.equal(runtime.snapshot().settings.folded.world, true, 'chevron toggles once');
+  runtime.updateSettings({ hideOff: false, folded: { world: false } });
+  runtime.setMode('world', 'off'); header().click();
+  assert.equal(runtime.snapshot().settings.folded.world, false);
+  assert.equal(header().querySelector('[data-control="fold"]').disabled, true);
+});
+
+test('off sections use effective modes, reveal in order, survive renders and drop editors', t => {
+  const { runtime, card, query, document, ui } = setup(t);
+  ui.open();
+  card('world').querySelector('[data-control="edit"]').click();
+  const draft = card('world').querySelector('.st-sable-editor');
+  runtime.updateSettings({ perChatOverrides: true });
+  runtime.setMode('world', 'off'); runtime.setMode('threads', 'off');
+  assert.equal(runtime.snapshot().settings.sections.world.mode, 'inject');
+  assert.equal(card('world'), null); assert.equal(card('threads'), null);
+  assert.equal(draft.isConnected, false);
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 2');
+  const before = JSON.stringify(runtime.snapshot().settings);
+  query('.st-sable-hidden-toggle').click();
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыть');
+  assert.equal(query('.st-sable-hidden-toggle').getAttribute('aria-expanded'), 'true');
+  assert.equal(JSON.stringify(runtime.snapshot().settings), before, 'reveal is transient');
+  assert.deepEqual([...query('.st-sable-cards').children].map(el => el.dataset.section), runtime.snapshot().settings.order);
+  assert.ok(card('world').classList.contains('st-sable-off'));
+  assert.equal(card('world').querySelector('.st-sable-editor'), null);
+  runtime.publish(); assert.ok(card('world'));
+  card('world').querySelector('[data-control="mode"]').click();
+  query('.st-sable-mode-option[data-mode="inject"]').click();
+  assert.equal(document.activeElement, card('world').querySelector('[data-control="mode"]'));
+  query('.st-sable-hidden-toggle').click();
+  assert.ok(card('world')); assert.equal(card('threads'), null);
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 1');
+  runtime.updateSettings({ language: 'en' });
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Hidden: 1');
+  query('.st-sable-hidden-toggle').click(); assert.equal(query('.st-sable-hidden-toggle').textContent, 'Hide');
+  runtime.setMode('threads', 'show'); assert.equal(query('.st-sable-hidden-row').hidden, true);
+  runtime.setMode('threads', 'off'); runtime.updateSettings({ hideOff: false });
+  assert.ok(card('threads')); assert.equal(query('.st-sable-hidden-row').hidden, true);
+});
+
+test('switching a card off from menu focuses reveal button and drag preserves hidden slots', t => {
+  const { runtime, card, query, pointer, document, ui } = setup(t);
+  ui.open();
+  card('offscreen').querySelector('[data-control="mode"]').click();
+  query('.st-sable-mode-option[data-mode="off"]').click();
+  assert.equal(document.activeElement, query('.st-sable-hidden-toggle'));
+  for (const [index, item] of [...query('.st-sable-cards').children].entries()) {
+    item.getBoundingClientRect = () => ({ top: index * 100, height: 100 });
+  }
+  pointer(card('world').querySelector('.st-sable-handle'), 'pointerdown', 10, 25);
+  pointer(document, 'pointermove', 10, 180);
+  pointer(document, 'pointerup', 10, 180);
+  assert.deepEqual(runtime.snapshot().settings.order.slice(0, 3), ['threads', 'offscreen', 'world']);
+  pointer(card('world').querySelector('.st-sable-handle'), 'pointerdown', 10, 25);
+  pointer(document, 'pointermove', 10, 2000);
+  pointer(document, 'pointercancel', 10, 2000);
+  assert.deepEqual([...query('.st-sable-cards').children].map(el => el.dataset.section), runtime.snapshot().settings.order.filter(id => id !== 'offscreen'));
+  assert.equal(query('.st-sable-cards').textContent.includes('null'), false);
 });

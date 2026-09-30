@@ -345,3 +345,30 @@
 .st-sable-settings-auto[aria-pressed="false"] { opacity: .7; }
 /* An automatic colour shows its stand-in swatch dimmed. */
 .st-sable-settings-optional:has(> .st-sable-settings-auto[aria-pressed="true"]) > input[type="color"] { opacity: .45; }
+
+/* Round 3: drawer behaviour */
+.st-sable-card-header { cursor: pointer; }
+.st-sable-off .st-sable-card-header { cursor: default; }
+.st-sable-mode-wrap { position: relative; flex: none; }
+.st-sable-mode { min-height: 36px; height: 36px; }
+/* Only the open card lets its menu extend over neighbours. Keep it above their ink overlays. */
+.st-sable-card.st-sable-menu-open { overflow: visible; z-index: 2; }
+.st-sable-card.st-sable-menu-open:last-child { margin-bottom: 126px; }
+.st-sable-mode-menu {
+  position: absolute; top: 100%; right: 0; z-index: 3; width: max-content; min-width: 112px;
+  padding: 4px; border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .18);
+  border-radius: var(--st-sable-radius, 18px); font-size: var(--st-sable-fs);
+  background: linear-gradient(rgba(var(--st-sable-ink-rgb, 255,255,255), .05), rgba(var(--st-sable-ink-rgb, 255,255,255), .02)), rgb(var(--st-sable-base-rgb, 14,14,18));
+  box-shadow: 0 6px 18px rgba(0,0,0,.16); cursor: default;
+}
+.st-sable-mode-option {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-width: 44px; min-height: 36px;
+  padding: 6px 10px; border: 0; border-radius: var(--st-sable-radius, 18px);
+  color: inherit; background: transparent; font: inherit; text-align: left;
+}
+.st-sable-mode-option:hover, .st-sable-mode-option:focus-visible { background: rgba(var(--st-sable-ink-rgb, 255,255,255), .1); }
+.st-sable-hidden-row { flex: none; text-align: center; }
+.st-sable-hidden-toggle { min-width: 44px; min-height: 36px; padding: 4px 12px; border: 0; background: transparent; color: inherit; opacity: .65; font-size: var(--st-sable-fs); }
+/* Reorder buttons occupy their own line, leaving the existing phone columns room for labels. */
+.st-sable-section-moves { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 4px; }
+.st-sable-settings .st-sable-section-moves button { min-width: 36px; min-height: 36px; margin: 0; padding: 4px 8px; }

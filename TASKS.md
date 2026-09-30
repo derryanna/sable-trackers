@@ -56,6 +56,9 @@ Unknown settings keys (including `visual`) survive normalization. Removed defini
 disappear from prompts/drawer/digest while historical state values remain in the ring.
 Validation: all 55 tests pass, changed JavaScript syntax checks pass. No commit requested.
 
+## Round 3 — drawer behaviour [x]
+Mode menu with keyboard support, header folding, hideOff with transient reveal, and ordered built-in/custom settings rows with move buttons. README updated in English and Russian. Appearance-owned code untouched. Working-tree delivery only; no commit. Validation: 80 tests and changed JavaScript syntax checks pass; physical phone layout remains unverified.
+
 ## Notes from previous tasks
 (append here)
 - T5 complete: Extensions settings with localized fields, cc-only profile selection and refresh, per-chat override reset, legacy import and manual run; English README with Russian quick start. jsdom coverage and syntax checks pass. No commit created (requested).

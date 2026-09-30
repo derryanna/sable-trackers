@@ -9,6 +9,7 @@ export const DEFAULTS = {
   enabled: true, profileId: '', language: 'ru', messages: 4,
   cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3,
   perChatOverrides: false, showPanel: true, showFloatingButton: true,
+  hideOff: true,
   order: SECTION_ORDER, customSections: [],
   folded: {}, pinned: false, floatingPosition: null,
   sections: Object.fromEntries(SECTIONS.map(s => [s.id, { mode: s.defaultMode, period: s.period }])),
@@ -19,6 +20,7 @@ const isMode = value => ['inject', 'show', 'off'].includes(value);
 export function normalizeSettings(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
   const result = { ...structuredClone(DEFAULTS), ...value };
+  if (typeof result.hideOff !== 'boolean') result.hideOff = DEFAULTS.hideOff;
   for (const key of ['enabled', 'perChatOverrides', 'showPanel', 'showFloatingButton', 'pinned']) {
     if (typeof result[key] !== 'boolean') result[key] = DEFAULTS[key];
   }

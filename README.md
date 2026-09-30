@@ -32,7 +32,9 @@ Open the scene drawer from the edge tab, the extensions wand menu, or the panel 
 
 **inject** requests, displays and includes the section in the main prompt. **show** requests and displays it without injection. **off** skips requests and injection, retaining the previous value for later.
 
-Periods count character replies and apply globally. Dossiers always check for new names; their default 0 denotes this special behavior. Other sections with period 0 update every reply. The drawer's mode chip cycles modes; settings also provide mode selectors. Enable **Mode changes apply to this chat only** to save subsequent mode changes as chat overrides. Existing overrides remain active until **Reset overrides for this chat** is pressed; this preserves the tracked state and global settings.
+Periods count character replies and apply globally. Dossiers always check for new names; their default 0 denotes this special behavior. Other sections with period 0 update every reply. Tap the drawer's mode chip to choose a mode from its menu; settings also provide mode selectors. Enable **Mode changes apply to this chat only** to save subsequent mode changes as chat overrides. Existing overrides remain active until **Reset overrides for this chat** is pressed; this preserves the tracked state and global settings.
+
+Tap a card header to fold or unfold it. Switched-off sections are hidden by default: **Hidden: N** reveals them so you can switch them back on, and **Hide** hides them again. Disable **Actions → Hide switched-off sections** to always show their dimmed cards. In **Sections**, use **▲ ▼** to reorder built-in and custom sections; dragging the drawer handle still works.
 
 **Import from old Sable** is available only when this chat has no tracked state and compatible legacy data exists. Import is explicit and reads legacy message data without changing it.
 
@@ -62,6 +64,8 @@ Sable Trackers хранит состояние сцены отдельно от 
 Установка: скопируйте URL этого репозитория, откройте **Extensions → Install extension**, вставьте URL и перезагрузите SillyTavern. В **Extensions → Sable Trackers** включите расширение и выберите профиль **chat-completion** для недорогой модели. Отключите другие трекеры, записывающие блоки в ответ. Русский язык выбран по умолчанию.
 
 Режимы: **в промпт** — обновлять, показывать и передавать основной модели; **показ** — только обновлять и показывать; **выкл** — не запрашивать раздел, сохранив старое значение. Период задаётся в ответах персонажа. Переключатель «только для этого чата» сохраняет локальные режимы, кнопка сброса возвращает общие. «Обновить сейчас» запускает обновление вручную. Импорт старого Sable доступен при наличии совместимых данных и пустой истории трекера.
+
+Нажмите на плашку режима и выберите вариант в меню. Нажатие на заголовок карточки сворачивает или разворачивает её. Выключенные разделы по умолчанию скрыты: **Скрыто: N** временно показывает их для включения, **Скрыть** убирает снова. Настройка **Действия → Скрывать выключенные** отключает это скрытие. В таблице **Секции** кнопки **▲ ▼** меняют порядок встроенных и своих блоков; перетаскивание за ручку в панели тоже работает.
 
 Если нет обновлений, проверьте профиль, режим chat-completion и включённые разделы. При пустом ответе проверьте модель, увеличьте лимит токенов и повторите обновление. Групповые чаты не поддерживаются.
 

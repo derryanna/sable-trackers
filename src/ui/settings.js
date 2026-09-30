@@ -1,4 +1,4 @@
-import { SECTIONS } from '../sections.js';
+import { getSections, orderedSectionIds } from '../sections.js';
 import { t } from '../i18n.js';
 import { VISUAL_DEFAULTS, VISUAL_RANGES, normalizeVisual } from '../settings.js';
 import { applyVisual, glyphNode, sectionGlyph } from './drawer.js';
@@ -110,24 +110,70 @@ export function createSettings(runtime, { document = globalThis.document,
     row.append(text('span', 'st-sable-settings-label', key), input); contextGrid.append(row); controls.set(key, input);
   }
 
-  // Built-in sections: icon + title | mode | period.
+  // All sections follow drawer order; custom shape editing stays in Custom blocks.
   const sectionsGroup = group('sections', 'group.sections');
   const table = node('div', 'st-sable-settings-table');
   const head = node('div', 'st-sable-settings-thead'); head.setAttribute('aria-hidden', 'true');
   head.append(text('span', '', 'section'), text('span', '', 'mode'), bind(labels, text('span', '', 'periodShort'), 'period', 'title'));
   table.append(head);
-  const sectionControls = SECTIONS.map(section => {
+  const sectionControls = new Map();
+  function createSectionRow(section) {
+    const rowLabels = [];
+    const sectionName = () => {
+      const current = getSections(view.settings).find(item => item.id === section.id) ?? section;
+      return current.custom ? current.title : label(current.title);
+    };
     const row = node('div', 'st-sable-settings-section'); row.dataset.section = section.id;
     const glyph = node('span', 'st-sable-settings-glyph');
-    const name = node('span', 'st-sable-settings-section-name'); name.append(glyph, text('span', '', section.title));
-    const mode = options(node('select', 'text_pole'), MODES, value => value); mode.name = 'mode';
-    bind(labels, mode, () => `${label(section.title)}: ${label('mode')}`, 'aria-label');
+    const name = node('span', 'st-sable-settings-section-name'); name.append(glyph, bind(rowLabels, node('span'), sectionName));
+    const mode = options(node('select', 'text_pole'), MODES, value => value, rowLabels); mode.name = 'mode';
+    bind(rowLabels, mode, () => `${sectionName()}: ${label('mode')}`, 'aria-label');
     mode.addEventListener('change', () => runtime.setMode(section.id, mode.value));
-    const period = numberInput('period', 0, undefined, value => runtime.updateSettings({ sections: { [section.id]: { period: value } } }));
-    bind(labels, period, () => `${label(section.title)}: ${label('period')}`, 'aria-label');
-    row.append(name, mode, period); table.append(row);
-    return { section, glyph, mode, period };
-  });
+    // A custom block keeps its period inside customSections; built-ins live in settings.sections.
+    const period = numberInput('period', 0, undefined, value => (section.custom
+      ? patchCustom(section.id, { period: value })
+      : runtime.updateSettings({ sections: { [section.id]: { period: value } } })));
+    bind(rowLabels, period, () => `${sectionName()}: ${label('period')}`, 'aria-label');
+    const moves = node('div', 'st-sable-section-moves');
+    const move = (direction, symbol) => {
+      const key = direction < 0 ? 'moveUp' : 'moveDown';
+      const control = node('button', 'menu_button', symbol); control.type = 'button'; control.dataset.move = key;
+      bind(rowLabels, control, () => `${sectionName()}: ${label(key)}`, 'aria-label');
+      bind(rowLabels, control, key, 'title');
+      control.addEventListener('click', () => {
+        const order = orderedSectionIds(view.settings.order, getSections(view.settings));
+        const index = order.indexOf(section.id), target = index + direction;
+        if (index < 0 || target < 0 || target >= order.length) return;
+        [order[index], order[target]] = [order[target], order[index]];
+        runtime.updateSettings({ order });
+        if (!control.disabled) control.focus();
+        else (direction < 0 ? down : up).focus();
+      });
+      moves.append(control);
+      return control;
+    };
+    const up = move(-1, '▲'), down = move(1, '▼');
+    row.append(name, mode, period, moves);
+    return { row, glyph, mode, period, up, down, labels: rowLabels };
+  }
+  function renderSections() {
+    const sections = getSections(view.settings), order = orderedSectionIds(view.settings.order, sections);
+    for (const [id, control] of sectionControls) if (!order.includes(id)) { control.row.remove(); sectionControls.delete(id); }
+    let previous = head;
+    for (const [index, id] of order.entries()) {
+      const section = sections.find(item => item.id === id);
+      if (!sectionControls.has(id)) sectionControls.set(id, createSectionRow(section));
+      const control = sectionControls.get(id);
+      if (previous.nextSibling !== control.row) table.insertBefore(control.row, previous.nextSibling);
+      previous = control.row;
+      applyLabels(control.labels);
+      control.glyph.replaceChildren(sectionGlyph(document, section, view.settings.visual?.icons));
+      setValue(control.mode, view.modes[id]);
+      setValue(control.period, section.custom ? section.period : view.settings.sections[id].period);
+      control.up.disabled = index === 0;
+      control.down.disabled = index === order.length - 1;
+    }
+  }
   sectionsGroup.append(table, text('p', 'st-sable-settings-hint', 'periodHint'));
 
   // Custom blocks (SPEC §11): every write sends the full array.
@@ -296,6 +342,8 @@ export function createSettings(runtime, { document = globalThis.document,
     for (const id of Object.keys(runtime.snapshot().store.modeOverride)) runtime.setMode(id, null, true);
   });
   for (const key of ['perChatOverrides', 'showPanel', 'showFloatingButton']) checkbox(actions, key);
+  checkbox(actions, 'hideOff');
+  controls.get('showPanel').parentElement.after(controls.get('hideOff').parentElement);
 
   function refillProfiles() {
     const select = controls.get('profileId'); select.replaceChildren();
@@ -317,10 +365,7 @@ export function createSettings(runtime, { document = globalThis.document,
       if (input.type === 'checkbox') input.checked = !!view.settings[key];
       else if (key !== 'profileId') setValue(input, view.settings[key]);
     }
-    for (const { section, glyph, mode, period } of sectionControls) {
-      glyph.replaceChildren(sectionGlyph(document, section, view.settings.visual?.icons));
-      setValue(mode, view.modes[section.id]); setValue(period, view.settings.sections[section.id].period);
-    }
+    renderSections();
     renderCustom();
     const visual = normalizeVisual(view.settings.visual);
     for (const [key, input] of visualControls) setValue(input, visual[key]);

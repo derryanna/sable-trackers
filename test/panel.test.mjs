@@ -33,6 +33,13 @@ test('panel follows newest character, survives ST replacement, opens drawer and 
   assert.match(query().textContent, /Guide.*wary/);
   assert.match(query().textContent, /\+5/);
   assert.equal(query().querySelector('img'), null);
+  const panelText = query().textContent;
+  runtime.setMode('threads', 'off');
+  runtime.updateSettings({ hideOff: false });
+  assert.equal(query().textContent, panelText);
+  runtime.updateSettings({ hideOff: true });
+  drawer.element.querySelector('.st-sable-hidden-toggle').click();
+  assert.equal(query().textContent, panelText, 'drawer hiding and revealing do not affect the reply panel');
   query().click(); assert.equal(drawer.element.hidden, false);
   for (const event of ['MESSAGE_EDITED', 'MESSAGE_SWIPED', 'CHARACTER_MESSAGE_RENDERED']) {
     newest.innerHTML = '<div class="mes_text">Untouched</div>';

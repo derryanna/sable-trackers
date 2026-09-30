@@ -158,6 +158,9 @@ Object.assign(STRINGS.en, {
   'field.thought': 'Thought', 'field.toward': 'Toward', 'field.stats': 'Scales', 'field.changes': 'Last changes',
   'field.beats': 'Beats', 'field.beat': 'Beat', 'field.why': 'Why', 'field.remember': 'Do not forget',
   'field.pattern': 'Pattern', 'field.example': 'Example', 'field.key': 'Key', 'field.value': 'Value',
+  // Round 3: drawer behaviour
+  hideOff: 'Hide switched-off sections', hiddenSections: 'Hidden', hideSections: 'Hide',
+  moveUp: 'Move up', moveDown: 'Move down',
 });
 Object.assign(STRINGS.ru, {
   edit: 'Редактировать', 'edit.save': 'Сохранить', 'edit.cancel': 'Отмена', 'edit.add': 'Добавить', 'edit.remove': 'Удалить',
@@ -170,4 +173,7 @@ Object.assign(STRINGS.ru, {
   'field.thought': 'Мысль', 'field.toward': 'К кому', 'field.stats': 'Шкалы', 'field.changes': 'Последние изменения',
   'field.beats': 'Ходы сюжета', 'field.beat': 'Ход', 'field.why': 'Зачем', 'field.remember': 'Не забыть',
   'field.pattern': 'Шаблон', 'field.example': 'Пример', 'field.key': 'Ключ', 'field.value': 'Значение',
+  // Round 3: drawer behaviour
+  hideOff: 'Скрывать выключенные', hiddenSections: 'Скрыто', hideSections: 'Скрыть',
+  moveUp: 'Переместить вверх', moveDown: 'Переместить вниз',
 });

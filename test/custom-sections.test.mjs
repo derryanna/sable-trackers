@@ -111,7 +111,7 @@ test('runtime tracks custom cadence, global modes and chat overrides', async () 
   runtime.dispose();
 });
 
-test('drawer safely renders shapes and icons, cycles/folds/reorders, and removes deleted cards', t => {
+test('drawer safely renders shapes and icons, picks modes/folds/reorders, and removes deleted cards', t => {
   const dom = new JSDOM('<body><div id="extensionsMenu"></div></body>');
   const fake = createFakeST(); fake.add();
   const xss = '<img src=x onerror=alert(1)>';
@@ -132,10 +132,15 @@ test('drawer safely renders shapes and icons, cycles/folds/reorders, and removes
   card(clues).querySelector('.st-sable-fold').click();
   assert.equal(card(clues).querySelector('.st-sable-card-body').hidden, true);
   card(clues).querySelector('.st-sable-mode').click();
+  card(clues).querySelector('.st-sable-mode-option[data-mode="show"]').click();
   assert.equal(runtime.snapshot().modes[clues], 'show');
   card(clues).querySelector('.st-sable-mode').click();
+  card(clues).querySelector('.st-sable-mode-option[data-mode="off"]').click();
   assert.equal(runtime.snapshot().modes[clues], 'off');
+  assert.equal(card(clues), null);
+  ui.element.querySelector('.st-sable-hidden-toggle').click();
   card(clues).querySelector('.st-sable-mode').click();
+  card(clues).querySelector('.st-sable-mode-option[data-mode="inject"]').click();
   assert.equal(runtime.snapshot().modes[clues], 'inject');
   card(clues).querySelector('.st-sable-handle').dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
   assert.ok(runtime.snapshot().settings.order.indexOf(clues) < runtime.snapshot().settings.order.indexOf('banlist'));

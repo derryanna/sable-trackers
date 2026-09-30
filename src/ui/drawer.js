@@ -103,6 +103,7 @@ const PRIORITIES = ['high', 'mid', 'low'];
 export function createDrawer(runtime, { document = globalThis.document, onSettings } = {}) {
   const win = document.defaultView;
   let view = runtime.snapshot(), opener, drag;
+  let modeMenu, revealOff = false;
   const cleanups = [];
   const label = key => t(key, view.settings.language);
   const node = (tag, className, text) => displayNode(document, view, tag, className, text);
@@ -148,10 +149,19 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   for (const [element, name] of [[refresh, 'rotate'], [pin, 'thumbtack'], [settings, 'gear'], [close, 'xmark']]) element.append(icon(name));
   header.append(refresh, pin, settings, close);
   const cards = node('div', 'cards');
+  const hiddenRow = node('div', 'hidden-row');
+  const hiddenToggle = button('', 'hiddenSections', () => {
+    revealOff = !revealOff;
+    render(view);
+    hiddenToggle.focus();
+  }, 'hidden-toggle');
+  hiddenToggle.setAttribute('aria-controls', 'st-sable-cards');
+  cards.id = 'st-sable-cards';
+  hiddenRow.append(hiddenToggle);
   const status = node('footer', 'status');
   status.setAttribute('role', 'status');
   const seed = button(label('seedLegacy'), 'seedLegacy', () => { void runtime.seedLegacy(); }, 'legacy-button');
-  drawer.append(header, seed, cards, status);
+  drawer.append(header, seed, cards, hiddenRow, status);
   // Edge pull tab: glued to the screen edge when closed, to the panel's left edge when open.
   const tab = button('', 'open', () => { if (drawer.hidden) open(tab); else hide(false); }, 'tab');
   tab.append(icon('wand-magic-sparkles'), icon('chevron-right'));
@@ -183,15 +193,73 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     close.focus();
   }
   function hide(restoreFocus = true) {
+    closeModeMenu(false);
     drawer.hidden = true;
     syncExpanded();
     if (restoreFocus) opener?.focus?.();
   }
   listen(document, 'pointerdown', event => {
+    if (modeMenu && !modeMenu.wrap.contains(event.target)) closeModeMenu(false);
     if (!drawer.hidden && !view.settings.pinned && !drawer.contains(event.target)
       && !tab.contains(event.target) && !menu.contains(event.target)) hide(false);
   });
-  listen(document, 'keydown', event => { if (event.key === 'Escape' && !drawer.hidden) hide(); });
+  listen(document, 'click', event => {
+    if (modeMenu && !modeMenu.wrap.contains(event.target)) closeModeMenu(false);
+  });
+  listen(document, 'keydown', event => {
+    if (event.key !== 'Escape') return;
+    if (modeMenu) { event.preventDefault(); closeModeMenu(); }
+    else if (!drawer.hidden) hide();
+  });
+
+  function closeModeMenu(restoreFocus = true) {
+    if (!modeMenu) return;
+    const { chip, popup, wrap } = modeMenu;
+    modeMenu = undefined;
+    popup.remove();
+    wrap.closest('.st-sable-card')?.classList.remove('st-sable-menu-open');
+    chip.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) chip.focus();
+  }
+  function openModeMenu(chip, wrap, id) {
+    if (modeMenu?.chip === chip) { closeModeMenu(); return; }
+    closeModeMenu(false);
+    const popup = node('div', 'mode-menu');
+    popup.setAttribute('role', 'menu');
+    popup.setAttribute('aria-label', chip.getAttribute('aria-label'));
+    const choices = ['inject', 'show', 'off'].map(mode => {
+      const item = button('', mode, () => {
+        closeModeMenu();
+        runtime.setMode(id, mode);
+        // Switching off can remove the chip; keep keyboard focus on the reveal control.
+        if (!cards.querySelector(`[data-section="${id}"]`)) hiddenToggle.focus();
+      }, 'mode-option');
+      item.dataset.mode = mode;
+      item.setAttribute('role', 'menuitemradio');
+      item.setAttribute('aria-checked', String(view.modes[id] === mode));
+      item.tabIndex = -1;
+      const check = icon('check'); check.style.visibility = view.modes[id] === mode ? 'visible' : 'hidden';
+      item.append(check, document.createTextNode(label(mode)));
+      popup.append(item);
+      return item;
+    });
+    popup.addEventListener('keydown', event => {
+      const index = choices.indexOf(document.activeElement);
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        const target = event.key === 'Home' ? 0 : event.key === 'End' ? 2
+          : (index + (event.key === 'ArrowDown' ? 1 : 2)) % 3;
+        choices[target].focus();
+      } else if (['Enter', ' '].includes(event.key)) {
+        event.preventDefault(); choices[index]?.click();
+      } else if (event.key === 'Tab') closeModeMenu();
+    });
+    modeMenu = { chip, wrap, popup };
+    wrap.append(popup);
+    wrap.closest('.st-sable-card')?.classList.add('st-sable-menu-open');
+    chip.setAttribute('aria-expanded', 'true');
+    choices.find(item => item.dataset.mode === view.modes[id]).focus();
+  }
 
   // Fold state of NPC/dossier/delta rows survives re-renders (mode taps, new states).
   let openRows = new Map();
@@ -422,14 +490,27 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     glyph.classList.add('st-sable-card-icon');
     glyph.setAttribute('aria-hidden', 'true');
     title.append(glyph, node('span', 'card-label', name));
-    const chip = button(label(mode), section.title, () => runtime.setMode(id, { inject: 'show', show: 'off', off: 'inject' }[mode]), 'mode');
+    const wrap = node('div', 'mode-wrap');
+    const chip = button(label(mode), section.title, () => openModeMenu(chip, wrap, id), 'mode');
+    chip.setAttribute('aria-haspopup', 'menu');
+    chip.setAttribute('aria-expanded', 'false');
+    chip.addEventListener('keydown', event => {
+      if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
+        event.preventDefault();
+        if (!modeMenu || modeMenu.chip !== chip) openModeMenu(chip, wrap, id);
+      }
+    });
+    wrap.append(chip);
     chip.title = name;
     chip.setAttribute('aria-label', `${name}: ${label(mode)}`); chip.dataset.control = 'mode'; chip.dataset.mode = mode;
     const fold = button('', 'fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [id]: !folded } }), 'fold');
     fold.append(icon('chevron-down'));
     fold.dataset.control = 'fold'; fold.disabled = mode === 'off'; fold.setAttribute('aria-expanded', String(!folded));
     fold.setAttribute('aria-controls', `st-sable-body-${id}`);
-    heading.append(handle, title, chip, fold);
+    heading.addEventListener('click', event => {
+      if (mode !== 'off' && !event.target.closest('button, .st-sable-mode-wrap')) fold.click();
+    });
+    heading.append(handle, title, wrap, fold);
     return heading;
   }
   // The pencil lives under the card, not in the header: a fifth header control made long titles wrap on phones.
@@ -466,6 +547,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   }
   /** Rebuild one card only (editor open/close); the other cards are untouched. */
   function rebuildCard(id) {
+    closeModeMenu();
     const section = getSections(view.settings).find(item => item.id === id);
     const old = [...cards.children].find(card => card.dataset.section === id);
     if (!section || !old) return;
@@ -609,6 +691,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   }
 
   function render(next) {
+    closeModeMenu();
     // Notifications are the only source of state renders after initial mounting.
     drag = undefined;
     const focused = document.activeElement;
@@ -635,6 +718,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     for (const id of orderedSectionIds(view.settings.order, sections)) {
       const section = sections.find(item => item.id === id), editor = editors.get(id);
       if (editor && view.modes[id] === 'off') editors.delete(id);
+      if (view.settings.hideOff && !revealOff && view.modes[id] === 'off') continue;
       if (editors.has(id) && editor.card?.isConnected) {
         // An open editor keeps its node, draft and focus; only its header follows the new view.
         refreshCard(editor.card, section);
@@ -649,6 +733,13 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       else cards.insertBefore(card, cursor);
     }
     cards.scrollTop = scrollTop;
+    const offCount = sections.filter(section => view.modes[section.id] === 'off').length;
+    hiddenRow.hidden = !view.settings.hideOff || offCount === 0;
+    const hiddenLabel = revealOff ? label('hideSections') : `${label('hiddenSections')}: ${offCount}`;
+    hiddenToggle.textContent = hiddenLabel;
+    hiddenToggle.title = hiddenLabel;
+    hiddenToggle.setAttribute('aria-label', hiddenLabel);
+    hiddenToggle.setAttribute('aria-expanded', String(revealOff));
     const last = view.store.lastRun;
     const at = last?.at ?? (last?.ok ? view.entry?.state.meta?.updatedAt : undefined);
     const date = at ? new Date(at) : null;
@@ -691,12 +782,20 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (!drag || event.pointerId !== drag.pointerId) return;
     const completed = drag; drag = undefined;
     endDrag();
-    if (completed.moved) runtime.updateSettings({ order: [...cards.children].map(card => card.dataset.section) });
+    if (completed.moved) {
+      const visible = [...cards.children].map(card => card.dataset.section), ids = new Set(visible);
+      const order = orderedSectionIds(view.settings.order, getSections(view.settings))
+        .map(id => ids.has(id) ? visible.shift() : id);
+      runtime.updateSettings({ order });
+    }
   });
   listen(document, 'pointercancel', () => {
     if (!drag) return;
     endDrag();
-    for (const id of view.settings.order) cards.append(cards.querySelector(`[data-section="${id}"]`));
+    for (const id of view.settings.order) {
+      const card = cards.querySelector(`[data-section="${id}"]`);
+      if (card) cards.append(card);
+    }
     drag = undefined;
   });
   render(view);
