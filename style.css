@@ -45,13 +45,22 @@
 .st-sable-icon-button {
   width: 36px; height: 36px; min-width: 36px; min-height: 36px; padding: 0; font-size: 14px; border-radius: 12px;
   background: rgba(var(--st-sable-ink-rgb, 255,255,255), .05); border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .12);
-  transition: background-color 120ms, border-color 120ms;
+  border-color: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 30%, transparent);
+  transition: background-color 120ms, border-color 120ms, color 120ms;
 }
-.st-sable-icon-button:hover { background: rgba(var(--st-sable-ink-rgb, 255,255,255), .1); border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .22); }
-.st-sable-icon-button[aria-pressed="true"] { background: rgba(var(--st-sable-ink-rgb, 255,255,255), .2); border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .6); }
+/* The accent colour owns every button state, not only the «inject» chip (Discord feedback: a black pinned pin on a light theme). */
+.st-sable-icon-button:hover {
+  background: rgba(var(--st-sable-ink-rgb, 255,255,255), .1); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 16%, transparent);
+  border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .22); border-color: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 55%, transparent);
+}
+/* Pressed (the pin) looks like the filled «inject» chip: accent fill with accent ink. */
+.st-sable-icon-button[aria-pressed="true"] {
+  color: rgb(var(--st-sable-accent-ink-rgb, 0,0,0)); background: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .45);
+}
 .st-sable-legacy-button {
   width: 100%; min-height: 36px; padding: 6px 12px; border-radius: 12px; white-space: normal;
   font-size: calc(var(--st-sable-fs) - .5px); border: 1px dashed rgba(var(--st-sable-ink-rgb, 255,255,255), .24); background: rgba(var(--st-sable-ink-rgb, 255,255,255), .05);
+  border-color: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 40%, transparent);
 }
 .st-sable-legacy-button[hidden] { display: none; }
 
@@ -215,7 +224,7 @@
 .st-sable-edit { width: auto; min-width: 36px; padding: 0 10px; font-size: 11px; opacity: .7; gap: 6px; }
 .st-sable-edit[aria-pressed="true"], .st-sable-edit:hover { opacity: 1; }
 .st-sable-edit > .fa-solid { opacity: .5; }
-.st-sable-edit[aria-pressed="true"] { background: rgba(var(--st-sable-ink-rgb, 255,255,255), .12); }
+.st-sable-edit[aria-pressed="true"] { background: rgba(var(--st-sable-ink-rgb, 255,255,255), .12); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 18%, transparent); }
 .st-sable-edit[aria-pressed="true"] > .fa-solid { opacity: 1; }
 .st-sable-edit:disabled { cursor: default; opacity: .35; }
 .st-sable-editor, .st-sable-editor-object, .st-sable-editor-array, .st-sable-editor-items { display: flex; flex-direction: column; gap: 8px; }
@@ -396,6 +405,12 @@
 .st-sable-drawer[data-st-sable-title-font="rounded"] :is(.st-sable-title, .st-sable-card-title) { font-family: ui-rounded, 'SF Pro Rounded', Nunito, 'Varela Round', Quicksand, Comfortaa, 'M PLUS Rounded 1c', system-ui, sans-serif; }
 /* Outline chip: accent ring and a faint accent tint; the label keeps the text colour, so any accent stays readable. */
 .st-sable-drawer[data-st-sable-chip="outline"] .st-sable-mode[data-mode="inject"] {
+  color: inherit; border-color: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238)));
+  background: rgba(var(--st-sable-ink-rgb, 255,255,255), .06); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 18%, transparent);
+  box-shadow: inset 0 0 0 .5px var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238)));
+}
+/* Outline chips: the pressed pin gets the same accent ring and tint instead of a solid fill. */
+.st-sable-drawer[data-st-sable-chip="outline"] .st-sable-icon-button[aria-pressed="true"] {
   color: inherit; border-color: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238)));
   background: rgba(var(--st-sable-ink-rgb, 255,255,255), .06); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 18%, transparent);
   box-shadow: inset 0 0 0 .5px var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238)));
