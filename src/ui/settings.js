@@ -1,4 +1,5 @@
 import { getSections, orderedSectionIds } from '../sections.js';
+import { COMMON_RULES, getPromptTexts } from '../prompt.js';
 import { t } from '../i18n.js';
 import { VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
@@ -94,8 +95,15 @@ export function createSettings(runtime, { document = globalThis.document,
   const content = node('div', 'inline-drawer-content st-sable-settings-body');
   drawer.append(toggle, content); element.append(drawer); host.append(element);
   function group(id, key) {
-    const section = node('section', 'st-sable-settings-group'); section.dataset.group = id;
-    section.append(text('h4', 'st-sable-settings-heading', key)); content.append(section);
+    const section = node(id === 'danger' ? 'details' : 'section', 'st-sable-settings-group'); section.dataset.group = id;
+    const heading = node('h4', 'st-sable-settings-heading');
+    if (id === 'danger') {
+      section.classList.add('st-sable-danger');
+      const summary = node('summary'); heading.append(icon('triangle-exclamation'), text('span', '', key));
+      summary.append(heading); section.append(summary);
+    } else heading.append(text('span', '', key));
+    if (id !== 'danger') section.append(heading);
+    content.append(section);
     return section;
   }
   const controls = new Map();
@@ -517,6 +525,107 @@ export function createSettings(runtime, { document = globalThis.document,
   checkbox(actions, 'hideOff');
   controls.get('showPanel').parentElement.after(controls.get('hideOff').parentElement);
 
+  // Danger zone: instruction overrides and runtime-only request diagnostics.
+  const danger = group('danger', 'group.danger');
+  danger.append(text('p', 'st-sable-settings-hint', 'dangerHint'), text('h5', 'st-sable-settings-subheading', 'sub.prompts'),
+    text('p', 'st-sable-settings-hint', 'prompts.hint'));
+  const promptControls = new Map(), promptList = node('div');
+  function promptField(parent, id, fallback, summary) {
+    const input = node('textarea', 'text_pole st-sable-settings-wide'); input.name = `prompts.${id}`;
+    input.rows = id === 'rules' ? 6 : 4; input.maxLength = id === 'rules' ? 4000 : 2000;
+    bind(labels, input, id === 'rules' ? 'prompts.rules' : getSections(view.settings).find(s => s.id === id).title, 'aria-label');
+    const write = value => runtime.updateSettings({ prompts: id === 'rules' ? { rules: value } : { sections: { [id]: value } } });
+    input.addEventListener('change', () => { const value = input.value.trim(); write(!value || value === fallback ? null : value); });
+    const badge = text('small', '', 'prompts.changed'); badge.dataset.changed = ''; summary.append(badge);
+    parent.append(input);
+    const reset = button(parent, 'prompts.default', 'arrow-rotate-left', () => write(null)); reset.name = `prompts.${id}.reset`;
+    promptControls.set(id, { input, reset, badge, parent });
+  }
+  const rulesLabel = node('label', 'st-sable-settings-label'); rulesLabel.append(text('span', '', 'prompts.rules'));
+  rulesLabel.htmlFor = 'st-sable-rules'; danger.append(rulesLabel);
+  promptField(danger, 'rules', COMMON_RULES, rulesLabel); promptControls.get('rules').input.id = rulesLabel.htmlFor;
+  danger.append(promptList);
+  for (const section of getSections(view.settings).filter(s => !s.custom)) {
+    const row = node('details', 'st-sable-prompt'); row.dataset.promptSection = section.id;
+    const summary = node('summary'), glyph = node('span', 'st-sable-settings-glyph');
+    summary.append(glyph, text('span', '', section.title)); row.append(summary);
+    promptField(row, section.id, section.instructions, summary);
+    promptControls.get(section.id).glyph = glyph; promptList.append(row);
+  }
+  let resetArmed = false;
+  const resetPrompts = button(danger, () => label(resetArmed ? 'prompts.confirmResetAll' : 'prompts.resetAll'), 'eraser', () => {
+    if (!resetArmed) { resetArmed = true; resetPrompts.classList.add('st-sable-armed'); applyLabels(labels); return; }
+    resetArmed = false; resetPrompts.classList.remove('st-sable-armed');
+    runtime.updateSettings({ prompts: { rules: null, sections: Object.fromEntries([...promptControls.keys()].filter(id => id !== 'rules').map(id => [id, null])) } });
+  });
+  resetPrompts.addEventListener('blur', () => { resetArmed = false; resetPrompts.classList.remove('st-sable-armed'); applyLabels(labels); });
+  const formatMessages = messages => (messages ?? []).map(m => `=== ${m.role} ===\n${m.content}`).join('\n\n');
+  function copyButton(parent, dump, list = labels) {
+    return button(parent, 'preview.copy', 'copy', async () => {
+      try {
+        const clipboard = document.defaultView.navigator.clipboard;
+        if (clipboard?.writeText) { await clipboard.writeText(dump.textContent); notify('success', label('preview.copied')); return; }
+      } catch { /* Clipboard permissions may be unavailable; select the text instead. */ }
+      const range = document.createRange(); range.selectNodeContents(dump);
+      const selection = document.defaultView.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      notify('info', label('preview.selected'));
+    }, list);
+  }
+  danger.append(text('h5', 'st-sable-settings-subheading', 'sub.preview'));
+  const previewActions = node('div', 'st-sable-settings-buttons');
+  const previewDump = node('pre', 'st-sable-dump st-sable-settings-wide'); previewDump.dataset.preview = '';
+  button(previewActions, 'preview.show', 'eye', () => {
+    const result = runtime.preview();
+    previewDump.textContent = result ? `${formatMessages(result.messages)}\n\n${label('previewSections')}: ${result.requestedSections.join(', ')} · ${label('previewChars')}: ${result.chars} · ≈ ${Math.ceil(result.chars / 4)} ${label('previewTokens')}` : label('previewEmpty');
+  });
+  copyButton(previewActions, previewDump); danger.append(previewActions, previewDump);
+  danger.append(text('h5', 'st-sable-settings-subheading', 'sub.log'));
+  const logList = node('div', 'st-sable-log'), logEmpty = text('p', 'st-sable-settings-hint', 'logEmpty');
+  let renderedLog, renderedLanguage;
+  const logActions = node('div', 'st-sable-settings-buttons'); danger.append(logList, logEmpty, logActions);
+  button(logActions, 'log.download', 'download', () => {
+    const win = document.defaultView;
+    const url = win.URL.createObjectURL(new win.Blob([JSON.stringify(view.log ?? [], null, 2)], { type: 'application/json' }));
+    const link = node('a'); link.href = url; link.download = 'sable-log.json'; link.hidden = true;
+    document.body.append(link); link.click(); link.remove(); win.setTimeout(() => win.URL.revokeObjectURL(url), 1000);
+  });
+  button(logActions, 'log.clear', 'trash-can', () => runtime.clearLog());
+  function renderDanger() {
+    const texts = getPromptTexts(view.settings), sections = getSections(view.settings);
+    let previous = null;
+    for (const id of ['rules', ...view.settings.order.filter(id => promptControls.has(id))]) {
+      const control = promptControls.get(id), rules = id === 'rules';
+      const changed = rules ? view.settings.prompts?.rules != null : view.settings.prompts?.sections?.[id] != null;
+      setValue(control.input, rules ? texts.rules : texts.sections[id]); control.reset.disabled = !changed; control.badge.hidden = !changed;
+      if (rules) continue;
+      control.glyph.replaceChildren(sectionGlyph(document, sections.find(s => s.id === id), view.settings.visual?.icons));
+      const expected = previous ? previous.nextSibling : promptList.firstChild;
+      if (expected !== control.parent) promptList.insertBefore(control.parent, expected);
+      previous = control.parent;
+    }
+    // The log array is replaced only by a recorded run or Clear; other publishes (sliders, folds) keep the rows.
+    if (view.log === renderedLog && view.settings.language === renderedLanguage) return;
+    renderedLog = view.log; renderedLanguage = view.settings.language;
+    const currentChat = getContext().getCurrentChatId();
+    const open = new Set([...logList.children].filter(row => row.open).map(row => row.dataset.at));
+    logList.replaceChildren(); logEmpty.hidden = !!view.log?.length;
+    for (const entry of view.log ?? []) {
+      const row = node('details', 'st-sable-log-entry'); row.dataset.status = entry.status; row.dataset.at = String(entry.at); row.open = open.has(row.dataset.at);
+      const date = new Date(entry.at), time = [date.getHours(), date.getMinutes(), date.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+      // The chat is named only when the entry came from another chat.
+      const elsewhere = entry.chatId !== undefined && entry.chatId !== currentChat ? ` · ${entry.chatId}` : '';
+      row.append(node('summary', '', `${time} · ${label(`log.${entry.status}`)} · ${entry.ms} ${label('duration')}${elsewhere} · ${entry.requestedSections.join(', ')} · ${entry.inChars} → ${entry.outChars}`));
+      if (entry.error || entry.warnings.length) row.append(node('pre', 'st-sable-dump st-sable-settings-wide', [entry.error, ...entry.warnings].filter(Boolean).join('\n')));
+      const rowLabels = [];
+      for (const [key, value] of [['log.request', formatMessages(entry.request)], ['log.response', entry.response ?? '']]) {
+        const dump = node('pre', 'st-sable-dump st-sable-settings-wide', value);
+        const actions = node('div', 'st-sable-settings-buttons'); actions.append(node('span', '', label(key)));
+        copyButton(actions, dump, rowLabels); row.append(actions, dump);
+      }
+      applyLabels(rowLabels); logList.append(row);
+    }
+  }
+
   function refillProfiles() {
     const select = controls.get('profileId'); select.replaceChildren();
     const add = (value, caption, disabled = false) => {
@@ -540,6 +649,7 @@ export function createSettings(runtime, { document = globalThis.document,
     renderSections();
     renderCardColors();
     renderCustom();
+    renderDanger();
     const visual = normalizeVisual(view.settings.visual);
     for (const [key, input] of visualControls) setValue(input, visual[key]);
     renderVisualExtras(visual);

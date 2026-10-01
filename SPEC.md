@@ -327,3 +327,15 @@ The drawer editor is generated from the schema, so built-in and custom sections 
 - `id` next to `name` is read-only, and new rows derive it from the name.
 
 An open editor keeps its node, draft and focus across runtime renders (only its header refreshes). It warns when its section changed underneath. Opening, cancelling and editing rows touch only that card.
+
+## 14. Danger zone
+
+Settings contain `prompts: { rules: null, sections: {} }`. Rules replace `COMMON_RULES` (up to 4000 characters); built-in section ids map to replacement instructions (up to 2000 characters). Values are trimmed; empty or default values are removed, unknown ids dropped. Normalization is idempotent. Partial patches merge section overrides; `null` removes one. Custom blocks keep their own instructions. `getPromptTexts(settings, sections = SECTIONS)` returns effective `{ rules, sections: { [id]: instructions } }`. The language line, output envelope, key list and JSON schema remain fixed.
+
+`runtime.preview()` returns `{ mesId, messages, requestedSections, chars }` for the last character reply, forcing every enabled section due just like Run now. It shares request preparation with execution, sends nothing, does not write metadata, cancel or publish, and returns `null` for disabled extensions, group chats or missing character replies.
+
+`snapshot().log` contains newest-first runtime entries, capped at `LOG_LIMIT = 5`:
+`{ at, chatId, mesId, swipeId, ms, status, requestedSections, validSections, warnings, error, request, response, inChars, outChars }`.
+Statuses are `ok`, `invalid`, `failed`, `dropped` (including cancellation) and `skipped` (nothing due; request and response are null). Request is the exact messages array sent; response is the raw service text, even when invalid. Errors use `String(error?.message ?? error)` and parse warnings are retained. Entries are recorded before the completion publish; timestamps uniquely identify rows. `runtime.clearLog()` empties the log and publishes. Chat switches retain it.
+
+No log is persisted to chat metadata or extension settings: requests contain card and chat text, while settings may be shared between devices. Reload loses the log. The closed Danger zone settings group offers instruction resets, text-only preview/copy, and expandable request/response entries with copy, explicit JSON download and clear. Expanded log rows survive publishes. All diagnostic content is untrusted text and rendered with `textContent`.

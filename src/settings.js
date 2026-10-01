@@ -1,4 +1,5 @@
 import { SECTIONS, SECTION_ORDER, getSections, normalizeCustomSections, orderedSectionIds } from './sections.js';
+import { COMMON_RULES } from './prompt.js';
 
 export const SETTINGS_KEY = 'sableTrackers';
 // Drawer look (SPEC §12). Ranges are inclusive; the UI sliders use the same bounds.
@@ -19,6 +20,7 @@ export const DEFAULTS = {
   cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3,
   perChatOverrides: false, showPanel: true, showFloatingButton: true,
   hideOff: true,
+  prompts: { rules: null, sections: {} },
   order: SECTION_ORDER, customSections: [],
   folded: {}, pinned: false, floatingPosition: null,
   sections: Object.fromEntries(SECTIONS.map(s => [s.id, { mode: s.defaultMode, period: s.period }])),
@@ -53,6 +55,15 @@ export function normalizeSettings(value = {}) {
       period: Number.isInteger(period) && period >= 0 ? period : s.period }];
   }));
   result.visual = normalizeVisual(value.visual);
+  const override = (value, limit, fallback) => {
+    const text = typeof value === 'string' ? value.trim().slice(0, limit).trim() : '';
+    return text && text !== fallback ? text : null;
+  };
+  result.prompts = { rules: override(value.prompts?.rules, 4000, COMMON_RULES), sections: {} };
+  for (const section of SECTIONS) {
+    const text = override(value.prompts?.sections?.[section.id], 2000, section.instructions);
+    if (text) result.prompts.sections[section.id] = text;
+  }
   return result;
 }
 
@@ -121,7 +132,9 @@ export function saveSettings(ctx, patch) {
   const customSections = normalizeCustomSections(patch.customSections ?? previous.customSections).map(item => ({
     ...item, ...patch.sections?.[item.id], id: item.id,
   }));
-  ctx.extensionSettings[SETTINGS_KEY] = normalizeSettings({ ...previous, ...patch, sections, customSections });
+  const prompts = { ...previous.prompts, ...patch.prompts,
+    sections: { ...previous.prompts.sections, ...patch.prompts?.sections } };
+  ctx.extensionSettings[SETTINGS_KEY] = normalizeSettings({ ...previous, ...patch, sections, customSections, prompts });
   ctx.saveSettingsDebounced();
   return ctx.extensionSettings[SETTINGS_KEY];
 }

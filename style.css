@@ -482,6 +482,21 @@
 
 /* Appearance settings: sub-headings, background picker, theme tools. */
 .st-sable-settings-subheading { margin: 12px 0 4px; font-size: .8em; font-weight: 600; letter-spacing: .02em; opacity: .8; }
+.st-sable-settings .st-sable-danger { border-left: 2px solid rgba(224,86,75,.6); border-left: 2px solid color-mix(in srgb, #e0564b 60%, transparent); padding-left: 10px; min-width: 0; }
+.st-sable-settings :is(.st-sable-danger, .st-sable-prompt, .st-sable-log-entry) > summary { min-height: 36px; padding-block: 8px; cursor: pointer; overflow-wrap: anywhere; }
+.st-sable-danger > summary > h4 { display: inline; margin: 0; opacity: 1; }
+.st-sable-danger > summary > h4 > i { margin-right: 8px; }
+.st-sable-settings .st-sable-danger .st-sable-settings-wide { display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; }
+.st-sable-settings .st-sable-dump { max-height: 40vh; overflow: auto; white-space: pre-wrap; word-break: break-word; font: 12px/1.4 monospace; }
+.st-sable-danger [data-changed] { margin-left: 8px; font-size: .75em; opacity: .7; }
+.st-sable-danger > .st-sable-settings-label { display: block; margin: 10px 0 4px; font-size: .8em; font-weight: 600; letter-spacing: .02em; opacity: .8; }
+.st-sable-prompt > summary > .st-sable-settings-glyph { display: inline-block; margin-right: 6px; }
+.st-sable-prompt > .st-sable-settings-wide { margin-top: 4px; }
+.st-sable-prompt, .st-sable-log-entry { min-width: 0; }
+@container (max-width: 480px) {
+  .st-sable-settings .st-sable-danger { padding-left: 6px; }
+  .st-sable-danger .st-sable-settings-buttons { flex-wrap: wrap; }
+}
 .st-sable-settings-heading + .st-sable-settings-subheading { margin-top: 2px; }
 .st-sable-settings-grid > .st-sable-settings-wide { grid-column: 1 / -1; }
 .st-sable-settings-group[data-group="visual"] .st-sable-settings-inline > select.text_pole { width: min(12em, 58%); text-overflow: ellipsis; }

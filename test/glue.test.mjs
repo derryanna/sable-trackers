@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakeST, deferred } from './fakes/st.mjs';
 import { createRuntime } from '../src/run.js';
-import { loadSettings, saveSettings, effectiveModes } from '../src/settings.js';
+import { loadSettings, saveSettings, effectiveModes, normalizeSettings } from '../src/settings.js';
+import { COMMON_RULES } from '../src/prompt.js';
+import { SECTIONS } from '../src/sections.js';
 import { loadStore, saveStore, putEntry, currentEntry, pruneEntries } from '../src/store.js';
 import { SECTION_ORDER } from '../src/sections.js';
 
@@ -16,6 +18,95 @@ function setup(t) {
 const data = fake => fake.ctx.chatMetadata.sableTrackers;
 const injection = fake => fake.calls.prompts.at(-1)[1];
 const answer = location => `<sable_state>${JSON.stringify({ world: { location } })}</sable_state>`;
+
+test('prompt settings trim, clamp, drop defaults and merge partial overrides idempotently', () => {
+  const value = normalizeSettings({ prompts: { rules: ' x '.repeat(2000), sections: {
+    world: ' y '.repeat(1000), threads: '  ', offscreen: SECTIONS.find(s => s.id === 'offscreen').instructions,
+    unknown: 'ignore', npcs: ' Keep names ',
+  } } });
+  assert.ok(value.prompts.rules.length <= 4000); assert.ok(value.prompts.sections.world.length <= 2000);
+  assert.equal(value.prompts.sections.npcs, 'Keep names');
+  assert.deepEqual(Object.keys(value.prompts.sections), ['world', 'npcs']);
+  assert.equal(JSON.stringify(normalizeSettings(value)), JSON.stringify(value));
+  assert.deepEqual(normalizeSettings({ prompts: { rules: ` ${COMMON_RULES} ` } }).prompts, { rules: null, sections: {} });
+  assert.equal(normalizeSettings({ prompts: { rules: '  ' } }).prompts.rules, null);
+  const { ctx } = createFakeST();
+  saveSettings(ctx, { prompts: { rules: 'Rules', sections: { world: 'World' } } });
+  saveSettings(ctx, { prompts: { sections: { threads: 'Threads' } } });
+  assert.deepEqual(loadSettings(ctx).prompts, { rules: 'Rules', sections: { world: 'World', threads: 'Threads' } });
+  saveSettings(ctx, { prompts: { sections: { world: null } } });
+  assert.deepEqual(loadSettings(ctx).prompts.sections, { threads: 'Threads' });
+});
+
+test('preview matches refresh exactly without requests, metadata writes or publishes', async t => {
+  const fake = setup(t); const { runtime, calls, ctx } = fake;
+  assert.equal(runtime.preview(), null); fake.add('A reply'); fake.add('A system note', { is_system: true });
+  await fake.emit('WORLD_INFO_ACTIVATED', [{ content: 'Activated lore' }]);
+  runtime.updateSettings({ language: 'en', prompts: { rules: 'Custom rules' } });
+  const metadata = JSON.stringify(ctx.chatMetadata), saves = calls.metadata.length, publishes = calls.prompts.length;
+  const preview = runtime.preview();
+  assert.equal(preview.mesId, 0); assert.equal(calls.requests.length, 0); assert.equal(calls.metadata.length, saves);
+  assert.equal(calls.prompts.length, publishes); assert.equal(JSON.stringify(ctx.chatMetadata), metadata);
+  assert.equal(preview.chars, preview.messages.reduce((sum, m) => sum + m.content.length, 0));
+  await runtime.refresh();
+  assert.deepEqual(preview.messages, calls.requests[0][1]);
+  const entry = runtime.snapshot().log[0];
+  assert.equal(entry.status, 'ok'); assert.deepEqual(entry.request, calls.requests[0][1]);
+  assert.equal(entry.response, answer('Observatory')); assert.equal(entry.outChars, entry.response.length);
+  assert.deepEqual(entry.validSections, ['world']); assert.equal(entry.chatId, 'chat-a');
+  assert.equal(Object.hasOwn(ctx.chatMetadata.sableTrackers, 'log'), false);
+  assert.equal(Object.hasOwn(ctx.extensionSettings.sableTrackers, 'log'), false);
+  ctx.groupId = 'group'; assert.equal(runtime.preview(), null); ctx.groupId = null;
+  runtime.updateSettings({ enabled: false }); assert.equal(runtime.preview(), null);
+});
+
+test('preview before runtime start does not initialize chat metadata', () => {
+  const fake = createFakeST(); fake.add();
+  const runtime = createRuntime(fake.getContext);
+  assert.ok(runtime.preview()); assert.deepEqual(fake.ctx.chatMetadata, {});
+  assert.equal(fake.calls.requests.length, 0); assert.equal(fake.calls.metadata.length, 0); assert.equal(fake.calls.prompts.length, 0);
+});
+
+test('request log retains invalid raw output, failures, skipped runs and a five-entry history', async t => {
+  const fake = setup(t), { runtime } = fake; fake.add();
+  fake.respond('nonsense'); await runtime.refresh();
+  assert.equal(runtime.snapshot().log[0].status, 'invalid');
+  assert.equal(runtime.snapshot().log[0].response, 'nonsense'); assert.ok(runtime.snapshot().log[0].warnings.length);
+  fake.respond(() => { throw new Error('Network failed'); }); await runtime.refresh();
+  assert.equal(runtime.snapshot().log[0].status, 'failed'); assert.equal(runtime.snapshot().log[0].error, 'Network failed');
+  runtime.updateSettings({ sections: Object.fromEntries(SECTION_ORDER.map(id => [id, { mode: 'off' }])) });
+  await runtime.refresh(); const skipped = runtime.snapshot().log[0];
+  assert.equal(skipped.status, 'skipped'); assert.equal(skipped.request, null); assert.equal(skipped.response, null);
+  for (let i = 0; i < 3; i++) await runtime.refresh();
+  const log = runtime.snapshot().log; assert.equal(log.length, 5);
+  assert.ok(log.every((entry, i) => !i || log[i - 1].at > entry.at));
+  fake.ctx.chatId = 'chat-b'; await fake.emit('CHAT_CHANGED'); assert.deepEqual(runtime.snapshot().log, log);
+  let published; const unsubscribe = runtime.subscribe(view => { published = view.log; });
+  runtime.clearLog(); assert.deepEqual(published, []); assert.deepEqual(runtime.snapshot().log, []); unsubscribe();
+});
+
+test('cancel logs dropped before publishing, including AbortError and late raw responses', async t => {
+  const fake = setup(t), { runtime } = fake; fake.add();
+  fake.respond((id, messages, tokens, custom) => new Promise((resolve, reject) => {
+    custom.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+  }));
+  const pending = runtime.refresh(); runtime.updateSettings({ enabled: false });
+  assert.equal(runtime.snapshot().log[0].status, 'dropped'); await pending;
+  assert.equal(runtime.snapshot().log.length, 1);
+  runtime.updateSettings({ enabled: true }); const response = deferred(); fake.respond(() => response.promise);
+  const late = runtime.refresh(); runtime.updateSettings({ enabled: false }); response.resolve({ content: 'Late raw output' }); await late;
+  assert.equal(runtime.snapshot().log.length, 2); assert.equal(runtime.snapshot().log[0].response, 'Late raw output');
+  assert.equal(runtime.snapshot().log[0].status, 'dropped');
+  runtime.updateSettings({ enabled: true }); const next = deferred(); fake.respond(() => next.promise);
+  const cleared = runtime.refresh(); runtime.updateSettings({ enabled: false }); runtime.clearLog();
+  next.resolve('Ignored after clearing'); await cleared; assert.deepEqual(runtime.snapshot().log, []);
+});
+
+test('unannounced message changes keep raw discarded responses in the log', async t => {
+  const fake = setup(t), response = deferred(); fake.add(); fake.respond(() => response.promise);
+  const pending = fake.runtime.refresh(); fake.ctx.chat[0].mes = 'A different reply'; response.resolve(answer('Old location')); await pending;
+  const entry = fake.runtime.snapshot().log[0]; assert.equal(entry.status, 'dropped'); assert.equal(entry.response, answer('Old location'));
+});
 
 test('settings fill defaults, preserve other extensions, normalize and resolve overrides', () => {
   const { ctx } = createFakeST();

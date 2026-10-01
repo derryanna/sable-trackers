@@ -65,6 +65,9 @@ Cosmetic settings and modes preserve requests; refresh shares active work and fo
 ## Round 4b — per-card colours [x]
 Normalized per-card colours, preset preservation and theme round-trips; ordered built-in/custom colour controls with auto reset and live preview; scoped drawer accents and borders, including retained editors. English/Russian labels and README updated. Validation: 106 tests pass and changed JavaScript syntax checks pass. Live Android layout remains unverified. Working-tree delivery only; no commit.
 
+## Round 5 — danger zone [x]
+Editable built-in prompt instructions with normalized partial overrides and resets; shared request preparation for exact Run now previews; runtime-only five-entry request log retaining raw invalid and dropped responses. Closed settings group includes safe text dumps, copy/select fallback, JSON download and clear, with English/Russian labels and documentation. Validation: 115 tests pass, all changed JavaScript syntax checks and diff whitespace checks pass. Live SillyTavern/Android layout and native clipboard permissions remain unverified. Working-tree delivery only; no commit.
+
 ## Notes from previous tasks
 (append here)
 - T5 complete: Extensions settings with localized fields, cc-only profile selection and refresh, per-chat override reset, legacy import and manual run; English README with Russian quick start. jsdom coverage and syntax checks pass. No commit created (requested).

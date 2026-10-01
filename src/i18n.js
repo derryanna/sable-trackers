@@ -2,6 +2,16 @@ export const DEFAULT_LANGUAGE = 'ru';
 
 const STRINGS = {
   en: {
+    'group.danger': 'Danger zone', dangerHint: 'Advanced instructions and request diagnostics. The log stays in memory only and is lost on reload.',
+    'sub.prompts': 'Model instructions', 'sub.preview': 'What the model receives', 'sub.log': 'Request log',
+    'prompts.rules': 'Common rules', 'prompts.default': 'Default', 'prompts.changed': 'changed',
+    'prompts.resetAll': 'Reset all instructions', 'prompts.confirmResetAll': 'Tap again to reset all instructions',
+    'prompts.hint': 'The JSON schema and output format are fixed and do not change; if trackers stop updating, restore the default instructions.',
+    'preview.show': 'Show prompt', 'preview.copy': 'Copy', 'preview.copied': 'Copied', 'preview.selected': 'Text selected; use Copy.',
+    previewEmpty: 'No character reply or the extension is disabled', previewSections: 'Sections', previewChars: 'Characters', previewTokens: 'tokens',
+    logEmpty: 'The log is empty', 'log.download': 'Download log', 'log.clear': 'Clear',
+    'log.ok': 'done', 'log.invalid': 'unparsed response', 'log.failed': 'error', 'log.dropped': 'outdated', 'log.skipped': 'no request',
+    'log.request': 'Request', 'log.response': 'Response',
     seedLegacy: 'Import from old Sable',
     profileRequired: 'Sable: select a connection profile in settings.',
     profileUnsupported: 'Sable: select a chat-completion connection profile.',
@@ -14,6 +24,16 @@ const STRINGS = {
     here: 'here', away: 'away', unknown: 'unknown', turns: 'turns', remember: "don't forget",
   },
   ru: {
+    'group.danger': 'Опасная зона', dangerHint: 'Расширенные инструкции и диагностика запросов. Журнал хранится только в памяти и исчезает при перезагрузке.',
+    'sub.prompts': 'Инструкции модели', 'sub.preview': 'Что получает модель', 'sub.log': 'Журнал запросов',
+    'prompts.rules': 'Общие правила', 'prompts.default': 'По умолчанию', 'prompts.changed': 'изменено',
+    'prompts.resetAll': 'Сбросить все инструкции', 'prompts.confirmResetAll': 'Нажмите ещё раз, чтобы сбросить все инструкции',
+    'prompts.hint': 'Схема JSON и формат ответа фиксированы и не меняются; если трекеры перестали обновляться — верните инструкции по умолчанию.',
+    'preview.show': 'Показать промпт', 'preview.copy': 'Копировать', 'preview.copied': 'Скопировано', 'preview.selected': 'Текст выделен; выберите «Копировать».',
+    previewEmpty: 'Нет ответа персонажа или расширение выключено', previewSections: 'Разделы', previewChars: 'Символы', previewTokens: 'токенов',
+    logEmpty: 'Журнал пуст', 'log.download': 'Скачать журнал', 'log.clear': 'Очистить',
+    'log.ok': 'готово', 'log.invalid': 'ответ не разобран', 'log.failed': 'ошибка', 'log.dropped': 'устарел', 'log.skipped': 'без запроса',
+    'log.request': 'Запрос', 'log.response': 'Ответ',
     seedLegacy: 'Импорт из старого Sable',
     profileRequired: 'Sable: выберите профиль подключения в настройках.',
     profileUnsupported: 'Sable: выберите профиль подключения chat-completion.',

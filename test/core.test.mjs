@@ -2,13 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { cleanMessage } from '../src/clean.js';
-import { buildPrompt } from '../src/prompt.js';
+import { buildPrompt, COMMON_RULES, getPromptTexts } from '../src/prompt.js';
 import { parseStateOutput } from '../src/parse.js';
 import { mergeState } from '../src/merge.js';
 import { buildDigest } from '../src/digest.js';
 import { SECTION_ORDER, SECTIONS } from '../src/sections.js';
 
 const fixture = async name => JSON.parse(await readFile(new URL(`../fixtures/${name}`, import.meta.url), 'utf8'));
+
+test('prompt overrides change only instructions and preserve the default format', () => {
+  assert.deepEqual(getPromptTexts({}), { rules: COMMON_RULES, sections: Object.fromEntries(SECTIONS.map(s => [s.id, s.instructions])) });
+  const defaults = buildPrompt().messages[0].content;
+  assert.ok(defaults.startsWith(COMMON_RULES)); assert.ok(defaults.includes('OUTPUT SCHEMA'));
+  assert.equal(buildPrompt({ settings: { prompts: { rules: 'Custom rules' } } }).messages[0].content,
+    defaults.replace(COMMON_RULES, 'Custom rules'));
+  const world = SECTIONS.find(s => s.id === 'world');
+  assert.equal(buildPrompt({ settings: { prompts: { sections: { world: 'Track only location.' } } } }).messages[0].content,
+    defaults.replace(`WORLD: ${world.instructions}`, 'WORLD: Track only location.'));
+});
 
 test('registry contains the specified ordered sections and pure metadata', () => {
   assert.deepEqual(SECTIONS.map(x => x.id), SECTION_ORDER);

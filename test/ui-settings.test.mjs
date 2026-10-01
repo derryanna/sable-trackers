@@ -7,6 +7,7 @@ import { createDrawer } from '../src/ui/drawer.js';
 import { createRuntime } from '../src/run.js';
 import { createFakeST } from './fakes/st.mjs';
 import { VISUAL_DEFAULTS, normalizeSettings } from '../src/settings.js';
+import { COMMON_RULES } from '../src/prompt.js';
 
 function setup(t, profileEvent = false, host = 'extensions_settings2') {
   const dom = new JSDOM(`<body><div id="extensions-settings-button"><button class="drawer-toggle"></button></div><div id="${host}"></div></body>`);
@@ -37,12 +38,59 @@ function setup(t, profileEvent = false, host = 'extensions_settings2') {
   return { dom, fake, runtime, ui, calls, query, change, input, button };
 }
 
+test('danger zone edits and resets instructions while preserving focused drafts', t => {
+  const { query, change, button, runtime, calls, dom } = setup(t);
+  const danger = query('[data-group="danger"]'); assert.equal(danger.tagName, 'DETAILS'); assert.equal(danger.open, false);
+  assert.ok(danger.querySelector('summary h4 .fa-triangle-exclamation'));
+  const rules = query('[name="prompts.rules"]'), reset = query('[name="prompts.rules.reset"]');
+  assert.equal(rules.value, COMMON_RULES); assert.equal(reset.disabled, true);
+  change('[name="prompts.rules"]', 'My rules'); assert.deepEqual(calls.patches.at(-1), { prompts: { rules: 'My rules' } });
+  assert.equal(reset.disabled, false); assert.equal(query('[data-changed]').hidden, false);
+  reset.click(); assert.deepEqual(calls.patches.at(-1), { prompts: { rules: null } }); assert.equal(rules.value, COMMON_RULES);
+  change('[name="prompts.world"]', 'World instructions');
+  assert.deepEqual(calls.patches.at(-1), { prompts: { sections: { world: 'World instructions' } } });
+  query('[name="prompts.world.reset"]').click(); assert.equal(runtime.snapshot().settings.prompts.sections.world, undefined);
+  danger.open = true; rules.focus(); rules.value = 'Unfinished draft'; runtime.publish(); assert.equal(rules.value, 'Unfinished draft');
+  rules.blur(); change('[name="prompts.rules"]', 'Saved rules'); change('[name="prompts.world"]', 'World instructions');
+  button('Reset all instructions').click(); assert.equal(runtime.snapshot().settings.prompts.rules, 'Saved rules');
+  button('Tap again to reset all instructions').click(); assert.deepEqual(runtime.snapshot().settings.prompts, { rules: null, sections: {} });
+  runtime.updateSettings({ order: ['threads', 'world'] });
+  assert.equal(query('[data-prompt-section]').dataset.promptSection, 'threads');
+  runtime.updateSettings({ language: 'ru' }); assert.equal(danger.querySelector('h4').textContent, 'Опасная зона');
+});
+
+test('danger preview, safe request log, copy, download and clear', async t => {
+  const { query, button, runtime, fake, dom } = setup(t);
+  button('Show prompt').click(); assert.equal(query('[data-preview]').textContent, 'No character reply or the extension is disabled');
+  fake.add(); button('Show prompt').click();
+  const preview = query('[data-preview]').textContent;
+  assert.ok(preview.includes('=== system ===')); assert.ok(preview.includes('Sections: world'));
+  assert.ok(preview.includes('Characters:')); assert.ok(preview.includes('≈ ')); assert.equal(fake.calls.requests.length, 0);
+  let copied;
+  Object.defineProperty(dom.window.navigator, 'clipboard', { value: { writeText: async text => { copied = text; } }, configurable: true });
+  button('Copy').click(); await Promise.resolve(); assert.equal(copied, preview);
+  Object.defineProperty(dom.window.navigator, 'clipboard', { value: undefined });
+  button('Copy').click(); assert.equal(dom.window.getSelection().toString(), preview);
+  fake.respond({ content: '<b>x</b>' }); await runtime.refresh();
+  const row = query('.st-sable-log-entry'); assert.ok(row); assert.equal(row.dataset.status, 'invalid');
+  assert.equal(row.querySelector('b'), null); assert.equal([...row.querySelectorAll('pre')].at(-1).textContent, '<b>x</b>');
+  row.open = true; runtime.publish(); assert.equal(query('.st-sable-log-entry').open, true);
+  let blob, downloaded;
+  dom.window.URL.createObjectURL = value => { blob = value; return 'blob:log'; };
+  dom.window.URL.revokeObjectURL = () => {};
+  dom.window.HTMLAnchorElement.prototype.click = function () { downloaded = this.download; };
+  button('Download log').click(); assert.equal(downloaded, 'sable-log.json');
+  const contents = await new Promise(resolve => { const reader = new dom.window.FileReader(); reader.onload = () => resolve(reader.result); reader.readAsText(blob); });
+  assert.deepEqual(JSON.parse(contents), runtime.snapshot().log);
+  button('Clear').click(); assert.equal(query('.st-sable-log-entry'), null); assert.ok(query('.st-sable-log').nextSibling.textContent.includes('The log is empty'));
+});
+
 test('settings render all fields with safe profile names and only cc profiles enabled', t => {
   const { ui, query } = setup(t);
   assert.equal(ui.element.parentElement.id, 'extensions_settings2');
   assert.equal(query('.inline-drawer-header b').textContent, 'Sable Trackers');
   assert.deepEqual([...ui.element.querySelectorAll('.st-sable-settings-heading')].map(h => h.textContent),
-    ['Connection', 'Context', 'Sections', 'Custom blocks', 'Appearance', 'Actions']);
+    ['Connection', 'Context', 'Sections', 'Custom blocks', 'Appearance', 'Actions', 'Danger zone']);
   assert.ok(ui.element.classList.contains('st-sable-settings'));
   assert.deepEqual([...query('[data-group="sections"]').querySelectorAll('[data-section]')].map(row => row.dataset.section),
     ['world', 'offscreen', 'threads', 'story', 'npcs', 'thoughts', 'bonds', 'dossiers', 'planner', 'banlist']);
