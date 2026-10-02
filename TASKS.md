@@ -126,6 +126,19 @@ shows up in replies.
 Done: `putEntry` keeps the newest `keep` distinct `mesId`s with up to `SWIPES_PER_MESSAGE` (6) swipes each; `settings.role`
 (system | user | assistant) is normalized, passed to `setExtensionPrompt` on every call and editable in Context next to depth; hint, README and SPEC §4/§5 updated; store, glue and settings-UI tests added.
 
+## T12 — Dice as an integration; scope «others»; intimacy defaults  [ ]
+SPEC §15 after the 2 Oct evening decisions. (1) Scope gains `others` (everyone except `{{user}}`) with a
+per-pack `scopeDefault`; combat `all`, intimacy `others`; `settings.packScope` accepts the three values,
+the drawer segment and the settings select offer «все / только я / кроме меня»; the `{{scope}}` sentence
+for `others` says the user's state, feelings and responses are never recorded or implied. (2) The
+`combat_roll` section is removed (old values in rings are ignored); the roll lives in
+`chat_metadata.sableTrackers.roll`, set by `runtime.rollDice(sectionId, key, chance)`, shown inline on
+the "%" row, injected as the last digest line for the next generation only and consumed when a character
+reply arrives after `forMesId`; 🎲 appears on any "%" row of a stats/kv section. (3) The intimacy pack's
+descriptions (ru/en) drop the dice mention; combat's keep one short clause. Done when: tests cover the
+three scopes in the prompt, the default per pack, the roll lifecycle (set → injected once → consumed →
+greyed), the inline row result, and the absence of a roll card; README and SPEC examples updated.
+
 ## Notes from previous tasks
 (append here)
 - T8b → T8c/T9: the drawer's pack button sits before ✕ (`[data-control="packs"]`, `fa-box-open` / 🎒) and opens `#st-sable-sheet` inside the drawer (scrim + bottom panel; Escape, ✕ and a tap on the scrim close it). Pack cards go through the custom-section path: `stats` rows are `.st-sable-scale-row.st-sable-stat-row` (bar via `[role=meter]`, `.st-sable-counter` when `max` is null, `.st-sable-badge` + `.st-sable-reason` in a `details.st-sable-delta` when `delta` ≠ 0, `.st-sable-dice` only on `%` keys of packs with a `<pack>_roll` text section), `tags` are `.st-sable-tag.st-sable-ban` chips. `createDrawer(runtime, { random })` injects the dice randomness (default crypto). `packTitle(title)` in `src/ui/drawer.js` splits the "18+" mark into a badge; `exportPack(pack, { random, lang })` localizes a built-in copy. The settings block editor is `createBlockRow(io)` (custom blocks and pack cards share it; `io.rename` adds the key field). Enabled pack sections also appear in the Sections table and card colours. `fixtures/state-packs.json` (T8c) is merged by `dev/preview.html` when present (`state` key or a bare state) with both built-in packs on.

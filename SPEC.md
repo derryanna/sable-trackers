@@ -409,25 +409,37 @@ their rules through `prompts.packs[packId]` (≤ 2000 chars), both in the Danger
 zone with the same reset buttons as §14. Section modes, periods, order and
 card colours of a built-in pack are ordinary settings.
 
-Scope: a pack may declare `scope: true`; the user then picks per pack
-(`settings.packScope[packId]`: `all` | `user`, default `all`) whether
-per-participant sections track everyone present or only `{{user}}`. The prompt
-builder replaces `{{scope}}` in the pack's instructions with the matching
-sentence. Combat and intimacy both declare it.
+Scope: a pack may declare `scope: true` together with a `scopeDefault` of
+`all` | `user` | `others`; the user then picks per pack
+(`settings.packScope[packId]`, default = the pack's `scopeDefault`) whether
+per-participant sections track everyone present (`all`), only `{{user}}`
+(`user`) or everyone except `{{user}}` (`others`). The prompt builder replaces
+`{{scope}}` in the pack's instructions with the matching sentence; for `others`
+the sentence also says that the user's character's state, feelings and
+responses are never recorded or implied. Combat declares `all`, intimacy
+declares `others`: the user's own part of an intimate scene is theirs to play,
+and a tracker line about their arousal would push the main model to write it
+for them (decided 2 Oct 2026).
 
-Dice (optional, part of the combat pack): a `stats`/`kv` item whose key ends in
-"%" (e.g. `crit %`) gets a 🎲 button on its row. The tap rolls d100 locally
-(`roll(chance, random)` pure, `crypto.getRandomValues` in the UI), never calls
-a model, and writes `LAST ROLL: 87 vs crit 15 → miss` into the pack's `text`
-section `<pack>_roll` through `runtime.editState`, so it is injected into the
-next reply like any edit. Nothing else in the extension rolls or decides.
+Dice (an integration, not a card; decided 2 Oct 2026): a `stats`/`kv` item
+whose key ends in "%" (e.g. `crit %`) gets a 🎲 button on its row, in any pack
+or custom section. The tap rolls d100 locally (`roll(chance, random)` pure,
+`crypto.getRandomValues` in the UI), never calls a model, and stores the result
+as `chat_metadata.sableTrackers.roll = { sectionId, key, label, chance, roll,
+hit, forMesId, at }` (one pending roll per chat, the newest wins). The row shows
+the result inline next to the button (`87 → miss`, highlighted while pending)
+and the digest ends with one line, `ROLL: 87 vs crit 15 → miss (resolve the
+next action with it)`, for the next generation only: when a character reply
+arrives after `forMesId`, the roll is consumed, the line leaves the injection
+and the row keeps the last result greyed out until the next roll. There is no
+roll section and no roll card; nothing else in the extension rolls or decides.
+The intimacy pack has no "%" rows and its description does not mention dice.
 
 Built-in packs for v1 (content is a task; shapes are fixed here):
 - `combat`: `combat_scene` (text: who fights whom, phase, terrain, range),
   `combat_stats` (stats per participant: `Name · HP`, `Name · stamina`, max 12),
   `combat_effects` (tags: wounds and conditions, max 10), `combat_odds`
-  (kv: `crit %`, `hit %`, initiative, max 6), `combat_roll` (text, written by
-  the dice only; instructions tell the model to copy it unchanged). Rules: no
+  (kv: `crit %`, `hit %`, initiative, max 6). Rules: no
   damage without a described hit, numbers move only for shown events, death
   only when written.
 - `intimacy` (18+): `intimacy_scene` (text: position, pace, who leads, consent
