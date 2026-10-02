@@ -1,4 +1,4 @@
-import { getSections, orderedSectionIds, BOND_SCALES } from '../sections.js';
+import { getSections, groupedOrder, BOND_SCALES } from '../sections.js';
 import { t } from '../i18n.js';
 import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
 import { sanitizeSection } from '../parse.js';
@@ -171,8 +171,36 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   let freshCards = new Set(), lastEntryKey, rolling = null, rolled = null;
   const cleanups = [];
   const label = key => t(key, view.settings.language);
-  // Enabled packs add their cards after the built-in and custom ones (SPEC §15).
+  // Enabled packs add their cards as one group each (SPEC §15): `settings.order` stays flat, the drawer reads it grouped.
   const sections = () => getSections(view.settings, view.packs?.enabled ?? []);
+  const enabled = () => view.packs?.enabled ?? [];
+  const grouped = () => groupedOrder(view.settings.order, sections(), enabled());
+  const packKey = packId => `pack:${packId}`;
+  /** The enabled pack a section belongs to, or null for a flat card. */
+  const packOf = (id, list = sections()) => { const section = list.find(item => item.id === id); return section?.pack && enabled().includes(section.pack) ? section.pack : null; };
+  /** The grouped order with every pack block collapsed into one `pack:<id>` token: the top-level items of the list. */
+  function tokens() {
+    const result = [], list = sections();
+    for (const id of grouped()) { const pack = packOf(id, list), token = pack ? packKey(pack) : id; if (result.at(-1) !== token) result.push(token); }
+    return result;
+  }
+  /** Moves a flat card or a whole pack block one step among the top-level items (the group handle and its ↑/↓). */
+  function moveToken(token, delta) {
+    const list = tokens(), index = list.indexOf(token), target = index + delta;
+    if (index < 0 || target < 0 || target >= list.length) return;
+    [list[index], list[target]] = [list[target], list[index]];
+    const order = grouped(), all = sections();
+    runtime.updateSettings({ order: list.flatMap(item => item.startsWith('pack:') ? order.filter(id => packOf(id, all) === item.slice(5)) : [item]) });
+  }
+  /** Moves a member one step inside its own pack block; the rest of the order is untouched. */
+  function moveMember(id, delta) {
+    const all = sections(), pack = packOf(id, all), order = grouped(), block = order.filter(item => packOf(item, all) === pack);
+    const index = block.indexOf(id), target = index + delta;
+    if (target < 0 || target >= block.length) return;
+    [block[index], block[target]] = [block[target], block[index]];
+    let cursor = 0;
+    runtime.updateSettings({ order: order.map(item => (packOf(item, all) === pack ? block[cursor++] : item)) });
+  }
   const node = (tag, className, text) => displayNode(document, view, tag, className, text);
   const listen = (target, type, handler) => {
     target.addEventListener(type, handler);
@@ -378,14 +406,20 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
 
   function closeModeMenu(restoreFocus = true) {
     if (!modeMenu) return;
-    const { chip, popup, wrap } = modeMenu;
+    const { chip, popup, hosts } = modeMenu;
     modeMenu = undefined;
     popup.remove();
-    wrap.closest('.st-sable-card')?.classList.remove('st-sable-menu-open');
+    for (const host of hosts) host.classList.remove('st-sable-menu-open');
     chip.setAttribute('aria-expanded', 'false');
     if (restoreFocus) chip.focus();
   }
-  function openModeMenu(chip, wrap, id) {
+  // A card chip writes one section; a group chip (SPEC §15) writes every member of the pack in one go.
+  const cardTarget = id => ({ current: view.modes[id], apply: mode => runtime.setMode(id, mode),
+    gone: () => !cards.querySelector(`[data-section="${id}"]`) });
+  const groupTarget = pack => ({ current: groupState(pack).mode, apply: mode => runtime.setPackMode(pack.id, mode),
+    gone: () => !cards.querySelector(`.st-sable-group[data-pack="${pack.id}"]`) });
+  /** target = { current: the checked mode (null when mixed), apply(mode), gone(): the chip's card or group left the list }. */
+  function openModeMenu(chip, wrap, target) {
     if (modeMenu?.chip === chip) { closeModeMenu(); return; }
     closeModeMenu(false);
     const popup = node('div', 'mode-menu');
@@ -394,15 +428,15 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const choices = ['inject', 'show', 'off'].map(mode => {
       const item = button('', mode, () => {
         closeModeMenu();
-        runtime.setMode(id, mode);
+        target.apply(mode);
         // Switching off can remove the chip; keep keyboard focus on the reveal control.
-        if (!cards.querySelector(`[data-section="${id}"]`)) hiddenToggle.focus();
+        if (target.gone()) hiddenToggle.focus();
       }, 'mode-option');
       item.dataset.mode = mode;
       item.setAttribute('role', 'menuitemradio');
-      item.setAttribute('aria-checked', String(view.modes[id] === mode));
+      item.setAttribute('aria-checked', String(target.current === mode));
       item.tabIndex = -1;
-      const check = icon('check'); check.style.visibility = view.modes[id] === mode ? 'visible' : 'hidden';
+      const check = icon('check'); check.style.visibility = target.current === mode ? 'visible' : 'hidden';
       item.append(check, document.createTextNode(label(mode)));
       popup.append(item);
       return item;
@@ -418,11 +452,30 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         event.preventDefault(); choices[index]?.click();
       } else if (event.key === 'Tab') closeModeMenu();
     });
-    modeMenu = { chip, wrap, popup };
+    // The open card and, for a member, its group let the menu extend past their edges (style.css).
+    const hosts = [wrap.closest('.st-sable-card'), wrap.closest('.st-sable-group')].filter(Boolean);
+    modeMenu = { chip, wrap, popup, hosts };
     wrap.append(popup);
-    wrap.closest('.st-sable-card')?.classList.add('st-sable-menu-open');
+    for (const host of hosts) host.classList.add('st-sable-menu-open');
     chip.setAttribute('aria-expanded', 'true');
-    choices.find(item => item.dataset.mode === view.modes[id]).focus();
+    (choices.find(item => item.dataset.mode === target.current) ?? choices[0]).focus();
+  }
+  /** The mode chip of a card or a group header: `mode` null shows «mixed». */
+  function modeChip(name, mode, target) {
+    const wrap = node('div', 'mode-wrap');
+    const chip = button(label(mode ?? 'mixed'), 'inject', () => openModeMenu(chip, wrap, target), 'mode');
+    chip.setAttribute('aria-haspopup', 'menu');
+    chip.setAttribute('aria-expanded', 'false');
+    chip.addEventListener('keydown', event => {
+      if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
+        event.preventDefault();
+        if (!modeMenu || modeMenu.chip !== chip) openModeMenu(chip, wrap, target);
+      }
+    });
+    wrap.append(chip);
+    chip.title = name;
+    chip.setAttribute('aria-label', `${name}: ${label(mode ?? 'mixed')}`); chip.dataset.control = 'mode'; chip.dataset.mode = mode ?? 'mixed';
+    return wrap;
   }
 
   // Fold state of NPC/dossier/delta rows survives re-renders (mode taps, new states).
@@ -806,12 +859,12 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const heading = node('div', 'card-header');
     const handle = button('', 'reorder', () => {}, 'handle'); handle.dataset.control = 'handle';
     handle.append(icon('grip-vertical'));
-    handle.addEventListener('pointerdown', event => beginDrag(event, id));
+    handle.addEventListener('pointerdown', event => beginDrag(event, { section: id }));
     handle.addEventListener('keydown', event => {
       if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
       event.preventDefault();
-      const order = orderedSectionIds(view.settings.order, sections()), index = order.indexOf(id), target = index + (event.key === 'ArrowUp' ? -1 : 1);
-      if (target >= 0 && target < order.length) { [order[index], order[target]] = [order[target], order[index]]; runtime.updateSettings({ order }); }
+      // A member moves inside its group only; a flat card steps over whole groups.
+      if (packOf(id)) moveMember(id, event.key === 'ArrowUp' ? -1 : 1); else moveToken(id, event.key === 'ArrowUp' ? -1 : 1);
     });
     const title = node('h3', 'card-title');
     const glyph = sectionGlyph(document, section, view.settings.visual?.icons);
@@ -820,19 +873,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const dot = node('span', 'change-dot'); dot.hidden = true;
     dot.setAttribute('role', 'img'); dot.setAttribute('aria-label', label('changed'));
     title.append(glyph, node('span', 'card-label', name), dot);
-    const wrap = node('div', 'mode-wrap');
-    const chip = button(label(mode), section.title, () => openModeMenu(chip, wrap, id), 'mode');
-    chip.setAttribute('aria-haspopup', 'menu');
-    chip.setAttribute('aria-expanded', 'false');
-    chip.addEventListener('keydown', event => {
-      if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
-        event.preventDefault();
-        if (!modeMenu || modeMenu.chip !== chip) openModeMenu(chip, wrap, id);
-      }
-    });
-    wrap.append(chip);
-    chip.title = name;
-    chip.setAttribute('aria-label', `${name}: ${label(mode)}`); chip.dataset.control = 'mode'; chip.dataset.mode = mode;
+    const wrap = modeChip(name, mode, cardTarget(id));
     const fold = button('', 'fold', () => {
       if (folded) freshCards.delete(id);
       runtime.updateSettings({ folded: { ...view.settings.folded, [id]: !folded } });
@@ -888,11 +929,55 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     card.querySelector('.st-sable-card-body').hidden = folded;
     card.querySelector('.st-sable-card-footer')?.replaceWith(buildFooter(section));
   }
+  // Pack groups (SPEC §15): one container per enabled pack, keyed by pack id and kept across renders; its header is
+  // rebuilt like a card header (handle, glyph + title, aggregate mode chip, fold) and its body holds the member cards.
+  function groupState(pack) {
+    const modes = new Set(sections().filter(section => section.pack === pack.id).map(section => view.modes[section.id]));
+    return { mode: modes.size === 1 ? [...modes][0] : null, folded: !!view.settings.folded[packKey(pack.id)] };
+  }
+  function buildGroupHeader(pack) {
+    const { mode, folded } = groupState(pack), { text, adult } = packTitle(pack.title), key = packKey(pack.id);
+    const heading = node('div', 'card-header'); heading.classList.add('st-sable-group-header');
+    const handle = button('', 'reorder', () => {}, 'handle'); handle.dataset.control = 'handle';
+    handle.append(icon('grip-vertical'));
+    handle.addEventListener('pointerdown', event => beginDrag(event, { pack: pack.id }));
+    handle.addEventListener('keydown', event => {
+      if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      event.preventDefault();
+      moveToken(key, event.key === 'ArrowUp' ? -1 : 1);
+    });
+    const title = node('h3', 'card-title'); title.classList.add('st-sable-group-title');
+    const glyph = packGlyph(pack); glyph.classList.add('st-sable-card-icon');
+    title.append(glyph, node('span', 'card-label', text));
+    if (adult) title.append(node('span', 'adult', label('packs.adult')));
+    const wrap = modeChip(text, mode, groupTarget(pack));
+    const fold = button('', 'packs.fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [key]: !folded } }), 'fold');
+    fold.append(icon('chevron-down'));
+    fold.dataset.control = 'fold'; fold.setAttribute('aria-expanded', String(!folded));
+    fold.setAttribute('aria-controls', `st-sable-group-body-${pack.id}`);
+    heading.addEventListener('click', event => { if (!event.target.closest('button, .st-sable-mode-wrap')) fold.click(); });
+    heading.append(handle, title, wrap, fold);
+    return heading;
+  }
+  function buildGroup(pack) {
+    const group = node('section', 'group'); group.dataset.pack = pack.id;
+    const body = node('div', 'group-body'); body.id = `st-sable-group-body-${pack.id}`;
+    group.append(buildGroupHeader(pack), body);
+    return group;
+  }
+  function refreshGroup(group, pack) {
+    const { mode, folded } = groupState(pack);
+    group.dataset.mode = mode ?? 'mixed';
+    group.classList.toggle('st-sable-off', mode === 'off');
+    group.setAttribute('aria-label', `${label('packs.group')}: ${packTitle(pack.title).text}`);
+    group.firstElementChild.replaceWith(buildGroupHeader(pack));
+    group.lastElementChild.hidden = folded;
+  }
   /** Rebuild one card only (editor open/close); the other cards are untouched. */
   function rebuildCard(id) {
     closeModeMenu();
     const section = sections().find(item => item.id === id);
-    const old = [...cards.children].find(card => card.dataset.section === id);
+    const old = cards.querySelector(`.st-sable-card[data-section="${id}"]`);
     if (!section || !old) return;
     const role = old.contains(document.activeElement) ? document.activeElement.dataset.control : undefined;
     for (const item of old.querySelectorAll('details[data-key]')) openRows.set(item.dataset.key, item.open);
@@ -1039,6 +1124,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     drag = undefined;
     const focused = document.activeElement;
     const focusId = focused?.closest('[data-section]')?.dataset.section;
+    const focusPack = focused?.closest('.st-sable-group')?.dataset.pack;
     const focusRole = focused?.dataset.control;
     view = next;
     drawer.lang = view.settings.language;
@@ -1059,37 +1145,54 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     syncExpanded();
     openRows = new Map([...cards.querySelectorAll('details[data-key]')].map(item => [item.dataset.key, item.open]));
     const scrollTop = cards.scrollTop;
-    const list = sections(), ordered = [], changedCards = new Set();
-    // Cards persist across renders (SPEC §16): keyed rows keep their nodes, so bars slide instead of jumping.
-    const existing = new Map([...cards.children].map(card => [card.dataset.section, card]));
-    for (const id of orderedSectionIds(view.settings.order, list)) {
+    const list = sections(), packIds = enabled(), ordered = [], allCards = [], changedCards = new Set();
+    // Cards persist across renders (SPEC §16): keyed rows keep their nodes, so bars slide instead of jumping. Pack groups
+    // (SPEC §15) persist too, keyed by pack id; a hidden member stays out of its group, an empty group leaves the list.
+    const existing = new Map([...cards.querySelectorAll('.st-sable-card')].map(card => [card.dataset.section, card]));
+    const groups = new Map([...cards.children].filter(child => child.classList.contains('st-sable-group')).map(group => [group.dataset.pack, group]));
+    const members = new Map();
+    for (const id of groupedOrder(view.settings.order, list, packIds)) {
       const section = list.find(item => item.id === id), editor = editors.get(id);
       if (editor && view.modes[id] === 'off') editors.delete(id);
       if (view.settings.hideOff && !revealOff && view.modes[id] === 'off') continue;
+      let card;
       if (editors.has(id) && editor.card?.isConnected) {
         // An open editor keeps its node, draft and focus; only its header follows the new view.
         refreshCard(editor.card, section);
         editor.warning.hidden = JSON.stringify(view.entry?.state?.[id] ?? null) === editor.base;
-        ordered.push(editor.card);
+        card = editor.card;
       } else if (existing.has(id) && !editors.has(id)) {
-        const card = existing.get(id);
+        card = existing.get(id);
         if (updateCard(card, section)) changedCards.add(id);
-        ordered.push(card);
-      } else ordered.push(buildCard(section));
+      } else card = buildCard(section);
+      allCards.push(card);
+      const packId = section.pack && packIds.includes(section.pack) ? section.pack : null;
+      if (!packId) { ordered.push(card); continue; }
+      if (!members.has(packId)) {
+        const pack = view.packs.available.find(item => item.id === packId), group = groups.get(packId) ?? buildGroup(pack);
+        refreshGroup(group, pack);
+        members.set(packId, { group, items: [] });
+        ordered.push(group);
+      }
+      members.get(packId).items.push(card);
     }
-    for (const child of [...cards.children]) if (!ordered.includes(child)) dropRow(child);
-    let cursor = cards.firstElementChild;
-    for (const card of ordered) {
-      if (card === cursor) cursor = cursor.nextElementSibling;
-      else cards.insertBefore(card, cursor);
-    }
+    const settle = (parent, items) => {
+      for (const child of [...parent.children]) if (!items.includes(child)) dropRow(child);
+      let cursor = parent.firstElementChild;
+      for (const item of items) {
+        if (item === cursor) cursor = cursor.nextElementSibling;
+        else parent.insertBefore(item, cursor);
+      }
+    };
+    settle(cards, ordered);
+    for (const { group, items } of members.values()) settle(group.lastElementChild, items);
     cards.scrollTop = scrollTop;
     // Change flags (SPEC §16): the card flash lasts this render; the title dot stays until the card is unfolded or the
     // next run (a new ring entry, an edit, or any changed value) recomputes the set.
     const entryKey = JSON.stringify([view.entry?.mesId, view.entry?.swipeId, view.entry?.turn,
       view.entry?.state?.meta?.updatedAt, view.entry?.state?.meta?.editedAt]);
     if (changedCards.size || entryKey !== lastEntryKey) { freshCards = changedCards; lastEntryKey = entryKey; }
-    for (const card of ordered) {
+    for (const card of allCards) {
       const id = card.dataset.section;
       card.toggleAttribute('data-st-sable-changed', changedCards.has(id));
       card.toggleAttribute('data-st-sable-crit', !!rolled?.crit && rolled.id === id && Date.now() - rolled.at < DICE_MS);
@@ -1107,6 +1210,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     refresh.firstElementChild.classList.toggle('fa-spin', !!view.running && drawer.dataset.stSableEffects !== 'off');
     renderStatus();
     if (focusId && focusRole) cards.querySelector(`[data-section="${focusId}"] [data-control="${focusRole}"]`)?.focus();
+    else if (focusPack && focusRole) cards.querySelector(`.st-sable-group[data-pack="${focusPack}"] > .st-sable-group-header [data-control="${focusRole}"]`)?.focus();
   }
 
   function renderStatus() {
@@ -1144,23 +1248,29 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     }
   }
 
-  function beginDrag(event, id) {
+  /** target: { section } for a card (a member moves inside its group only) or { pack } for a whole group. */
+  function beginDrag(event, target) {
     if (event.button !== 0 || drag) return;
     event.preventDefault();
-    drag = { id, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+    drag = { ...target, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
+  const dragged = () => (drag.pack ? cards.querySelector(`.st-sable-group[data-pack="${drag.pack}"]`) : cards.querySelector(`.st-sable-card[data-section="${drag.section}"]`));
+  // Section ids in list order: top-level cards, groups expanded to their members.
+  const shownIds = () => [...cards.children].flatMap(child => (child.classList.contains('st-sable-group')
+    ? [...child.lastElementChild.children].map(card => card.dataset.section) : [child.dataset.section]));
   const endDrag = () => cards.querySelector('.st-sable-dragging')?.classList.remove('st-sable-dragging');
   listen(document, 'pointermove', event => {
     if (!drag || event.pointerId !== drag.pointerId) return;
     if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 5 && !drag.moved) return;
     drag.moved = true;
-    const card = cards.querySelector(`[data-section="${drag.id}"]`);
+    const card = dragged(), parent = card.parentElement;
     card.classList.add('st-sable-dragging');
-    // Geometry works with pointer capture and touch; no HTML drag/drop API.
-    const others = [...cards.children].filter(item => item !== card);
+    // Geometry works with pointer capture and touch; no HTML drag/drop API. The parent bounds the move: the list for a
+    // flat card or a group, the group body for a member.
+    const others = [...parent.children].filter(item => item !== card);
     const before = others.find(item => { const rect = item.getBoundingClientRect(); return event.clientY < rect.top + rect.height / 2; });
-    cards.insertBefore(card, before ?? null);
+    parent.insertBefore(card, before ?? null);
     const rect = cards.getBoundingClientRect();
     if (event.clientY < rect.top + 40) cards.scrollTop -= 20;
     else if (event.clientY > rect.bottom - 40) cards.scrollTop += 20;
@@ -1170,20 +1280,17 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const completed = drag; drag = undefined;
     endDrag();
     if (completed.moved) {
-      const visible = [...cards.children].map(card => card.dataset.section), ids = new Set(visible);
-      const order = orderedSectionIds(view.settings.order, sections())
-        .map(id => ids.has(id) ? visible.shift() : id);
-      runtime.updateSettings({ order });
+      // Hidden cards keep their slots; the saved order is regrouped so pack blocks stay contiguous.
+      const visible = shownIds(), ids = new Set(visible);
+      const order = grouped().map(id => (ids.has(id) ? visible.shift() : id));
+      runtime.updateSettings({ order: groupedOrder(order, sections(), enabled()) });
     }
   });
   listen(document, 'pointercancel', () => {
     if (!drag) return;
     endDrag();
-    for (const id of view.settings.order) {
-      const card = cards.querySelector(`[data-section="${id}"]`);
-      if (card) cards.append(card);
-    }
     drag = undefined;
+    render(view);
   });
   render(view);
   const unsubscribe = runtime.subscribe(render);

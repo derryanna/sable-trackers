@@ -7,6 +7,7 @@ import { createSettings } from '../src/ui/settings.js';
 import { createRuntime } from '../src/run.js';
 import { GROUP_IDS } from '../src/settings.js';
 import { BUILTIN_PACKS } from '../src/packs/index.js';
+import { groupedOrder, orderedSectionIds, getSections, SECTIONS } from '../src/sections.js';
 import { createFakeST } from './fakes/st.mjs';
 
 const css = await readFile(new URL('../style.css', import.meta.url), 'utf8');
@@ -37,8 +38,9 @@ function setup(t, { state = packState(), random = () => 0.86, settings = {} } = 
   fake.ctx.chatMetadata.sableTrackers = { ring: [{ mesId: 0, swipeId: 0, turn: 3, state: { world: { location: 'Gate' }, ...state } }],
     lastRun: { at: 1234567890000, ok: true, ms: 250, inTok: 123, outTok: 45 } };
   const runtime = createRuntime(fake.getContext, { random }); runtime.start();
-  const calls = { packs: [], edits: [], rolls: [], patches: [] };
+  const calls = { packs: [], edits: [], rolls: [], patches: [], packModes: [] };
   const wrapped = { ...runtime,
+    setPackMode(id, mode) { calls.packModes.push([id, mode]); return runtime.setPackMode(id, mode); },
     rollDice(id, key, chance) { calls.rolls.push([id, key, chance]); return runtime.rollDice(id, key, chance); },
     setPack(id, on) { calls.packs.push([id, on]); return runtime.setPack(id, on); },
     editState(id, value) { calls.edits.push([id, value]); return runtime.editState(id, value); },
@@ -50,6 +52,9 @@ function setup(t, { state = packState(), random = () => 0.86, settings = {} } = 
   t.after(() => { ui.dispose(); settingsUi.dispose(); runtime.dispose(); dom.window.close(); globalThis.toastr = previousToastr; });
   const query = selector => document.querySelector(selector);
   const card = id => ui.element.querySelector(`[data-section="${id}"]`);
+  const group = id => ui.element.querySelector(`.st-sable-group[data-pack="${id}"]`);
+  const members = id => [...(group(id)?.querySelectorAll(':scope > .st-sable-group-body > .st-sable-card') ?? [])].map(item => item.dataset.section);
+  const shown = () => [...query('.st-sable-cards').children].map(item => item.dataset.section ?? `pack:${item.dataset.pack}`);
   const sheet = () => query('#st-sable-sheet');
   const row = id => sheet().querySelector(`[data-pack="${id}"]`);
   const key = (element, name) => element.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
@@ -67,7 +72,7 @@ function setup(t, { state = packState(), random = () => 0.86, settings = {} } = 
     input.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
   };
   const button = (scope, text) => [...sq(scope).querySelectorAll('button')].find(b => b.textContent === text);
-  return { dom, document, fake, runtime, ui, settingsUi, calls, toasts, query, card, sheet, row, key, pointer, styled, digest, sq, change, button };
+  return { dom, document, fake, runtime, ui, settingsUi, calls, toasts, query, card, group, members, shown, sheet, row, key, pointer, styled, digest, sq, change, button };
 }
 
 test('packTitle pulls the 18+ mark out of a title', () => {
@@ -78,7 +83,7 @@ test('packTitle pulls the 18+ mark out of a title', () => {
 });
 
 test('sheet: the header button opens it, switches toggle packs per chat without a run, Escape / ✕ / tap outside close it', async t => {
-  const { ui, query, sheet, row, card, runtime, fake, calls, key, pointer, document, styled } = setup(t);
+  const { ui, query, sheet, row, card, members, shown, runtime, fake, calls, key, pointer, document, styled } = setup(t);
   ui.open();
   const packs = query('.st-sable-header [data-control="packs"]');
   assert.equal(packs, query('.st-sable-header button:nth-of-type(4)'), 'the pack button sits before ✕');
@@ -112,7 +117,8 @@ test('sheet: the header button opens it, switches toggle packs per chat without 
   assert.equal(document.activeElement, toggle(), 'focus survives the re-render');
   assert.equal(sheet().hidden, false);
   for (const id of ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']) assert.ok(card(id), `${id} card appears`);
-  assert.equal([...query('.st-sable-cards').children].at(-1).dataset.section, 'combat_odds', 'pack cards follow the existing ones');
+  assert.equal(shown().at(-1), 'pack:combat', 'the pack group follows the existing cards (SPEC §15)');
+  assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds'], 'its cards are nested inside');
   assert.ok(card('combat_stats').querySelector('.st-sable-card-title .fa-heart-pulse'));
   assert.equal(card('combat_stats').querySelector('.st-sable-card-label').textContent, 'Показатели боя');
   const scope = row('combat').querySelector('[role="radiogroup"]');
@@ -284,7 +290,7 @@ test('intimacy sheet starts with others checked and retains all three localized 
 });
 
 test('pack cards fold, hide when off, reorder from the keyboard, take card colours and open the editor', t => {
-  const { ui, card, runtime, query, document, key } = setup(t);
+  const { ui, card, runtime, query, document, key, members, shown } = setup(t);
   runtime.setPack('combat', true);
   ui.open();
   card('combat_stats').querySelector('.st-sable-fold').click();
@@ -300,10 +306,10 @@ test('pack cards fold, hide when off, reorder from the keyboard, take card colou
   key(handle, 'ArrowUp');
   const order = runtime.snapshot().settings.order;
   assert.ok(order.indexOf('combat_stats') < order.indexOf('combat_scene'), 'pack order persists in settings.order');
-  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section).slice(-4), ['combat_stats', 'combat_scene', 'combat_effects', 'combat_odds']);
+  assert.deepEqual(members('combat'), ['combat_stats', 'combat_scene', 'combat_effects', 'combat_odds']);
   runtime.setPack('combat', false); runtime.setPack('combat', true);
-  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section).slice(-2), ['combat_effects', 'combat_odds']);
-  assert.equal([...query('.st-sable-cards').children].map(item => item.dataset.section).indexOf('combat_stats'), 10, 'explicit positions survive a toggle');
+  assert.deepEqual(members('combat').slice(-2), ['combat_effects', 'combat_odds']);
+  assert.equal(shown().indexOf('pack:combat'), 10, 'explicit positions survive a toggle');
   runtime.updateSettings({ visual: { cardColors: { combat_stats: '#abcdef' } } });
   assert.equal(card('combat_stats').style.getPropertyValue('--st-sable-accent'), '#abcdef');
   card('combat_scene').querySelector('[data-control="edit"]').click();
@@ -520,4 +526,262 @@ test('settings: the user-pack editor writes the whole packs array; cards reuse t
   assert.ok(sq('[data-card-color="p_0123abcd_luck"]'));
   runtime.setPack(id, false);
   assert.equal(sq('[data-group="sections"] [data-section="p_0123abcd_luck"]'), null);
+});
+
+// T13: packs as groups in the drawer (SPEC §15 "Drawer").
+test('groupedOrder: pack blocks are contiguous at the first member, keep their relative order and append when absent', () => {
+  const settings = { customSections: [], packs: [] }, sections = getSections(settings, ['combat', 'intimacy']);
+  const ids = id => sections.find(s => s.id === id);
+  assert.ok(ids('combat_scene').pack === 'combat' && ids('intimacy_marks').pack === 'intimacy');
+  assert.deepEqual(groupedOrder(undefined, SECTIONS), orderedSectionIds(undefined, SECTIONS), 'no packs: the plain order');
+  assert.deepEqual(groupedOrder(['world', 'combat_stats', 'threads', 'combat_scene'], sections, ['combat']).slice(0, 6),
+    ['world', 'combat_stats', 'combat_scene', 'combat_effects', 'combat_odds', 'threads'], 'placed where the first member appears, relative order kept');
+  const absent = groupedOrder(['intimacy_marks', 'banlist'], sections, ['combat', 'intimacy']);
+  assert.deepEqual(absent.slice(0, 5), ['intimacy_marks', 'intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'banlist']);
+  assert.deepEqual(absent.slice(-4), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds'], 'a pack with no entry goes to the end');
+  assert.deepEqual(groupedOrder(['combat_odds', 'world'], sections, []).slice(0, 2), ['combat_odds', 'world'], 'packs not listed stay flat');
+  assert.deepEqual(groupedOrder(['combat_odds', 'world', 'combat_scene'], sections, [{ id: 'combat' }]).slice(0, 5),
+    ['combat_odds', 'combat_scene', 'combat_stats', 'combat_effects', 'world'], 'pack objects work too');
+  assert.equal(new Set(groupedOrder(['x', 'combat_scene', 'combat_scene'], sections)).size, sections.length, 'unknown and duplicate ids drop');
+  assert.deepEqual(groupedOrder(['combat_scene', 'combat_stats'], sections, undefined).slice(0, 4), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds'], 'the default groups every pack present');
+});
+
+test('groups: one container per enabled pack with the pack title, a four-control header, nested members and flat built-ins', t => {
+  const { ui, card, group, members, shown, runtime, query, styled, document } = setup(t);
+  ui.open();
+  assert.equal(ui.element.querySelector('.st-sable-group'), null);
+  runtime.setPack('intimacy', true); runtime.setPack('combat', true);
+  assert.deepEqual(shown().slice(-2), ['pack:combat', 'pack:intimacy'], 'registry order when nothing is saved, whichever was switched on first');
+  const combat = group('combat'), intimacy = group('intimacy');
+  assert.equal(combat.tagName, 'SECTION');
+  assert.equal(combat.getAttribute('aria-label'), 'Набор: Бой');
+  assert.equal(intimacy.getAttribute('aria-label'), 'Набор: Интим');
+  const header = combat.querySelector(':scope > .st-sable-group-header');
+  assert.ok(header.classList.contains('st-sable-card-header'), 'same header row as a card');
+  assert.deepEqual([...header.querySelectorAll('button')].map(item => item.dataset.control), ['handle', 'mode', 'fold'], 'four controls, no pack switch');
+  assert.equal(header.querySelectorAll('[role="switch"]').length, 0);
+  assert.equal(header.querySelector('.st-sable-card-label').textContent, 'Бой');
+  assert.ok(header.querySelector('.st-sable-card-icon.fa-hand-fist'));
+  assert.equal(header.querySelector('.st-sable-adult'), null);
+  assert.equal(intimacy.querySelector('.st-sable-group-header .st-sable-card-label').textContent, 'Интим');
+  assert.equal(intimacy.querySelector('.st-sable-group-header .st-sable-adult').textContent, '18+');
+  assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']);
+  assert.deepEqual(members('intimacy'), ['intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks']);
+  assert.equal(card('world').parentElement, query('.st-sable-cards'), 'built-ins stay flat');
+  assert.equal(card('combat_stats').parentElement, combat.querySelector('.st-sable-group-body'));
+  assert.equal(card('combat_stats').querySelector('[data-control="mode"]').textContent, 'в промпт', 'members keep their own chip');
+  assert.ok(card('combat_stats').querySelector('[data-control="fold"]') && card('combat_stats').querySelector('[data-control="edit"]'));
+  assert.ok(card('combat_stats').querySelector('.st-sable-bar'), 'member bodies render');
+  const computed = styled();
+  for (const button of header.querySelectorAll('button')) assert.ok(parseFloat(computed(button).minHeight) >= 32, 'tap targets');
+  assert.ok(parseFloat(computed(header).minHeight) >= 40);
+  assert.equal(computed(combat.querySelector('.st-sable-group-body')).paddingLeft, '8px', 'members are indented');
+  assert.equal(parseFloat(computed(card('combat_stats')).borderRadius), 0, 'members are lighter than a card');
+  assert.match(css, /\.st-sable-drawer \.st-sable-group \.st-sable-card \{[^}]*background: none;[^}]*box-shadow: none;/, 'no own glass fill or shadow');
+  assert.match(css, /\.st-sable-drawer \.st-sable-group\.st-sable-menu-open:last-child \{ margin-bottom: 126px; \}/);
+  assert.ok(!/^\.st-sable-group[^-]/m.test(css.slice(css.indexOf('/* Pack groups'))), 'group rules are scoped to the drawer: settings own the bare class');
+  runtime.updateSettings({ language: 'en' });
+  assert.equal(group('intimacy').getAttribute('aria-label'), 'Pack: Intimacy');
+  assert.equal(group('combat').querySelector('.st-sable-group-header [data-control="fold"]').getAttribute('aria-label'), 'Fold / unfold the pack');
+  runtime.setPack('combat', false);
+  assert.equal(group('combat'), null, 'the whole group leaves with the pack');
+  assert.equal(card('combat_stats'), null);
+  assert.ok(group('intimacy'));
+  assert.equal(document.querySelector('img'), null);
+});
+
+test('group chip: aggregate of the member modes, «mixed» otherwise; the menu sets every member in one write', async t => {
+  const { ui, card, group, runtime, query, calls, fake, document } = setup(t);
+  runtime.setPack('combat', true);
+  ui.open();
+  const chip = () => group('combat').querySelector('.st-sable-group-header [data-control="mode"]');
+  assert.equal(chip().textContent, 'в промпт');
+  assert.equal(chip().dataset.mode, 'inject');
+  assert.equal(group('combat').dataset.mode, 'inject');
+  assert.equal(chip().getAttribute('aria-label'), 'Бой: в промпт');
+  runtime.setMode('combat_effects', 'show');
+  assert.equal(chip().textContent, 'смешано');
+  assert.equal(chip().dataset.mode, 'mixed');
+  assert.equal(group('combat').dataset.mode, 'mixed');
+  assert.equal(card('combat_effects').querySelector('[data-control="mode"]').textContent, 'показ');
+  chip().focus(); chip().click();
+  const menu = query('[role="menu"]');
+  assert.ok(menu && group('combat').contains(menu));
+  assert.ok(group('combat').classList.contains('st-sable-menu-open'));
+  assert.deepEqual([...menu.querySelectorAll('[role="menuitemradio"]')].map(item => item.getAttribute('aria-checked')), ['false', 'false', 'false'], 'mixed checks nothing');
+  assert.equal(document.activeElement, menu.querySelector('[data-mode="inject"]'));
+  const settingsWrites = fake.calls.settings;
+  menu.querySelector('[data-mode="show"]').click();
+  assert.deepEqual(calls.packModes, [['combat', 'show']]);
+  assert.equal(fake.calls.settings - settingsWrites, 1, 'one settings write for the whole pack');
+  assert.deepEqual(['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds'].map(id => runtime.snapshot().modes[id]), ['show', 'show', 'show', 'show']);
+  assert.equal(chip().textContent, 'показ');
+  assert.equal(query('[role="menu"]'), null);
+  assert.equal(document.activeElement, chip(), 'focus returns to the group chip');
+  assert.equal(runtime.snapshot().settings.sections.combat_odds.mode, 'show');
+  chip().click(); query('[role="menu"] [data-mode="off"]').click();
+  assert.equal(group('combat'), null, 'a group whose members are all off hides with hideOff');
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 4');
+  assert.equal(document.activeElement, query('.st-sable-hidden-toggle'));
+  query('.st-sable-hidden-toggle').click();
+  assert.ok(group('combat').classList.contains('st-sable-off'));
+  assert.equal(group('combat').dataset.mode, 'off');
+  assert.equal(chip().textContent, 'выкл');
+  // Per-chat overrides: the same semantics as setMode, one store write; null drops every override.
+  runtime.updateSettings({ perChatOverrides: true });
+  const metadataWrites = fake.calls.metadata.length;
+  assert.equal(runtime.setPackMode('combat', 'inject'), true);
+  await tick();
+  assert.equal(fake.calls.metadata.length - metadataWrites, 1);
+  assert.deepEqual(fake.ctx.chatMetadata.sableTrackers.modeOverride, { combat_scene: 'inject', combat_stats: 'inject', combat_effects: 'inject', combat_odds: 'inject' });
+  assert.equal(runtime.snapshot().settings.sections.combat_scene.mode, 'off', 'the global mode is untouched');
+  assert.equal(runtime.snapshot().modes.combat_scene, 'inject');
+  assert.equal(runtime.setPackMode('combat', null), true);
+  assert.deepEqual(fake.ctx.chatMetadata.sableTrackers.modeOverride, {});
+  assert.equal(runtime.setPackMode('combat', 'bogus'), false);
+  assert.equal(runtime.setPackMode('intimacy', 'show'), false, 'a pack that is off in this chat is refused');
+  assert.equal(runtime.setPackMode('nope', 'show'), false);
+});
+
+test('group fold persists under folded["pack:…"], hides the members and leaves member folds alone', t => {
+  const { ui, card, group, runtime, fake } = setup(t);
+  runtime.setPack('combat', true);
+  ui.open();
+  const fold = () => group('combat').querySelector('.st-sable-group-header [data-control="fold"]');
+  const body = () => group('combat').querySelector('.st-sable-group-body');
+  assert.equal(fold().getAttribute('aria-label'), 'Свернуть / развернуть набор');
+  assert.equal(fold().getAttribute('aria-controls'), body().id);
+  assert.equal(fold().getAttribute('aria-expanded'), 'true');
+  assert.equal(body().hidden, false);
+  card('combat_stats').querySelector('[data-control="fold"]').click();
+  assert.equal(runtime.snapshot().settings.folded.combat_stats, true);
+  fold().focus(); fold().click();
+  assert.equal(runtime.snapshot().settings.folded['pack:combat'], true);
+  assert.equal(runtime.snapshot().settings.folded.combat_stats, true, 'member folds are kept');
+  assert.equal(body().hidden, true);
+  assert.equal(fold().getAttribute('aria-expanded'), 'false');
+  assert.equal(fake.ctx.extensionSettings.sableTrackers.folded['pack:combat'], true, 'survives the normaliser');
+  assert.equal(group('combat').ownerDocument.activeElement, fold(), 'focus stays on the group fold');
+  group('combat').querySelector('.st-sable-group-header .st-sable-card-label').click();
+  assert.equal(runtime.snapshot().settings.folded['pack:combat'], false, 'a tap on the title unfolds');
+  assert.equal(body().hidden, false);
+  assert.ok(card('combat_stats').querySelector('.st-sable-card-body').hidden, 'the member stays folded inside the open group');
+  runtime.updateSettings({ folded: { 'pack:combat': true, 'pack:nope': true, combat_stats: 'yes' } });
+  assert.deepEqual(runtime.snapshot().settings.folded, { 'pack:combat': true }, 'unknown packs and non-booleans drop');
+});
+
+test('hideOff inside groups: off members hide and count, an all-off group hides, the reveal row brings them back', t => {
+  const { ui, card, group, members, runtime, query } = setup(t);
+  runtime.setPack('combat', true);
+  ui.open();
+  runtime.setMode('combat_effects', 'off');
+  assert.equal(card('combat_effects'), null);
+  assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_odds']);
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 1');
+  query('.st-sable-hidden-toggle').click();
+  assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds'], 'revealed in its slot');
+  assert.ok(card('combat_effects').classList.contains('st-sable-off'));
+  assert.ok(card('combat_effects').querySelector('[data-control="fold"]').disabled);
+  query('.st-sable-hidden-toggle').click();
+  runtime.setMode('offscreen', 'off');
+  for (const id of ['combat_scene', 'combat_stats', 'combat_odds']) runtime.setMode(id, 'off');
+  assert.equal(group('combat'), null, 'all members off: no group');
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 5');
+  query('.st-sable-hidden-toggle').click();
+  assert.ok(group('combat'));
+  assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']);
+  assert.ok(card('offscreen'));
+  runtime.updateSettings({ hideOff: false });
+  assert.equal(query('.st-sable-hidden-row').hidden, true);
+  assert.deepEqual(members('combat').length, 4, 'nothing hides without hideOff');
+});
+
+test('order: the group handle moves the block among flat cards, a member handle moves inside the group; settings.order stays flat', t => {
+  const { ui, card, group, members, shown, runtime, key, query, document, dom } = setup(t);
+  runtime.setPack('combat', true); runtime.setPack('intimacy', true);
+  ui.open();
+  const handle = () => group('combat').querySelector('.st-sable-group-header [data-control="handle"]');
+  assert.deepEqual(shown().slice(-3), ['banlist', 'pack:combat', 'pack:intimacy']);
+  handle().focus(); key(handle(), 'ArrowUp');
+  assert.deepEqual(shown().slice(-3), ['pack:combat', 'banlist', 'pack:intimacy'], 'the whole block steps over a card');
+  assert.equal(document.activeElement, handle(), 'focus follows the group handle');
+  const order = runtime.snapshot().settings.order;
+  assert.deepEqual(order.slice(-9), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds', 'banlist', 'intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks'], 'flat, contiguous block');
+  assert.equal(order.length, new Set(order).size);
+  key(group('intimacy').querySelector('.st-sable-group-header [data-control="handle"]'), 'ArrowUp');
+  assert.deepEqual(shown().slice(-3), ['pack:combat', 'pack:intimacy', 'banlist'], 'blocks step over each other');
+  key(card('banlist').querySelector('[data-control="handle"]'), 'ArrowUp');
+  assert.deepEqual(shown().slice(-3), ['pack:combat', 'banlist', 'pack:intimacy'], 'a flat card steps over a whole block');
+  key(card('banlist').querySelector('[data-control="handle"]'), 'ArrowUp');
+  assert.deepEqual(shown().slice(-4), ['planner', 'banlist', 'pack:combat', 'pack:intimacy']);
+  // Members move inside their block only.
+  const member = id => card(id).querySelector('[data-control="handle"]');
+  key(member('combat_scene'), 'ArrowUp');
+  assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds'], 'the first member cannot leave the group upwards');
+  key(member('combat_scene'), 'ArrowDown');
+  assert.deepEqual(members('combat'), ['combat_stats', 'combat_scene', 'combat_effects', 'combat_odds']);
+  for (let i = 0; i < 4; i++) key(member('combat_scene'), 'ArrowDown');
+  assert.deepEqual(members('combat'), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene'], 'the last member cannot leave the group downwards');
+  assert.deepEqual(shown().slice(-4), ['planner', 'banlist', 'pack:combat', 'pack:intimacy'], 'the rest of the order is untouched');
+  assert.deepEqual(runtime.snapshot().settings.order.slice(-8), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene', 'intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks']);
+  // Touch drag (beginDrag) at both levels: the group among the flat cards, a member inside its group.
+  const stub = parent => { for (const [index, item] of [...parent.children].entries()) item.getBoundingClientRect = () => ({ top: index * 100, height: 100 }); };
+  const at = (target, type, y) => {
+    const event = new dom.window.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: 10, clientY: y });
+    Object.defineProperty(event, 'pointerId', { value: 1 });
+    target.dispatchEvent(event);
+  };
+  const drag = (grip, y) => { at(grip, 'pointerdown', 25); at(document, 'pointermove', y); at(document, 'pointerup', y); };
+  stub(query('.st-sable-cards'));
+  drag(handle(), 30);
+  assert.deepEqual(shown().slice(0, 2), ['pack:combat', 'world'], 'the group dropped at the top');
+  assert.deepEqual(runtime.snapshot().settings.order.slice(0, 5), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene', 'world']);
+  assert.equal(query('.st-sable-dragging'), null);
+  stub(group('combat').querySelector('.st-sable-group-body'));
+  drag(member('combat_scene'), 30);
+  assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds'], 'the member dropped at the top of its group');
+  assert.deepEqual(shown().slice(0, 2), ['pack:combat', 'world']);
+  stub(group('combat').querySelector('.st-sable-group-body'));
+  drag(member('combat_scene'), 5000);
+  assert.deepEqual(members('combat'), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene'], 'a member never leaves its group');
+  assert.equal(card('combat_scene').parentElement, group('combat').querySelector('.st-sable-group-body'));
+  at(member('combat_scene'), 'pointerdown', 25); at(document, 'pointermove', 30); at(document, 'pointercancel', 30);
+  assert.deepEqual(members('combat'), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene'], 'cancel restores');
+  assert.equal(query('.st-sable-dragging'), null);
+});
+
+test('members and their group keep their nodes across renders; the editor opens on a member', t => {
+  const { ui, card, group, runtime, query } = setup(t);
+  runtime.setPack('combat', true);
+  ui.open();
+  const container = group('combat'), stats = card('combat_stats'), scene = card('combat_scene');
+  const row = stats.querySelector('.st-sable-scale[data-key="combat_stats:Guard · HP"]'), fill = row.querySelector('.st-sable-bar-fill');
+  assert.equal(fill.style.transform, 'scaleX(0.4)');
+  runtime.editState('combat_stats', [{ key: 'Guard · HP', value: 70, max: 100 }, { key: 'rounds', value: 4, max: null }]);
+  assert.equal(group('combat'), container, 'the group container persists');
+  assert.equal(card('combat_stats'), stats, 'the member card persists');
+  assert.equal(stats.querySelector('.st-sable-scale[data-key="combat_stats:Guard · HP"]'), row, 'keyed rows persist');
+  assert.equal(fill.style.transform, 'scaleX(0.7)');
+  assert.ok(row.hasAttribute('data-st-sable-changed'));
+  assert.ok(stats.hasAttribute('data-st-sable-changed'));
+  assert.equal(stats.querySelector('.st-sable-change-dot').hidden, false);
+  assert.equal(scene.hasAttribute('data-st-sable-changed'), false);
+  runtime.setMode('combat_effects', 'show');
+  assert.equal(group('combat'), container, 'a mode change rebuilds only the headers');
+  assert.equal(card('combat_stats'), stats);
+  runtime.updateSettings({ visual: { cardColors: { combat_scene: '#abcdef' } } });
+  assert.equal(card('combat_scene'), scene);
+  assert.equal(scene.style.getPropertyValue('--st-sable-accent'), '#abcdef', 'card colours apply to members');
+  assert.equal(container.style.getPropertyValue('--st-sable-accent'), '', 'the group takes no card colour');
+  scene.querySelector('[data-control="edit"]').click();
+  const editor = query('.st-sable-editor[data-editor="combat_scene"]');
+  assert.ok(editor && card('combat_scene').contains(editor), 'the editor opens inside the member');
+  assert.equal(card('combat_scene').parentElement, container.querySelector('.st-sable-group-body'));
+  assert.equal(group('combat'), container);
+  editor.querySelector('textarea').value = 'Edited inside the group';
+  editor.querySelector('.st-sable-editor-save').click();
+  assert.equal(runtime.snapshot().entry.state.combat_scene, 'Edited inside the group');
+  assert.equal(query('.st-sable-editor'), null);
+  assert.equal(card('combat_scene').querySelector('.st-sable-line').textContent, 'Edited inside the group');
+  assert.equal(card('combat_stats'), stats, 'the save render keeps the other member');
 });
