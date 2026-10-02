@@ -2,6 +2,7 @@ import { getSections, orderedSectionIds, BOND_SCALES } from '../sections.js';
 import { t } from '../i18n.js';
 import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
 import { sanitizeSection } from '../parse.js';
+import { roll, formatRoll } from '../packs/dice.js';
 
 export function displayNode(document, view, tag, className, text) {
   const element = document.createElement(tag);
@@ -128,13 +129,26 @@ const MARKERS = {
 const FRICTION = new Set(['suspicion', 'fear', 'grudge', 'tension']);
 const PRIORITIES = ['high', 'mid', 'low'];
 
+// "18+" is part of the intimacy pack's title (SPEC §15 Decisions); the UI shows it as a badge instead.
+export function packTitle(title) {
+  const text = String(title ?? '');
+  const adult = /18\+/.test(text);
+  return { adult, text: (adult ? text.replace(/\s*\(?18\+\)?/, '').trim() : text) || text };
+}
+
+/** d100 randomness for the dice: crypto when available, never Math.random in the browser. */
+const cryptoRandom = (crypto = globalThis.crypto) => () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+
 /** DOM-only view. Model text is never parsed as HTML. */
-export function createDrawer(runtime, { document = globalThis.document, onSettings } = {}) {
+export function createDrawer(runtime, { document = globalThis.document, onSettings, random } = {}) {
   const win = document.defaultView;
+  random ??= cryptoRandom(win?.crypto ?? globalThis.crypto);
   let view = runtime.snapshot(), opener, drag;
-  let modeMenu, revealOff = false;
+  let modeMenu, revealOff = false, rollNote = null, rollTimer;
   const cleanups = [];
   const label = key => t(key, view.settings.language);
+  // Enabled packs add their cards after the built-in and custom ones (SPEC §15).
+  const sections = () => getSections(view.settings, view.packs?.enabled ?? []);
   const node = (tag, className, text) => displayNode(document, view, tag, className, text);
   const listen = (target, type, handler) => {
     target.addEventListener(type, handler);
@@ -176,7 +190,31 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   });
   const close = button('', 'close', () => hide());
   for (const [element, name] of [[refresh, 'rotate'], [pin, 'thumbtack'], [settings, 'gear'], [close, 'xmark']]) element.append(icon(name));
-  header.append(refresh, pin, settings, close);
+  // Packs (SPEC §15): a header button opens the sheet; ✕ stays in the corner.
+  const packs = button('', 'packs.open', () => (sheet.hidden ? openSheet() : closeSheet()));
+  packs.dataset.control = 'packs';
+  packs.setAttribute('aria-haspopup', 'dialog');
+  packs.setAttribute('aria-expanded', 'false');
+  header.append(refresh, pin, settings, packs, close);
+  const sheet = node('div', 'sheet');
+  sheet.hidden = true;
+  sheet.id = 'st-sable-sheet';
+  packs.setAttribute('aria-controls', sheet.id);
+  const sheetPanel = node('div', 'sheet-panel');
+  sheetPanel.setAttribute('role', 'dialog');
+  sheetPanel.setAttribute('aria-modal', 'true');
+  const sheetHeader = node('div', 'sheet-header');
+  const sheetTitle = node('h3', 'sheet-title'); sheetTitle.id = 'st-sable-sheet-title';
+  sheetPanel.setAttribute('aria-labelledby', sheetTitle.id);
+  const sheetClose = button('', 'packs.close', () => closeSheet());
+  sheetClose.append(icon('xmark'));
+  sheetHeader.append(sheetTitle, sheetClose);
+  const sheetHint = node('p', 'sheet-hint');
+  const packList = node('ul', 'pack-list');
+  sheetPanel.append(sheetHeader, sheetHint, packList);
+  sheet.append(sheetPanel);
+  // The scrim is the sheet itself: a tap on it (outside the panel) closes.
+  sheet.addEventListener('pointerdown', event => { if (event.target === sheet) closeSheet(false); });
   const cards = node('div', 'cards');
   const hiddenRow = node('div', 'hidden-row');
   const hiddenToggle = button('', 'hiddenSections', () => {
@@ -190,7 +228,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   const status = node('footer', 'status');
   status.setAttribute('role', 'status');
   const seed = button(label('seedLegacy'), 'seedLegacy', () => { void runtime.seedLegacy(); }, 'legacy-button');
-  drawer.append(header, seed, cards, hiddenRow, status);
+  drawer.append(header, seed, cards, hiddenRow, status, sheet);
   // Edge pull tab: glued to the screen edge when closed, to the panel's left edge when open.
   const tab = button('', 'open', () => { if (drawer.hidden) open(tab); else hide(false); }, 'tab');
   tab.append(icon('wand-magic-sparkles'), icon('chevron-right'));
@@ -223,12 +261,27 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   }
   function hide(restoreFocus = true) {
     closeModeMenu(false);
+    closeSheet(false);
     drawer.hidden = true;
     syncExpanded();
     if (restoreFocus) opener?.focus?.();
   }
+  function openSheet() {
+    closeModeMenu(false);
+    sheet.hidden = false;
+    packs.setAttribute('aria-expanded', 'true');
+    renderSheet();
+    sheetClose.focus();
+  }
+  function closeSheet(restoreFocus = true) {
+    if (sheet.hidden) return;
+    sheet.hidden = true;
+    packs.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) packs.focus();
+  }
   listen(document, 'pointerdown', event => {
     if (modeMenu && !modeMenu.wrap.contains(event.target)) closeModeMenu(false);
+    if (!sheet.hidden && !sheetPanel.contains(event.target) && !packs.contains(event.target)) closeSheet(false);
     if (!drawer.hidden && !view.settings.pinned && !drawer.contains(event.target)
       && !tab.contains(event.target) && !menu.contains(event.target)) hide(false);
   });
@@ -238,8 +291,62 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   listen(document, 'keydown', event => {
     if (event.key !== 'Escape') return;
     if (modeMenu) { event.preventDefault(); closeModeMenu(); }
+    else if (!sheet.hidden) { event.preventDefault(); closeSheet(); }
     else if (!drawer.hidden) hide();
   });
+
+  // Packs sheet: one row per available pack with a per-chat switch; scope packs that are on add the all / only-me toggle.
+  function packGlyph(pack) {
+    return glyphNode(document, pack.icon || (view.settings.visual?.icons === 'emoji' ? '🎒' : 'fa-box-open'));
+  }
+  function renderSheet() {
+    sheetTitle.textContent = label('packs');
+    sheetHint.textContent = label('packs.sheetHint');
+    sheetClose.title = label('packs.close'); sheetClose.setAttribute('aria-label', label('packs.close'));
+    const focused = document.activeElement, focusPack = focused?.closest?.('[data-pack]')?.dataset.pack, focusRole = focused?.dataset.control;
+    packList.replaceChildren();
+    for (const pack of view.packs?.available ?? []) {
+      const on = view.packs.enabled.includes(pack.id), { text, adult } = packTitle(pack.title);
+      const row = node('li', 'pack-row'); row.dataset.pack = pack.id;
+      const main = node('div', 'pack-main');
+      const glyph = node('span', 'pack-icon'); glyph.append(packGlyph(pack));
+      const copy = node('div', 'pack-text');
+      const heading = node('div', 'pack-title'); heading.append(node('span', '', text));
+      if (adult) heading.append(node('span', 'adult', label('packs.adult')));
+      copy.append(heading);
+      if (pack.description) copy.append(node('div', 'pack-desc', pack.description));
+      const toggle = button('', 'packs.on', () => runtime.setPack(pack.id, !on), 'switch');
+      toggle.setAttribute('role', 'switch');
+      toggle.setAttribute('aria-checked', String(on));
+      toggle.setAttribute('aria-label', `${text}: ${label('packs.on')}`); toggle.title = `${text}: ${label('packs.on')}`;
+      toggle.dataset.control = 'switch';
+      toggle.append(node('span', 'switch-knob'));
+      main.append(glyph, copy, toggle);
+      row.append(main);
+      if (pack.scope && on) {
+        const segment = node('div', 'segment');
+        segment.setAttribute('role', 'radiogroup');
+        segment.setAttribute('aria-label', `${text}: ${label('packs.scope')}`);
+        segment.append(node('span', 'segment-label', label('packs.scope')));
+        const current = view.settings.packScope?.[pack.id] === 'user' ? 'user' : 'all';
+        for (const scope of ['all', 'user']) {
+          const option = button(label(`scope.${scope}`), `scope.${scope}`, () => {
+            if (scope !== current) runtime.updateSettings({ packScope: { [pack.id]: scope } });
+          }, 'segment-option');
+          option.setAttribute('role', 'radio');
+          option.setAttribute('aria-checked', String(scope === current));
+          option.dataset.control = `scope-${scope}`; option.dataset.scope = scope;
+          segment.append(option);
+        }
+        row.append(segment);
+      }
+      packList.append(row);
+    }
+    if (focusPack && focusRole && sheetPanel.contains(focused) === false) {
+      const row = packList.querySelector(`[data-pack="${focusPack}"]`);
+      (row?.querySelector(`[data-control="${focusRole}"]`) ?? row?.querySelector('[data-control="switch"]'))?.focus();
+    }
+  }
 
   function closeModeMenu(restoreFocus = true) {
     if (!modeMenu) return;
@@ -327,20 +434,92 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (meta) item.append(node('span', 'item-meta', meta));
     return item;
   }
+  // Dice (SPEC §15): a stats/kv row whose key ends in "%" rolls d100 locally into the pack's <pack>_roll text section.
+  function diceFor(section) {
+    if (!section.pack) return null;
+    const target = sections().find(item => item.id === `${section.pack}_roll` && item.shape === 'text');
+    if (!target) return null;
+    return (key, chance) => {
+      if (!/%$/.test(key) || !Number.isFinite(chance)) return null;
+      const die = button('', 'dice', event => { event.preventDefault(); castDice(target.id, key, chance); }, 'dice');
+      die.dataset.control = 'dice';
+      die.append(view.settings.visual?.icons === 'emoji' ? node('span', 'emoji', '🎲') : icon('dice'));
+      return die;
+    };
+  }
+  function castDice(id, key, chance) {
+    const name = key.replace(/\s*%$/, '').trim() || key;
+    const result = roll(chance, random);
+    if (runtime.editState(id, formatRoll(result, name)) === false) return;
+    rollNote = `${label('dice.rolled')}: ${result.roll} vs ${name} ${result.chance} → ${label(result.hit ? 'dice.hit' : 'dice.miss')}`;
+    renderStatus();
+    win.clearTimeout(rollTimer);
+    rollTimer = win.setTimeout(() => { rollNote = null; renderStatus(); }, 6000);
+  }
+  // Stats rows reuse the bond bar markup: a bar when max is set, a plain counter otherwise; a delta badge opens the note.
+  function statRow(section, item, dice) {
+    const delta = Number.isFinite(item.delta) && item.delta !== 0 ? item.delta : 0;
+    const row = node(delta ? 'summary' : 'div', 'scale-row');
+    row.classList.add('st-sable-stat-row');
+    row.append(node('span', 'scale-name', item.key));
+    if (item.max != null) {
+      const bar = node('span', 'bar');
+      bar.classList.add('st-sable-affinity');
+      bar.setAttribute('role', 'meter');
+      bar.setAttribute('aria-label', item.key);
+      bar.setAttribute('aria-valuemin', '0');
+      bar.setAttribute('aria-valuemax', String(item.max));
+      bar.setAttribute('aria-valuenow', String(item.value));
+      const fill = node('span', 'bar-fill');
+      fill.style.width = `${Math.min(100, Math.max(0, (item.value / item.max) * 100))}%`;
+      bar.append(fill);
+      row.append(bar);
+    } else { row.classList.add('st-sable-counter'); row.append(node('span', 'bar-gap')); }
+    row.append(node('span', 'score', `${item.value}${item.max == null ? '' : `/${item.max}`}${item.unit ? ` ${item.unit}` : ''}`));
+    if (delta) {
+      const badge = node('span', 'badge', `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`);
+      badge.classList.add(delta > 0 ? 'st-sable-up' : 'st-sable-down');
+      row.append(badge);
+    }
+    const die = dice?.(item.key, item.value);
+    if (die) row.append(die);
+    if (!delta) { if (item.note) row.title = String(item.note); return row; }
+    const wrap = node('details', 'scale');
+    wrap.classList.add('st-sable-delta');
+    wrap.dataset.key = `${section.id}:${item.key}`;
+    wrap.open = openRows.get(wrap.dataset.key) ?? false;
+    wrap.append(row, node('div', 'reason', item.note || '—'));
+    return wrap;
+  }
   function renderBody(section, body, state) {
     const { id } = section;
     const value = state[id];
     if (!value) return;
     if (section.custom) {
-      if (section.shape === 'text') body.append(node('p', 'line', value));
-      else if (section.shape === 'list' && Array.isArray(value) && value.length) {
+      if (section.shape === 'text') { body.append(node('p', 'line', value)); return; }
+      if (!Array.isArray(value) || !value.length) return;
+      const dice = diceFor(section);
+      if (section.shape === 'list') {
         const list = node('ul', 'list');
         for (const text of value) list.append(listItem('•', text));
         body.append(list);
-      } else if (section.shape === 'kv' && Array.isArray(value) && value.length) {
+      } else if (section.shape === 'kv') {
         const list = node('dl', 'kv');
-        for (const item of value) list.append(node('dt', '', item.key), node('dd', '', item.value));
+        for (const item of value) {
+          const cell = node('dd', '', item.value);
+          const die = dice?.(item.key, Number(item.value));
+          if (die) { cell.replaceChildren(node('span', '', item.value), die); cell.classList.add('st-sable-kv-dice'); }
+          list.append(node('dt', '', item.key), cell);
+        }
         body.append(list);
+      } else if (section.shape === 'tags') {
+        const chips = node('div', 'chips');
+        for (const tag of value) { const chip = node('span', 'tag', tag); chip.classList.add('st-sable-ban'); chips.append(chip); }
+        body.append(chips);
+      } else if (section.shape === 'stats') {
+        const group = node('div', 'stats');
+        for (const item of value) group.append(statRow(section, item, dice));
+        body.append(group);
       }
       return;
     }
@@ -511,7 +690,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     handle.addEventListener('keydown', event => {
       if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
       event.preventDefault();
-      const order = [...view.settings.order], index = order.indexOf(id), target = index + (event.key === 'ArrowUp' ? -1 : 1);
+      const order = orderedSectionIds(view.settings.order, sections()), index = order.indexOf(id), target = index + (event.key === 'ArrowUp' ? -1 : 1);
       if (target >= 0 && target < order.length) { [order[index], order[target]] = [order[target], order[index]]; runtime.updateSettings({ order }); }
     });
     const title = node('h3', 'card-title');
@@ -579,7 +758,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   /** Rebuild one card only (editor open/close); the other cards are untouched. */
   function rebuildCard(id) {
     closeModeMenu();
-    const section = getSections(view.settings).find(item => item.id === id);
+    const section = sections().find(item => item.id === id);
     const old = [...cards.children].find(card => card.dataset.section === id);
     if (!section || !old) return;
     const role = old.contains(document.activeElement) ? document.activeElement.dataset.control : undefined;
@@ -705,7 +884,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   }
   function saveEditor(id) {
     const editor = editors.get(id);
-    const section = getSections(view.settings).find(item => item.id === id);
+    const section = sections().find(item => item.id === id);
     if (!editor || !section) return;
     // Same schema as model output: rows missing required fields drop, strings trim, numbers clamp.
     const value = sanitizeSection(section, editor.read());
@@ -734,10 +913,12 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     seed.textContent = label('seedLegacy');
     seed.title = label('seedLegacy');
     seed.setAttribute('aria-label', label('seedLegacy'));
-    for (const [element, key] of [[refresh, 'refresh'], [pin, 'pin'], [settings, 'settings'], [close, 'close']]) {
+    for (const [element, key] of [[refresh, 'refresh'], [pin, 'pin'], [settings, 'settings'], [packs, 'packs.open'], [close, 'close']]) {
       element.title = label(key); element.setAttribute('aria-label', label(key));
     }
     pin.setAttribute('aria-pressed', String(view.settings.pinned));
+    packs.replaceChildren(view.settings.visual?.icons === 'emoji' ? node('span', 'emoji', '🎒') : icon('box-open'));
+    renderSheet();
     tab.hidden = !view.settings.showFloatingButton;
     // The tab needs the same width variable to sit on the open panel's edge.
     applyVisual(drawer, view.settings.visual);
@@ -745,9 +926,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     syncExpanded();
     openRows = new Map([...cards.querySelectorAll('details[data-key]')].map(item => [item.dataset.key, item.open]));
     const scrollTop = cards.scrollTop;
-    const sections = getSections(view.settings), ordered = [];
-    for (const id of orderedSectionIds(view.settings.order, sections)) {
-      const section = sections.find(item => item.id === id), editor = editors.get(id);
+    const list = sections(), ordered = [];
+    for (const id of orderedSectionIds(view.settings.order, list)) {
+      const section = list.find(item => item.id === id), editor = editors.get(id);
       if (editor && view.modes[id] === 'off') editors.delete(id);
       if (view.settings.hideOff && !revealOff && view.modes[id] === 'off') continue;
       if (editors.has(id) && editor.card?.isConnected) {
@@ -764,7 +945,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       else cards.insertBefore(card, cursor);
     }
     cards.scrollTop = scrollTop;
-    const offCount = sections.filter(section => view.modes[section.id] === 'off').length;
+    const offCount = list.filter(section => view.modes[section.id] === 'off').length;
     hiddenRow.hidden = !view.settings.hideOff || offCount === 0;
     const hiddenLabel = revealOff ? label('hideSections') : `${label('hiddenSections')}: ${offCount}`;
     hiddenToggle.textContent = hiddenLabel;
@@ -773,6 +954,11 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     hiddenToggle.setAttribute('aria-expanded', String(revealOff));
     refresh.setAttribute('aria-busy', String(!!view.running));
     refresh.firstElementChild.classList.toggle('fa-spin', !!view.running && view.settings.visual?.motion !== false);
+    renderStatus();
+    if (focusId && focusRole) cards.querySelector(`[data-section="${focusId}"] [data-control="${focusRole}"]`)?.focus();
+  }
+
+  function renderStatus() {
     const last = view.store.lastRun;
     const at = last?.at ?? (last?.ok ? view.entry?.state.meta?.updatedAt : undefined);
     const date = at ? new Date(at) : null;
@@ -792,7 +978,19 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       if (last.error) status.append(node('span', 'status-error', last.error));
     } else status.append(node('span', 'status-text', label('noRun')));
     if (view.entry?.stale) status.append(node('span', 'stale', `↻ ${label('outdated')}`));
-    if (focusId && focusRole) cards.querySelector(`[data-section="${focusId}"] [data-control="${focusRole}"]`)?.focus();
+    if (rollNote) status.append(node('span', 'roll-note', rollNote));
+    // Enabled packs as small chips, so the cost of the chat is visible at a glance.
+    const enabled = (view.packs?.available ?? []).filter(pack => view.packs.enabled.includes(pack.id));
+    if (enabled.length) {
+      const chips = node('span', 'status-packs');
+      chips.setAttribute('aria-label', label('packs.enabled'));
+      for (const pack of enabled) {
+        const chip = node('span', 'pack-chip');
+        chip.append(packGlyph(pack), node('span', '', packTitle(pack.title).text));
+        chips.append(chip);
+      }
+      status.append(chips);
+    }
   }
 
   function beginDrag(event, id) {
@@ -822,7 +1020,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     endDrag();
     if (completed.moved) {
       const visible = [...cards.children].map(card => card.dataset.section), ids = new Set(visible);
-      const order = orderedSectionIds(view.settings.order, getSections(view.settings))
+      const order = orderedSectionIds(view.settings.order, sections())
         .map(id => ids.has(id) ? visible.shift() : id);
       runtime.updateSettings({ order });
     }
@@ -838,5 +1036,5 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   });
   render(view);
   const unsubscribe = runtime.subscribe(render);
-  return { open, close: hide, element: drawer, dispose() { unsubscribe(); cleanups.forEach(fn => fn()); drawer.remove(); tab.remove(); menu.remove(); } };
+  return { open, close: hide, element: drawer, dispose() { unsubscribe(); win.clearTimeout(rollTimer); cleanups.forEach(fn => fn()); drawer.remove(); tab.remove(); menu.remove(); } };
 }

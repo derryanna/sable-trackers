@@ -4,7 +4,7 @@ import { enabledPacks } from './store.js';
 import { COMMON_RULES } from './prompt.js';
 
 export const SETTINGS_KEY = 'sableTrackers';
-export const GROUP_IDS = Object.freeze(['connection', 'context', 'sections', 'custom', 'visual', 'actions', 'danger']);
+export const GROUP_IDS = Object.freeze(['connection', 'context', 'sections', 'custom', 'visual', 'actions', 'packs', 'danger']);
 // Drawer look (SPEC §12). Ranges are inclusive; the UI sliders use the same bounds.
 // base/text: null = automatic (dark glass, theme text; a base derives its own ink). Hex colours override (SPEC §12).
 // bgImage: null or a sanitised data:/http(s) URL (normalizeBgImage); the other keys are numbers, booleans or choices.

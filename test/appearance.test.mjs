@@ -49,7 +49,7 @@ function setup(t, { encodeImage = async () => PNG } = {}) {
 test('appearance group: panel / cards / background / theme sub-groups with the new controls, in both languages', t => {
   const { ui, query, runtime, button } = setup(t);
   assert.deepEqual([...ui.element.querySelectorAll('.st-sable-settings-heading')].map(item => item.textContent),
-    ['Connection', 'Context', 'Sections', 'Custom blocks', 'Appearance', 'Actions', 'Danger zone'], 'top-level settings groups');
+    ['Connection', 'Context', 'Sections', 'Custom blocks', 'Appearance', 'Actions', 'Packs', 'Danger zone'], 'top-level settings groups');
   const group = query('[data-group="visual"]');
   assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Panel', 'Card colours', 'Cards', 'Background', 'Theme']);
   for (const name of ['opacity', 'blur', 'fontSize', 'widthVw', 'base', 'text', 'accent', 'motion', 'radius', 'cardFill', 'border', 'titleWeight',

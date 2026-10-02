@@ -259,3 +259,37 @@ Object.assign(STRINGS.ru, {
   'theme.export': 'Экспорт темы', 'theme.import': 'Импорт темы',
   'theme.invalid': 'Sable: это не файл темы Sable.', 'theme.imported': 'Sable: тема загружена.',
 });
+
+// Packs (SPEC §15): drawer sheet, status chips, dice, the Packs settings group and the pack editor.
+Object.assign(STRINGS.en, {
+  packs: 'Packs', 'packs.open': 'Packs', 'packs.close': 'Close packs', 'packs.sheetHint': 'Switches apply to this chat; the next reply or ↻ fills the new cards.',
+  'packs.on': 'On in this chat', 'packs.adult': '18+', 'packs.scope': 'Track', 'scope.all': 'all', 'scope.user': 'only me',
+  'packs.enabled': 'Packs on', 'group.packs': 'Packs',
+  'packs.hint': 'A pack adds cards for one kind of scene. It is switched per chat from the drawer; here you choose which packs new chats start with.',
+  'packs.default': 'On in new chats', 'packs.copy': 'Make a copy', 'packs.export': 'Save pack file', 'packs.import': 'Load pack file',
+  'packs.add': 'Add pack', 'packs.newTitle': 'New pack', 'packs.delete': 'Delete pack', 'packs.confirmDelete': 'Delete the pack for good?',
+  'packs.imported': 'Sable: pack imported.', 'packs.import.format': 'Sable: this file is not a Sable pack.',
+  'packs.import.builtin-id': 'Sable: this file carries a built-in pack id; make a copy instead.', 'packs.import.invalid': 'Sable: the pack has no valid sections.',
+  'pack.title': 'Title', 'pack.icon': 'Icon', 'pack.description': 'Description', 'pack.rules': 'Pack rules for the side model',
+  'pack.rulesHint': 'Appended to the common rules while the pack is on. {{scope}} becomes the tracking scope sentence.',
+  'pack.scope': 'Offer the "all / only me" choice', 'pack.sections': 'Cards', 'pack.addSection': 'Add card', 'pack.key': 'Key',
+  'pack.keyHint': 'Latin letters and digits, starts with a letter, up to 16 characters; it names the JSON field.',
+  'pack.lastSection': 'A pack keeps at least one card', 'prompts.packRules': 'pack rules',
+  dice: 'Roll d100', 'dice.hit': 'hit', 'dice.miss': 'miss', 'dice.rolled': 'Roll',
+});
+Object.assign(STRINGS.ru, {
+  packs: 'Наборы', 'packs.open': 'Наборы', 'packs.close': 'Закрыть наборы', 'packs.sheetHint': 'Переключатели действуют в этом чате; новые карточки заполнит следующий ответ или ↻.',
+  'packs.on': 'Включён в этом чате', 'packs.adult': '18+', 'packs.scope': 'Следить', 'scope.all': 'все', 'scope.user': 'только я',
+  'packs.enabled': 'Наборы', 'group.packs': 'Наборы',
+  'packs.hint': 'Набор добавляет карточки для сцены одного типа. Включается на чат из панели; здесь выбирают, с какими наборами начинаются новые чаты.',
+  'packs.default': 'Включать в новых чатах', 'packs.copy': 'Сделать копию', 'packs.export': 'Экспорт набора', 'packs.import': 'Импорт набора',
+  'packs.add': 'Добавить набор', 'packs.newTitle': 'Новый набор', 'packs.delete': 'Удалить набор', 'packs.confirmDelete': 'Точно удалить набор?',
+  'packs.imported': 'Sable: набор загружен.', 'packs.import.format': 'Sable: это не файл набора Sable.',
+  'packs.import.builtin-id': 'Sable: в файле id встроенного набора; сделайте копию.', 'packs.import.invalid': 'Sable: в наборе нет корректных карточек.',
+  'pack.title': 'Название', 'pack.icon': 'Значок', 'pack.description': 'Описание', 'pack.rules': 'Правила набора для вспомогательной модели',
+  'pack.rulesHint': 'Добавляются к общим правилам, пока набор включён. {{scope}} заменяется фразой об охвате.',
+  'pack.scope': 'Предлагать выбор «все / только я»', 'pack.sections': 'Карточки', 'pack.addSection': 'Добавить карточку', 'pack.key': 'Ключ',
+  'pack.keyHint': 'Латинские буквы и цифры, начинается с буквы, до 16 знаков; это имя поля в JSON.',
+  'pack.lastSection': 'В наборе остаётся хотя бы одна карточка', 'prompts.packRules': 'правила набора',
+  dice: 'Бросить d100', 'dice.hit': 'попадание', 'dice.miss': 'промах', 'dice.rolled': 'Бросок',
+});

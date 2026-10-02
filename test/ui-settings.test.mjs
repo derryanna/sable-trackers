@@ -152,7 +152,7 @@ test('settings render all fields with safe profile names and only cc profiles en
   assert.equal(ui.element.parentElement.id, 'extensions_settings2');
   assert.equal(query('.inline-drawer-header b').textContent, 'Sable Trackers');
   assert.deepEqual([...ui.element.querySelectorAll('.st-sable-settings-heading')].map(h => h.textContent),
-    ['Connection', 'Context', 'Sections', 'Custom blocks', 'Appearance', 'Actions', 'Danger zone']);
+    ['Connection', 'Context', 'Sections', 'Custom blocks', 'Appearance', 'Actions', 'Packs', 'Danger zone']);
   assert.ok(ui.element.classList.contains('st-sable-settings'));
   assert.deepEqual([...query('[data-group="sections"]').querySelectorAll('[data-section]')].map(row => row.dataset.section),
     ['world', 'offscreen', 'threads', 'story', 'npcs', 'thoughts', 'bonds', 'dossiers', 'planner', 'banlist']);

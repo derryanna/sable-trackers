@@ -1,14 +1,18 @@
-import { getSections, orderedSectionIds } from '../sections.js';
+import { getAllSections, getSections, orderedSectionIds } from '../sections.js';
 import { COMMON_RULES, getPromptTexts } from '../prompt.js';
 import { t } from '../i18n.js';
 import { GROUP_IDS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
-import { applyVisual, glyphNode, sectionGlyph } from './drawer.js';
+import { BUILTIN_PACKS } from '../packs/index.js';
+import { copyPack, exportPack, importPack } from '../packs/io.js';
+import { applyVisual, glyphNode, packTitle, sectionGlyph } from './drawer.js';
 
 const CONTEXT_KEYS = ['messages', 'cardChars', 'loreChars', 'maxTokens', 'depth', 'keep'];
 const ZERO_ALLOWED = new Set(['cardChars', 'loreChars', 'depth']);
 const MODES = ['inject', 'show', 'off'];
-const SHAPES = ['text', 'list', 'kv'];
+const SHAPES = ['text', 'list', 'kv', 'stats', 'tags'];
+const PACK_FILE = 'sable-pack.json';
+const SECTION_KEY = /^[a-z][a-z0-9]{0,15}$/;
 const PERCENT_KEYS = new Set(['opacity', 'bgDim', 'cardFill', 'border']);
 const RANGE_UNITS = { blur: 'px', fontSize: 'px', widthVw: 'vw', radius: 'px' };
 const formatVisual = (key, value) => (PERCENT_KEYS.has(key) ? `${Math.round(value * 100)}%` : `${value}${RANGE_UNITS[key] ?? ''}`);
@@ -30,10 +34,10 @@ export async function encodeImageFile(file, { document = globalThis.document, fi
   } finally { bitmap.close?.(); }
 }
 
-/** 'c_' + 8 hex, unique among the given ids (SPEC §11). */
-export function newCustomId(taken = new Set(), random = globalThis.crypto) {
+/** 'c_' + 8 hex (custom blocks, SPEC §11) or 'p_' + 8 hex (user packs, SPEC §15), unique among the given ids. */
+export function newCustomId(taken = new Set(), random = globalThis.crypto, prefix = 'c_') {
   for (;;) {
-    const id = `c_${[...random.getRandomValues(new Uint8Array(4))].map(byte => byte.toString(16).padStart(2, '0')).join('')}`;
+    const id = `${prefix}${[...random.getRandomValues(new Uint8Array(4))].map(byte => byte.toString(16).padStart(2, '0')).join('')}`;
     if (!taken.has(id)) return id;
   }
 }
@@ -43,7 +47,11 @@ export function createSettings(runtime, { document = globalThis.document,
   getContext = () => globalThis.SillyTavern.getContext(), encodeImage = encodeImageFile } = {}) {
   const host = document.querySelector('#extensions_settings2') ?? document.querySelector('#extensions_settings');
   if (!host) return null;
-  let view = runtime.snapshot(), forced, openCustom;
+  let view = runtime.snapshot(), forced, openCustom, openPack, openBlock;
+  const crypto = document.defaultView?.crypto ?? globalThis.crypto;
+  const random = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+  // Enabled packs add their cards to the Sections table and the card colours, like the drawer (SPEC §15).
+  const activeSections = () => getSections(view.settings, view.packs?.enabled ?? []);
   const label = key => t(key, view.settings.language);
   const node = (tag, className = '', text) => {
     const element = document.createElement(tag);
@@ -98,7 +106,7 @@ export function createSettings(runtime, { document = globalThis.document,
   function group(id, key) {
     const section = node('details', 'st-sable-settings-group st-sable-group'); section.dataset.group = id;
     const summary = node('summary', 'st-sable-group-summary'), heading = node('h4', 'st-sable-settings-heading');
-    const glyphs = { connection: 'plug', context: 'align-left', sections: 'list', custom: 'puzzle-piece', visual: 'palette', actions: 'bolt', danger: 'triangle-exclamation' };
+    const glyphs = { connection: 'plug', context: 'align-left', sections: 'list', custom: 'puzzle-piece', visual: 'palette', actions: 'bolt', packs: 'box-open', danger: 'triangle-exclamation' };
     heading.append(icon(glyphs[id]), text('span', '', key));
     summary.append(heading, icon('chevron-right')); section.append(summary);
     if (id === 'danger') section.classList.add('st-sable-danger');
@@ -152,7 +160,7 @@ export function createSettings(runtime, { document = globalThis.document,
   function createSectionRow(section) {
     const rowLabels = [];
     const sectionName = () => {
-      const current = getSections(view.settings).find(item => item.id === section.id) ?? section;
+      const current = activeSections().find(item => item.id === section.id) ?? section;
       return current.custom ? current.title : label(current.title);
     };
     const row = node('div', 'st-sable-settings-section'); row.dataset.section = section.id;
@@ -161,8 +169,8 @@ export function createSettings(runtime, { document = globalThis.document,
     const mode = options(node('select', 'text_pole'), MODES, value => value, rowLabels); mode.name = 'mode';
     bind(rowLabels, mode, () => `${sectionName()}: ${label('mode')}`, 'aria-label');
     mode.addEventListener('change', () => runtime.setMode(section.id, mode.value));
-    // A custom block keeps its period inside customSections; built-ins live in settings.sections.
-    const period = numberInput('period', 0, undefined, value => (section.custom
+    // A custom block keeps its period inside customSections; built-ins and pack sections live in settings.sections.
+    const period = numberInput('period', 0, undefined, value => (section.custom && !section.pack
       ? patchCustom(section.id, { period: value })
       : runtime.updateSettings({ sections: { [section.id]: { period: value } } })));
     bind(rowLabels, period, () => `${sectionName()}: ${label('period')}`, 'aria-label');
@@ -173,7 +181,7 @@ export function createSettings(runtime, { document = globalThis.document,
       bind(rowLabels, control, () => `${sectionName()}: ${label(key)}`, 'aria-label');
       bind(rowLabels, control, key, 'title');
       control.addEventListener('click', () => {
-        const order = orderedSectionIds(view.settings.order, getSections(view.settings));
+        const order = orderedSectionIds(view.settings.order, activeSections());
         const index = order.indexOf(section.id), target = index + direction;
         if (index < 0 || target < 0 || target >= order.length) return;
         [order[index], order[target]] = [order[target], order[index]];
@@ -189,7 +197,7 @@ export function createSettings(runtime, { document = globalThis.document,
     return { row, glyph, mode, period, up, down, labels: rowLabels };
   }
   function renderSections() {
-    const sections = getSections(view.settings), order = orderedSectionIds(view.settings.order, sections);
+    const sections = activeSections(), order = orderedSectionIds(view.settings.order, sections);
     for (const [id, control] of sectionControls) if (!order.includes(id)) { control.row.remove(); sectionControls.delete(id); }
     let previous = head;
     for (const [index, id] of order.entries()) {
@@ -201,7 +209,7 @@ export function createSettings(runtime, { document = globalThis.document,
       applyLabels(control.labels);
       control.glyph.replaceChildren(sectionGlyph(document, section, view.settings.visual?.icons));
       setValue(control.mode, view.modes[id]);
-      setValue(control.period, section.custom ? section.period : view.settings.sections[id].period);
+      setValue(control.period, section.custom && !section.pack ? section.period : view.settings.sections[id].period);
       control.up.disabled = index === 0;
       control.down.disabled = index === order.length - 1;
     }
@@ -227,10 +235,12 @@ export function createSettings(runtime, { document = globalThis.document,
     writeCustom([...list, { id: openCustom, title: label('newBlockTitle'), icon: '📌', instructions: '',
       shape: 'list', max: 8, mode: 'show', period: 1 }]);
   });
-  function createCustomRow(id) {
-    const row = { labels: [], armed: false };
+  // One block editor serves custom blocks and pack cards: io.patch/io.remove write the owner's array,
+  // io.rename validates a pack card key (false = keep the old one), io.canRemove guards the last card of a pack.
+  function createBlockRow(io) {
+    const row = { labels: [], armed: false, io };
     const bindRow = (element, key, attribute) => bind(row.labels, element, key, attribute);
-    row.element = node('details', 'st-sable-custom'); row.element.dataset.customId = id;
+    row.element = node('details', 'st-sable-custom');
     const summary = node('summary', 'st-sable-custom-summary');
     row.glyph = node('span', 'st-sable-settings-glyph');
     row.title = node('span', 'st-sable-custom-name');
@@ -247,26 +257,33 @@ export function createSettings(runtime, { document = globalThis.document,
       return element;
     };
     const inputs = row.inputs = {
-      title: input('title', 60, value => patchCustom(id, { title: value || label('newBlockTitle') })),
-      icon: input('icon', 40, value => patchCustom(id, { icon: value })),
+      title: input('title', 60, value => io.patch({ title: value || label('newBlockTitle') })),
+      icon: input('icon', 40, value => io.patch({ icon: value })),
       shape: options(node('select', 'text_pole'), SHAPES, value => `shape.${value}`, row.labels),
-      max: numberInput('max', 1, 20, value => patchCustom(id, { max: value })),
+      max: numberInput('max', 1, 20, value => io.patch({ max: value })),
       mode: options(node('select', 'text_pole'), MODES, value => value, row.labels),
-      period: numberInput('period', 1, undefined, value => patchCustom(id, { period: value })),
-      instructions: input('instructions', 2000, value => patchCustom(id, { instructions: value })),
+      period: numberInput('period', 1, undefined, value => io.patch({ period: value })),
+      instructions: input('instructions', 2000, value => io.patch({ instructions: value })),
     };
     inputs.shape.name = 'shape'; inputs.mode.name = 'mode'; inputs.instructions.rows = 3;
-    inputs.shape.addEventListener('change', () => patchCustom(id, { shape: inputs.shape.value }));
-    inputs.mode.addEventListener('change', () => patchCustom(id, { mode: inputs.mode.value }));
+    inputs.shape.addEventListener('change', () => io.patch({ shape: inputs.shape.value }));
+    inputs.mode.addEventListener('change', () => io.patch({ mode: inputs.mode.value }));
     bindRow(inputs.icon, 'custom.iconHint', 'title'); inputs.icon.placeholder = '📌';
     bindRow(inputs.instructions, 'custom.instructionsHint', 'placeholder');
     const small = node('div', 'st-sable-custom-fields');
+    if (io.rename) {
+      // The key names the JSON field: an invalid or duplicate key is restored, never saved.
+      inputs.key = input('key', 16, value => { if (!io.rename(value)) render(runtime.snapshot(), inputs.key); });
+      inputs.key.autocomplete = 'off'; inputs.key.spellcheck = false;
+      bindRow(inputs.key, 'pack.keyHint', 'title');
+      small.append(field('pack.key', inputs.key, 'key'));
+    }
     small.append(field('custom.icon', inputs.icon, 'icon'), field('custom.shape', inputs.shape, 'shape'),
       field('custom.max', inputs.max, 'max'), field('mode', inputs.mode, 'mode'), field('periodShort', inputs.period, 'period'));
     const actions = node('div', 'st-sable-custom-actions');
     // Two taps delete, so a stray tap cannot lose the instructions.
     row.remove = button(actions, () => label(row.armed ? 'custom.confirmDelete' : 'custom.delete'), 'trash-can', () => {
-      if (row.armed) { writeCustom(customSections().filter(item => item?.id !== id)); return; }
+      if (row.armed) { io.remove(); return; }
       row.armed = true; applyLabels(row.labels); row.remove.classList.add('st-sable-armed');
     }, row.labels);
     row.remove.addEventListener('blur', () => {
@@ -278,12 +295,15 @@ export function createSettings(runtime, { document = globalThis.document,
     row.element.append(summary, body);
     return row;
   }
-  function updateCustomRow(row, item) {
+  function updateBlockRow(row, item) {
     const shape = SHAPES.includes(item.shape) ? item.shape : 'list', mode = MODES.includes(item.mode) ? item.mode : 'show';
     row.glyph.replaceChildren(glyphNode(document, item.icon || '📌'));
     row.title.textContent = item.title || label('newBlockTitle');
     row.mode.textContent = label(mode); row.mode.dataset.mode = mode;
     applyLabels(row.labels);
+    const removable = row.io.canRemove ? row.io.canRemove() : true;
+    row.remove.disabled = !removable; row.remove.title = removable ? '' : label('pack.lastSection');
+    if (row.inputs.key) setValue(row.inputs.key, item.key ?? '');
     setValue(row.inputs.title, item.title ?? '');
     setValue(row.inputs.icon, item.icon ?? '');
     setValue(row.inputs.shape, shape);
@@ -300,13 +320,17 @@ export function createSettings(runtime, { document = globalThis.document,
     for (const [id, row] of customRows) if (!seen.has(id)) { row.element.remove(); customRows.delete(id); }
     let previous = null;
     for (const item of items) {
-      if (!customRows.has(item.id)) customRows.set(item.id, createCustomRow(item.id));
+      if (!customRows.has(item.id)) {
+        const row = createBlockRow({ patch: patch => patchCustom(item.id, patch), remove: () => writeCustom(customSections().filter(entry => entry?.id !== item.id)) });
+        row.element.dataset.customId = item.id;
+        customRows.set(item.id, row);
+      }
       const row = customRows.get(item.id);
       // Rows move only when out of place, so a focused field is not detached.
       const expected = previous ? previous.nextSibling : customList.firstChild;
       if (row.element !== expected) customList.insertBefore(row.element, expected);
       previous = row.element;
-      updateCustomRow(row, item);
+      updateBlockRow(row, item);
     }
     customEmpty.hidden = items.length > 0;
     const added = customRows.get(openCustom);
@@ -330,6 +354,14 @@ export function createSettings(runtime, { document = globalThis.document,
     const toast = globalThis.toastr;
     if (typeof toast?.[type] === 'function') toast[type](message); else console.warn(message);
   };
+  // A file download through a temporary link; the theme, the log and pack exports share it.
+  function download(name, text) {
+    const win = document.defaultView;
+    const url = win.URL.createObjectURL(new win.Blob([text], { type: 'application/json' }));
+    const link = node('a'); link.href = url; link.download = name; link.hidden = true;
+    document.body.append(link); link.click(); link.remove();
+    win.setTimeout(() => win.URL.revokeObjectURL(url), 1000);
+  }
   function preview(key, value) {
     const visual = visualWith(key, value);
     visualOutputs.get(key).textContent = key === 'accent' ? visual.accent : formatVisual(key, visual[key]);
@@ -386,7 +418,7 @@ export function createSettings(runtime, { document = globalThis.document,
   const cardColorList = node('div', 'st-sable-settings-grid'); cardColorBlock.append(cardColorList); visualGrid.append(cardColorBlock);
   const cardColorRows = new Map();
   function renderCardColors() {
-    const sections = getSections(view.settings), order = orderedSectionIds(view.settings.order, sections), visual = normalizeVisual(view.settings.visual);
+    const sections = activeSections(), order = orderedSectionIds(view.settings.order, sections), visual = normalizeVisual(view.settings.visual);
     for (const [id, row] of cardColorRows) if (!order.includes(id)) { row.element.remove(); cardColorRows.delete(id); }
     let previous = null;
     for (const id of order) {
@@ -493,13 +525,7 @@ export function createSettings(runtime, { document = globalThis.document,
   const visualActions = node('div', 'st-sable-settings-buttons'); visualGroup.append(visualActions);
   const themeFile = node('input'); themeFile.type = 'file'; themeFile.accept = '.json,application/json'; themeFile.name = 'themeFile';
   themeFile.hidden = true;
-  button(visualActions, 'theme.export', 'download', () => {
-    const win = document.defaultView;
-    const url = win.URL.createObjectURL(new win.Blob([exportTheme(runtime.snapshot().settings.visual)], { type: 'application/json' }));
-    const link = node('a'); link.href = url; link.download = THEME_FILE; link.hidden = true;
-    document.body.append(link); link.click(); link.remove();
-    win.setTimeout(() => win.URL.revokeObjectURL(url), 1000);
-  });
+  button(visualActions, 'theme.export', 'download', () => download(THEME_FILE, exportTheme(runtime.snapshot().settings.visual)));
   button(visualActions, 'theme.import', 'upload', () => themeFile.click());
   button(visualActions, 'resetVisual', 'eraser', () => runtime.updateSettings({ visual: { ...VISUAL_DEFAULTS } }));
   visualActions.append(themeFile);
@@ -531,16 +557,185 @@ export function createSettings(runtime, { document = globalThis.document,
   checkbox(actions, 'hideOff');
   controls.get('showPanel').parentElement.after(controls.get('hideOff').parentElement);
 
+  // Packs (SPEC §15): the same list as the drawer sheet, "on in new chats" ticks, export/import and the user-pack editor.
+  const packsGroup = group('packs', 'group.packs');
+  const packList = node('div', 'st-sable-pack-list');
+  packsGroup.append(text('p', 'st-sable-settings-hint', 'packs.hint'), packList);
+  const packActions = node('div', 'st-sable-settings-buttons'); packsGroup.append(packActions);
+  const packRows = new Map();
+  const userPacks = () => (Array.isArray(runtime.snapshot().settings.packs) ? runtime.snapshot().settings.packs : []);
+  const writePacks = packs => runtime.updateSettings({ packs });
+  const patchPack = (id, patch) => writePacks(userPacks().map(pack => (pack?.id === id ? { ...pack, ...patch } : pack)));
+  const patchPackSection = (id, key, patch) => patchPack(id, { sections: userPacks().find(pack => pack?.id === id)?.sections.map(s => (s.key === key ? { ...s, ...patch } : s)) });
+  const newBlock = () => ({ title: label('newBlockTitle'), icon: '📌', instructions: '', shape: 'list', max: 8, mode: 'show', period: 1 });
+  const addPack = pack => { openPack = pack.id; writePacks([...userPacks(), pack]); };
+  button(packActions, 'packs.add', 'plus', () => addPack({ id: newCustomId(new Set(userPacks().map(pack => pack?.id)), crypto, 'p_'),
+    title: label('packs.newTitle'), icon: '🎒', description: '', rules: '', scope: false, sections: [{ key: 'card', ...newBlock() }] }));
+  const packFile = node('input'); packFile.type = 'file'; packFile.accept = '.json,application/json'; packFile.name = 'packFile'; packFile.hidden = true;
+  button(packActions, 'packs.import', 'upload', () => packFile.click());
+  packActions.append(packFile);
+  packFile.addEventListener('change', async () => {
+    const file = packFile.files?.[0];
+    packFile.value = '';
+    if (!file) return;
+    let result;
+    try { result = importPack(await file.text(), userPacks(), { random }); } catch { result = { error: 'format' }; }
+    if (result.error) { notify('warning', label(`packs.import.${result.error}`)); return; }
+    addPack(result.pack);
+    notify('success', label('packs.imported'));
+  });
+  function createPackRow(id, builtin) {
+    const row = { labels: [], armed: false, blocks: new Map() };
+    const bindRow = (element, key, attribute) => bind(row.labels, element, key, attribute);
+    row.element = node('details', 'st-sable-custom st-sable-pack'); row.element.dataset.pack = id;
+    const summary = node('summary', 'st-sable-custom-summary');
+    row.glyph = node('span', 'st-sable-settings-glyph');
+    row.title = node('span', 'st-sable-custom-name');
+    row.adult = bindRow(node('span', 'st-sable-adult'), 'packs.adult');
+    row.description = node('span', 'st-sable-pack-desc');
+    summary.append(row.glyph, row.title, row.adult, row.description);
+    const body = node('div', 'st-sable-custom-body');
+    const check = (key, write) => {
+      const wrap = node('label', 'checkbox_label st-sable-settings-check');
+      const input = node('input'); input.type = 'checkbox'; input.name = key;
+      input.addEventListener('change', () => write(input.checked));
+      wrap.append(input, bindRow(node('span'), key)); return input;
+    };
+    // The per-chat switch stays in the drawer sheet; here only the default for new chats.
+    row.defaults = check('packs.default', on => {
+      const defaults = runtime.snapshot().settings.packDefaults.filter(value => value !== id);
+      runtime.updateSettings({ packDefaults: on ? [...defaults, id] : defaults });
+    });
+    row.scope = options(node('select', 'text_pole'), ['all', 'user'], value => `scope.${value}`, row.labels); row.scope.name = 'packScope';
+    row.scope.addEventListener('change', () => runtime.updateSettings({ packScope: { [id]: row.scope.value } }));
+    const scopeRow = node('label', 'st-sable-settings-inline st-sable-pack-scope');
+    scopeRow.append(bindRow(node('span', 'st-sable-settings-label'), 'packs.scope'), row.scope);
+    row.scopeRow = scopeRow;
+    body.append(row.defaults.parentElement, scopeRow);
+    const actions = node('div', 'st-sable-settings-buttons st-sable-custom-actions');
+    const current = () => (builtin ? BUILTIN_PACKS.find(pack => pack.id === id) : userPacks().find(pack => pack?.id === id));
+    if (builtin) {
+      button(actions, 'packs.copy', 'copy', () => addPack(copyPack(current(), { random, lang: runtime.snapshot().settings.language })), row.labels);
+    } else {
+      const field = (key, control, name) => {
+        const wrap = node('label', 'st-sable-custom-field'); wrap.dataset.field = name;
+        wrap.append(bindRow(node('span', 'st-sable-settings-label'), key), control); return wrap;
+      };
+      const input = (name, maxLength, write, tag = 'input') => {
+        const element = node(tag, 'text_pole'); element.name = name; element.maxLength = maxLength;
+        element.addEventListener('change', () => write(element.value.trim()));
+        return element;
+      };
+      row.inputs = {
+        title: input('title', 60, value => patchPack(id, { title: value || label('packs.newTitle') })),
+        icon: input('icon', 40, value => patchPack(id, { icon: value })),
+        description: input('description', 300, value => patchPack(id, { description: value })),
+        rules: input('rules', 2000, value => patchPack(id, { rules: value }), 'textarea'),
+      };
+      row.inputs.rules.rows = 3;
+      bindRow(row.inputs.icon, 'custom.iconHint', 'title'); row.inputs.icon.placeholder = '🎒';
+      bindRow(row.inputs.rules, 'pack.rulesHint', 'title');
+      const small = node('div', 'st-sable-custom-fields');
+      small.append(field('pack.title', row.inputs.title, 'title'), field('pack.icon', row.inputs.icon, 'icon'));
+      row.scopeFlag = check('pack.scope', on => patchPack(id, { scope: on }));
+      row.blockList = node('div', 'st-sable-custom-list');
+      const blockActions = node('div', 'st-sable-settings-buttons');
+      button(blockActions, 'pack.addSection', 'plus', () => {
+        const pack = current(); if (!pack) return;
+        let n = pack.sections.length + 1, key = `card${n}`;
+        while (pack.sections.some(s => s.key === key)) key = `card${++n}`;
+        openBlock = `${id}:${key}`;
+        patchPack(id, { sections: [...pack.sections, { key, ...newBlock() }] });
+      }, row.labels);
+      body.append(small, field('pack.description', row.inputs.description, 'description'), field('pack.rules', row.inputs.rules, 'rules'),
+        row.scopeFlag.parentElement, bindRow(node('h5', 'st-sable-settings-subheading'), 'pack.sections'), row.blockList, blockActions);
+      row.remove = button(actions, () => label(row.armed ? 'packs.confirmDelete' : 'packs.delete'), 'trash-can', () => {
+        if (row.armed) { writePacks(userPacks().filter(pack => pack?.id !== id)); return; }
+        row.armed = true; applyLabels(row.labels); row.remove.classList.add('st-sable-armed');
+      }, row.labels);
+      row.remove.addEventListener('blur', () => {
+        if (!row.armed) return;
+        row.armed = false; applyLabels(row.labels); row.remove.classList.remove('st-sable-armed');
+      });
+    }
+    button(actions, 'packs.export', 'download', () => {
+      const pack = current();
+      if (pack) download(PACK_FILE, `${JSON.stringify(exportPack(pack, { random, lang: runtime.snapshot().settings.language }), null, 2)}\n`);
+    }, row.labels);
+    body.append(actions);
+    row.element.append(summary, body);
+    return row;
+  }
+  function renderPackBlocks(row, pack) {
+    const seen = new Set(pack.sections.map(s => s.key));
+    for (const [key, block] of row.blocks) if (!seen.has(key)) { block.element.remove(); row.blocks.delete(key); }
+    let previous = null;
+    for (const section of pack.sections) {
+      if (!row.blocks.has(section.key)) {
+        const block = createBlockRow({
+          patch: patch => patchPackSection(pack.id, section.key, patch),
+          remove: () => { const packNow = userPacks().find(p => p?.id === pack.id); if (packNow?.sections.length > 1) patchPack(pack.id, { sections: packNow.sections.filter(s => s.key !== section.key) }); },
+          canRemove: () => (userPacks().find(p => p?.id === pack.id)?.sections.length ?? 0) > 1,
+          rename: value => {
+            const packNow = userPacks().find(p => p?.id === pack.id);
+            if (!packNow || !SECTION_KEY.test(value) || packNow.sections.some(s => s.key === value && s.key !== section.key)) return false;
+            if (value !== section.key) { openBlock = `${pack.id}:${value}`; patchPackSection(pack.id, section.key, { key: value }); }
+            return true;
+          },
+        });
+        block.element.dataset.packSection = `${pack.id}:${section.key}`;
+        row.blocks.set(section.key, block);
+      }
+      const block = row.blocks.get(section.key);
+      const expected = previous ? previous.nextSibling : row.blockList.firstChild;
+      if (block.element !== expected) row.blockList.insertBefore(block.element, expected);
+      previous = block.element;
+      updateBlockRow(block, section);
+      if (openBlock === `${pack.id}:${section.key}`) { openBlock = undefined; block.element.open = true; block.inputs.title.focus(); }
+    }
+  }
+  function renderPacks() {
+    const available = view.packs?.available ?? [], seen = new Set(available.map(pack => pack.id));
+    for (const [id, row] of packRows) if (!seen.has(id)) { row.element.remove(); packRows.delete(id); }
+    let previous = null;
+    for (const pack of available) {
+      if (!packRows.has(pack.id)) packRows.set(pack.id, createPackRow(pack.id, pack.builtin));
+      const row = packRows.get(pack.id), { text: title, adult } = packTitle(pack.title);
+      const expected = previous ? previous.nextSibling : packList.firstChild;
+      if (row.element !== expected) packList.insertBefore(row.element, expected);
+      previous = row.element;
+      applyLabels(row.labels);
+      row.glyph.replaceChildren(glyphNode(document, pack.icon || '🎒'));
+      row.title.textContent = title; row.adult.hidden = !adult;
+      row.description.textContent = pack.description ?? '';
+      row.defaults.checked = view.settings.packDefaults.includes(pack.id);
+      row.scopeRow.hidden = !pack.scope;
+      setValue(row.scope, view.settings.packScope?.[pack.id] === 'user' ? 'user' : 'all');
+      const raw = pack.builtin ? null : view.settings.packs.find(item => item.id === pack.id);
+      if (raw) {
+        setValue(row.inputs.title, raw.title); setValue(row.inputs.icon, raw.icon ?? '');
+        setValue(row.inputs.description, raw.description ?? ''); setValue(row.inputs.rules, raw.rules ?? '');
+        row.scopeFlag.checked = !!raw.scope;
+        renderPackBlocks(row, raw);
+      }
+    }
+    const added = packRows.get(openPack);
+    if (added) { openPack = undefined; added.element.open = true; added.inputs?.title.focus(); added.inputs?.title.select(); }
+  }
+
   // Danger zone: instruction overrides and runtime-only request diagnostics.
   const danger = group('danger', 'group.danger');
   danger.append(text('p', 'st-sable-settings-hint', 'dangerHint'), text('h5', 'st-sable-settings-subheading', 'sub.prompts'),
     text('p', 'st-sable-settings-hint', 'prompts.hint'));
   const promptControls = new Map(), promptList = node('div');
-  function promptField(parent, id, fallback, summary) {
+  // Built-in sections and the sections of built-in packs (builtin: true) are tunable here; pack titles are localized live.
+  const builtinSections = () => getAllSections(view.settings).filter(s => !s.custom || s.builtin);
+  const sectionTitle = id => { const s = builtinSections().find(item => item.id === id); return !s ? id : s.custom ? s.title : label(s.title); };
+  function promptField(parent, id, fallback, summary, kind = 'section') {
     const input = node('textarea', 'text_pole st-sable-settings-wide'); input.name = `prompts.${id}`;
-    input.rows = id === 'rules' ? 6 : 4; input.maxLength = id === 'rules' ? 4000 : 2000;
-    bind(labels, input, id === 'rules' ? 'prompts.rules' : getSections(view.settings).find(s => s.id === id).title, 'aria-label');
-    const write = value => runtime.updateSettings({ prompts: id === 'rules' ? { rules: value } : { sections: { [id]: value } } });
+    input.rows = kind === 'rules' ? 6 : 4; input.maxLength = kind === 'rules' ? 4000 : 2000;
+    bind(labels, input, kind === 'rules' ? 'prompts.rules' : kind === 'pack' ? () => `${packTitle(view.packs.available.find(p => p.id === id)?.title).text}: ${label('prompts.packRules')}` : () => sectionTitle(id), 'aria-label');
+    const write = value => runtime.updateSettings({ prompts: kind === 'rules' ? { rules: value } : kind === 'pack' ? { packs: { [id]: value } } : { sections: { [id]: value } } });
     input.addEventListener('change', () => { const value = input.value.trim(); write(!value || value === fallback ? null : value); });
     const badge = text('small', '', 'prompts.changed'); badge.dataset.changed = ''; summary.append(badge);
     parent.append(input);
@@ -549,20 +744,32 @@ export function createSettings(runtime, { document = globalThis.document,
   }
   const rulesLabel = node('label', 'st-sable-settings-label'); rulesLabel.append(text('span', '', 'prompts.rules'));
   rulesLabel.htmlFor = 'st-sable-rules'; danger.append(rulesLabel);
-  promptField(danger, 'rules', COMMON_RULES, rulesLabel); promptControls.get('rules').input.id = rulesLabel.htmlFor;
+  promptField(danger, 'rules', COMMON_RULES, rulesLabel, 'rules'); promptControls.get('rules').input.id = rulesLabel.htmlFor;
   danger.append(promptList);
-  for (const section of getSections(view.settings).filter(s => !s.custom)) {
+  for (const section of builtinSections()) {
     const row = node('details', 'st-sable-prompt'); row.dataset.promptSection = section.id;
     const summary = node('summary'), glyph = node('span', 'st-sable-settings-glyph');
-    summary.append(glyph, text('span', '', section.title)); row.append(summary);
-    promptField(row, section.id, section.instructions, summary);
+    summary.append(glyph, text('span', '', () => sectionTitle(section.id))); row.append(summary);
+    promptField(row, section.id, section.pack ? BUILTIN_PACKS.find(p => p.id === section.pack).sections.find(s => `${section.pack}_${s.key}` === section.id).instructions : section.instructions, summary);
     promptControls.get(section.id).glyph = glyph; promptList.append(row);
+  }
+  // Pack rules of the built-in packs (prompts.packs[id]) follow the section list with the same Default button and badge.
+  const packPromptList = node('div'); danger.append(packPromptList);
+  for (const pack of BUILTIN_PACKS) {
+    const row = node('details', 'st-sable-prompt'); row.dataset.promptPack = pack.id;
+    const summary = node('summary'), glyph = node('span', 'st-sable-settings-glyph'); glyph.append(glyphNode(document, pack.icon));
+    const name = () => packTitle(view.packs.available.find(p => p.id === pack.id)?.title).text;
+    summary.append(glyph, text('span', '', name), text('span', 'st-sable-adult', 'packs.adult'), text('small', 'st-sable-pack-kind', 'prompts.packRules'));
+    row.append(summary);
+    promptField(row, pack.id, pack.rules, summary, 'pack');
+    promptControls.get(pack.id).adult = summary.querySelector('.st-sable-adult'); packPromptList.append(row);
   }
   let resetArmed = false;
   const resetPrompts = button(danger, () => label(resetArmed ? 'prompts.confirmResetAll' : 'prompts.resetAll'), 'eraser', () => {
     if (!resetArmed) { resetArmed = true; resetPrompts.classList.add('st-sable-armed'); applyLabels(labels); return; }
     resetArmed = false; resetPrompts.classList.remove('st-sable-armed');
-    runtime.updateSettings({ prompts: { rules: null, sections: Object.fromEntries([...promptControls.keys()].filter(id => id !== 'rules').map(id => [id, null])) } });
+    runtime.updateSettings({ prompts: { rules: null, sections: Object.fromEntries(builtinSections().map(s => [s.id, null])),
+      packs: Object.fromEntries(BUILTIN_PACKS.map(pack => [pack.id, null])) } });
   });
   resetPrompts.addEventListener('blur', () => { resetArmed = false; resetPrompts.classList.remove('st-sable-armed'); applyLabels(labels); });
   const formatMessages = messages => (messages ?? []).map(m => `=== ${m.role} ===\n${m.content}`).join('\n\n');
@@ -589,17 +796,12 @@ export function createSettings(runtime, { document = globalThis.document,
   const logList = node('div', 'st-sable-log'), logEmpty = text('p', 'st-sable-settings-hint', 'logEmpty');
   let renderedLog, renderedLanguage;
   const logActions = node('div', 'st-sable-settings-buttons'); danger.append(logList, logEmpty, logActions);
-  button(logActions, 'log.download', 'download', () => {
-    const win = document.defaultView;
-    const url = win.URL.createObjectURL(new win.Blob([JSON.stringify(view.log ?? [], null, 2)], { type: 'application/json' }));
-    const link = node('a'); link.href = url; link.download = 'sable-log.json'; link.hidden = true;
-    document.body.append(link); link.click(); link.remove(); win.setTimeout(() => win.URL.revokeObjectURL(url), 1000);
-  });
+  button(logActions, 'log.download', 'download', () => download('sable-log.json', JSON.stringify(view.log ?? [], null, 2)));
   button(logActions, 'log.clear', 'trash-can', () => runtime.clearLog());
   function renderDanger() {
-    const texts = getPromptTexts(view.settings), sections = getSections(view.settings);
+    const sections = builtinSections(), texts = getPromptTexts(view.settings, getAllSections(view.settings));
     let previous = null;
-    for (const id of ['rules', ...view.settings.order.filter(id => promptControls.has(id))]) {
+    for (const id of ['rules', ...orderedSectionIds(view.settings.order, sections)]) {
       const control = promptControls.get(id), rules = id === 'rules';
       const changed = rules ? view.settings.prompts?.rules != null : view.settings.prompts?.sections?.[id] != null;
       setValue(control.input, rules ? texts.rules : texts.sections[id]); control.reset.disabled = !changed; control.badge.hidden = !changed;
@@ -608,6 +810,11 @@ export function createSettings(runtime, { document = globalThis.document,
       const expected = previous ? previous.nextSibling : promptList.firstChild;
       if (expected !== control.parent) promptList.insertBefore(control.parent, expected);
       previous = control.parent;
+    }
+    for (const pack of BUILTIN_PACKS) {
+      const control = promptControls.get(pack.id), changed = view.settings.prompts?.packs?.[pack.id] != null;
+      setValue(control.input, texts.packs[pack.id]); control.reset.disabled = !changed; control.badge.hidden = !changed;
+      control.adult.hidden = !packTitle(view.packs.available.find(p => p.id === pack.id)?.title).adult;
     }
     // The log array is replaced only by a recorded run or Clear; other publishes (sliders, folds) keep the rows.
     if (view.log === renderedLog && view.settings.language === renderedLanguage) return;
@@ -659,6 +866,7 @@ export function createSettings(runtime, { document = globalThis.document,
     renderSections();
     renderCardColors();
     renderCustom();
+    renderPacks();
     renderDanger();
     const visual = normalizeVisual(view.settings.visual);
     for (const [key, input] of visualControls) setValue(input, visual[key]);

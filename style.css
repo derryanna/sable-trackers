@@ -523,3 +523,89 @@
 .st-sable-settings-visual.st-sable-settings-check { min-height: 36px; }
 /* Over a picture the hidden-sections row gets the same backing as the status line. */
 .st-sable-drawer[data-st-sable-bg="1"] .st-sable-hidden-toggle { background: rgba(var(--st-sable-base-rgb, 14,14,18), .66); border-radius: 999px; opacity: .9; }
+
+/* Packs (SPEC §15). The header button is an ordinary icon button; the sheet lives inside the panel (its containing
+   block) as a scrim with a bottom panel, so a tap outside the panel lands on the scrim and closes it. Every control
+   is on the ink like the rest of the drawer and reads the accent, so themes and card colours carry over. */
+.st-sable-sheet { position: absolute; z-index: 6; top: 0; left: 0; right: 0; height: 100%; display: flex; align-items: flex-end; border-radius: inherit; background: rgba(0,0,0,.35); animation: st-sable-flash 140ms ease-out; }
+.st-sable-sheet[hidden] { display: none; }
+.st-sable-sheet-panel {
+  width: 100%; max-height: min(85%, 100%); overflow-y: auto; overscroll-behavior: contain; padding: 8px 10px max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .16); border-radius: var(--st-sable-radius, 18px) var(--st-sable-radius, 18px) 0 0;
+  background: linear-gradient(rgba(var(--st-sable-ink-rgb, 255,255,255), .06), rgba(var(--st-sable-ink-rgb, 255,255,255), .03)), rgb(var(--st-sable-base-rgb, 14,14,18));
+  box-shadow: 0 -10px 30px rgba(0,0,0,.3); animation: st-sable-sheet-in 180ms ease-out;
+}
+@keyframes st-sable-sheet-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.st-sable-sheet-header { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.st-sable-sheet-title { flex: 1; min-width: 0; margin: 0; font-size: calc(var(--st-sable-fs) + 2px); font-weight: var(--st-sable-title-weight, 700); }
+.st-sable-sheet-hint { margin: 0 0 8px; font-size: calc(var(--st-sable-fs) - 1.5px); line-height: 1.4; opacity: .62; }
+.st-sable-pack-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.st-sable-pack-row { padding: 6px 8px; border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), var(--st-sable-border, .13)); border-radius: calc(var(--st-sable-radius, 18px) - 4px); background: rgba(var(--st-sable-ink-rgb, 255,255,255), var(--st-sable-card-fill, .05)); }
+.st-sable-pack-main { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+.st-sable-pack-icon { flex: none; width: 1.6em; text-align: center; font-size: calc(var(--st-sable-fs) + 2px); opacity: .9; }
+.st-sable-pack-text { flex: 1 1 auto; min-width: 0; }
+.st-sable-pack-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 600; }
+.st-sable-pack-desc { font-size: calc(var(--st-sable-fs) - 1.5px); line-height: 1.35; opacity: .62; }
+/* "18+" badge: the mark lives in the title text (SPEC §15 Decisions); the UI pulls it out into a small pill. */
+.st-sable-adult { display: inline-block; padding: 0 6px; border: 1px solid currentColor; border-radius: 999px; font-size: calc(var(--st-sable-fs) - 3px); font-weight: 700; line-height: 1.5; letter-spacing: .04em; opacity: .75; }
+.st-sable-adult[hidden] { display: none; }
+/* Switch: a 36px tap target around a 40×22 track; the accent fills the on state. */
+.st-sable-switch {
+  position: relative; flex: none; width: 48px; min-width: 48px; height: 36px; min-height: 36px; padding: 0; border: 0; background: transparent;
+  color: inherit; cursor: pointer; -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent;
+}
+.st-sable-switch::before { content: ''; position: absolute; left: 4px; top: 7px; width: 40px; height: 22px; border-radius: 999px; background: rgba(var(--st-sable-ink-rgb, 255,255,255), .14); border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .22); transition: background-color 140ms, border-color 140ms; }
+.st-sable-switch-knob { position: absolute; left: 7px; top: 10px; width: 16px; height: 16px; border-radius: 50%; background: rgba(var(--st-sable-ink-rgb, 255,255,255), .85); box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: translate 140ms ease-out, background-color 140ms; }
+.st-sable-switch[aria-checked="true"]::before { background: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .45); }
+.st-sable-switch[aria-checked="true"] > .st-sable-switch-knob { translate: 18px 0; background: rgb(var(--st-sable-accent-ink-rgb, 0,0,0)); }
+.st-sable-drawer[data-st-sable-chip="outline"] .st-sable-switch[aria-checked="true"]::before { background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 28%, transparent); border-color: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); }
+.st-sable-drawer[data-st-sable-chip="outline"] .st-sable-switch[aria-checked="true"] > .st-sable-switch-knob { background: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); }
+/* Scope toggle: two radio buttons in one pill, the checked one filled like the «inject» chip. */
+.st-sable-segment { display: flex; align-items: center; gap: 8px; margin: 2px 0 0 calc(1.6em + 10px); font-size: calc(var(--st-sable-fs) - 1px); }
+.st-sable-segment-label { flex: 1 1 auto; opacity: .62; }
+.st-sable-segment-option {
+  flex: none; min-width: 44px; min-height: 36px; padding: 0 12px; color: inherit; font: inherit; font-size: calc(var(--st-sable-fs) - 1.5px); font-weight: 600; cursor: pointer;
+  background: transparent; border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .22); -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent;
+}
+.st-sable-segment-option:first-of-type { border-radius: 999px 0 0 999px; }
+.st-sable-segment-option:last-of-type { border-radius: 0 999px 999px 0; margin-left: -1px; }
+.st-sable-segment-option[aria-checked="true"] { color: rgb(var(--st-sable-accent-ink-rgb, 0,0,0)); background: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .45); }
+.st-sable-drawer[data-st-sable-chip="outline"] .st-sable-segment-option[aria-checked="true"] { color: inherit; border-color: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 18%, transparent); }
+/* Status line: enabled packs as small chips after the run summary; the roll note replaces nothing and fades with the rest. */
+.st-sable-status-packs { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.st-sable-pack-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 999px; border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .2); font-size: calc(var(--st-sable-fs) - 3px); line-height: 1.4; white-space: nowrap; }
+.st-sable-pack-chip > .fa-solid { font-size: 9px; }
+.st-sable-roll-note { display: block; color: #e9c16f; }
+/* Stats rows reuse the bond grid; counters (max null) leave the bar column empty so numbers line up on the right.
+   A fifth auto column holds the dice; rows without a die keep their width through the empty track. */
+.st-sable-stats { display: flex; flex-direction: column; }
+.st-sable-stat-row { grid-template-columns: minmax(4em, 7.5em) minmax(24px, 1fr) auto auto auto; gap: 6px; }
+.st-sable-stat-row > .st-sable-score { min-width: 2.1em; }
+.st-sable-stat-row > .st-sable-badge { justify-self: end; }
+.st-sable-bar-gap { display: block; height: 6px; }
+.st-sable-drawer details.st-sable-scale > .st-sable-stat-row + .st-sable-reason { margin-left: calc(4em + 6px); }
+.st-sable-dice { width: 36px; height: 36px; min-width: 36px; min-height: 36px; margin: -6px 0; padding: 0; border: 0; border-radius: 10px; background: transparent; font-size: 14px; opacity: .8; }
+.st-sable-dice:hover, .st-sable-dice:focus-visible { opacity: 1; background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 18%, transparent); }
+.st-sable-kv-dice { display: flex; align-items: center; gap: 4px; }
+.st-sable-kv-dice > .st-sable-dice { margin: -8px 0; }
+@media (max-width: 379px) { .st-sable-stat-row { grid-template-columns: minmax(3.5em, 6em) minmax(20px, 1fr) auto auto auto; } }
+/* Packs settings group: the list reuses the custom-block rows; the summary adds the badge and a one-line description. */
+.st-sable-pack > .st-sable-custom-summary { flex-wrap: wrap; row-gap: 0; }
+.st-sable-pack > .st-sable-custom-summary > .st-sable-custom-name { flex: 0 1 auto; }
+.st-sable-pack > .st-sable-custom-summary > .st-sable-pack-desc { flex: 1 1 12em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8em; opacity: .62; }
+/* The scope row keeps its label beside a fixed-width select and wraps as a whole on narrow blocks. */
+.st-sable-pack .st-sable-pack-scope { margin: 0; flex-wrap: wrap; }
+.st-sable-pack .st-sable-pack-scope[hidden] { display: none; }
+.st-sable-pack .st-sable-pack-scope > .st-sable-settings-label { flex: 1 1 6em; }
+.st-sable-pack .st-sable-pack-scope > select.text_pole { width: 9em; }
+.st-sable-pack .st-sable-custom-field > textarea.text_pole { min-height: 4.5em; resize: vertical; }
+.st-sable-pack .st-sable-custom-field[data-field="description"] > .text_pole, .st-sable-pack .st-sable-custom-field[data-field="rules"] > .text_pole { width: 100%; }
+.st-sable-pack .st-sable-custom-list { margin-top: 2px; }
+.st-sable-pack .st-sable-settings-subheading { margin: 6px 0 2px; }
+.st-sable-settings .st-sable-adult { display: inline-block; padding: 0 6px; border: 1px solid currentColor; border-radius: 999px; font-size: .72em; font-weight: 700; line-height: 1.5; opacity: .75; }
+.st-sable-settings .st-sable-adult[hidden] { display: none; }
+.st-sable-prompt > summary > .st-sable-pack-kind { margin-left: 6px; font-size: .78em; opacity: .6; }
+.st-sable-custom-field[data-field="key"] { width: 8.5em; }
+@container (max-width: 480px) {
+  .st-sable-pack > .st-sable-custom-summary > .st-sable-pack-desc { flex-basis: 100%; white-space: normal; }
+}

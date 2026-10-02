@@ -80,7 +80,8 @@ Built-in packs may be stubs here (one section each) if the content task comes la
 Done when: tests cover shapes, delta, digest lines, pack rules appended once, pack off →
 nothing requested/injected, import of a colliding user id, refusal of built-in ids.
 
-## T8b — Packs UI  [ ]
+## T8b — Packs UI  [x]
+Done: header pack button + sheet with per-chat switches and scope toggle, stats/tags cards, dice on "%" rows, status chips, Packs settings group (defaults, copy, export/import, user-pack editor, Danger zone pack rules); 142 tests.
 Drawer: 🎒 header button + packs sheet with ≥ 36 px switches; `stats` renderer (bars via the
 bond bar markup, counters as numbers, delta badges with `note`), `tags` renderer (chips),
 dice button on `%` rows writing `<pack>_roll` through `runtime.editState`. Settings: "Packs"
@@ -127,6 +128,7 @@ Done: `putEntry` keeps the newest `keep` distinct `mesId`s with up to `SWIPES_PE
 
 ## Notes from previous tasks
 (append here)
+- T8b → T8c/T9: the drawer's pack button sits before ✕ (`[data-control="packs"]`, `fa-box-open` / 🎒) and opens `#st-sable-sheet` inside the drawer (scrim + bottom panel; Escape, ✕ and a tap on the scrim close it). Pack cards go through the custom-section path: `stats` rows are `.st-sable-scale-row.st-sable-stat-row` (bar via `[role=meter]`, `.st-sable-counter` when `max` is null, `.st-sable-badge` + `.st-sable-reason` in a `details.st-sable-delta` when `delta` ≠ 0, `.st-sable-dice` only on `%` keys of packs with a `<pack>_roll` text section), `tags` are `.st-sable-tag.st-sable-ban` chips. `createDrawer(runtime, { random })` injects the dice randomness (default crypto). `packTitle(title)` in `src/ui/drawer.js` splits the "18+" mark into a badge; `exportPack(pack, { random, lang })` localizes a built-in copy. The settings block editor is `createBlockRow(io)` (custom blocks and pack cards share it; `io.rename` adds the key field). Enabled pack sections also appear in the Sections table and card colours. `fixtures/state-packs.json` (T8c) is merged by `dev/preview.html` when present (`state` key or a bare state) with both built-in packs on.
 - T11 → T8b: add the Packs group id to `GROUP_IDS` in `src/settings.js` and use `group()` in the settings UI; `settings.groups[id]` is a boolean open flag (missing = closed), and partial `groups` patches merge per key. Appearance keeps its existing `visual` id.
 - 2026-10-02 the maintainer answered the hand-off questions: docs/HANDOFF-2026-10-02.md §6 "Answers". Settings groups become collapsible first (T11, SPEC §17), then T8b builds the Packs group on top; T9 is a two-implementation comparison round.
 - T8a → T8b: `snapshot().packs` exposes `{ enabled: string[], available: [{ id, title, icon, description, builtin, scope }] }` with localized built-in labels. `runtime.setPack(id, on)` returns false for unknown ids; otherwise persists the chat list and re-publishes without starting a run. Use `getSections(settings, snapshot().packs.enabled)` for pack cards; the one-argument call still returns only built-ins + custom blocks. Descriptors have `custom: true`, `pack`, literal `title`, `shape: 'stats' | 'tags'` and array schemas: stats rows `{ key, value, max, unit, note }` (merge adds `delta`; null max means counter), tags are unique strings. Explicit pack positions survive in `settings.order`; absent pack ids append in registry order. T8c replaces provisional instructions; no UI or commit in T8a.

@@ -15,8 +15,8 @@ export function copyPack(pack, { random = Math.random, lang = 'ru' } = {}) {
     sections: pack.sections.map(s => ({ ...s, title: literal(s.title) })) }])[0];
 }
 
-export function exportPack(pack) {
-  return { format: 'sable-pack', version: 1, pack: BUILTIN_PACKS.some(p => p.id === pack.id) ? copyPack(pack) : normalizePacks([pack])[0] };
+export function exportPack(pack, options = {}) {
+  return { format: 'sable-pack', version: 1, pack: BUILTIN_PACKS.some(p => p.id === pack.id) ? copyPack(pack, options) : normalizePacks([pack])[0] };
 }
 
 export function importPack(json, existingPacks = [], { random = Math.random } = {}) {

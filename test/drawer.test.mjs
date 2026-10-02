@@ -204,7 +204,7 @@ test('drawer CSS docks a full-height side panel, wraps text and keeps inset acce
     }
     if (/^\d+(\.\d+)?px$/.test(style.fontSize)) assert.ok(parseFloat(style.fontSize) <= 18, `${element.className} text is too large`);
   }
-  assert.equal(query('.st-sable-header').querySelectorAll('button').length, 4);
+  assert.equal(query('.st-sable-header').querySelectorAll('button').length, 5);
   for (const button of ui.element.querySelectorAll('button')) {
     assert.ok(parseFloat(computed(button).minHeight) >= (button.classList.contains('st-sable-mode') ? 32 : 36));
   }
