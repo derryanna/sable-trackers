@@ -22,7 +22,7 @@ const packState = () => ({
     { key: 'hit %', value: 60, max: null },
   ],
   combat_effects: ['bleeding', `<b>stunned</b>`],
-  combat_odds: [{ key: 'crit %', value: '15' }, { key: 'initiative', value: 'Guard' }],
+  combat_odds: [{ key: 'crit %', value: '15 (Guard; estimate)' }, { key: 'initiative', value: 'Guard' }],
   combat_roll: '',
 });
 const userPack = () => ({ id: 'p_0123abcd', title: 'Resources', icon: '📦', description: 'Supplies', scope: false, rules: 'Resource rules.',
@@ -193,7 +193,7 @@ test('stats and tags render safely: bars, counters, units, delta badges with not
   const dice = [...card('combat_stats').querySelectorAll('.st-sable-dice')];
   assert.equal(dice.length, 2);
   assert.equal(card('combat_odds').querySelectorAll('.st-sable-dice').length, 1);
-  assert.equal(card('combat_odds').querySelector('dd.st-sable-kv-dice > span').textContent, '15');
+  assert.equal(card('combat_odds').querySelector('dd.st-sable-kv-dice > span').textContent, '15 (Guard; estimate)');
   const computed = styled();
   for (const die of [...dice, card('combat_odds').querySelector('.st-sable-dice')]) {
     assert.ok(parseFloat(computed(die).minHeight) >= 36); assert.ok(parseFloat(computed(die).minWidth) >= 36);

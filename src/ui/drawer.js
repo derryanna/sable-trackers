@@ -440,7 +440,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const target = sections().find(item => item.id === `${section.pack}_roll` && item.shape === 'text');
     if (!target) return null;
     return (key, chance) => {
+      // kv values may carry a label after the number ("15 (estimate)"); the leading number is the chance.
       if (!/%$/.test(key) || !Number.isFinite(chance)) return null;
+      chance = Math.min(100, Math.max(0, chance));
       const die = button('', 'dice', event => { event.preventDefault(); castDice(target.id, key, chance); }, 'dice');
       die.dataset.control = 'dice';
       die.append(view.settings.visual?.icons === 'emoji' ? node('span', 'emoji', '🎲') : icon('dice'));
@@ -507,7 +509,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         const list = node('dl', 'kv');
         for (const item of value) {
           const cell = node('dd', '', item.value);
-          const die = dice?.(item.key, Number(item.value));
+          const die = dice?.(item.key, parseFloat(String(item.value)));
           if (die) { cell.replaceChildren(node('span', '', item.value), die); cell.classList.add('st-sable-kv-dice'); }
           list.append(node('dt', '', item.key), cell);
         }
