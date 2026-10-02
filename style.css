@@ -276,8 +276,16 @@
 .st-sable-panel-badge { display: inline-block; margin: 4px 6px 0 0; padding: 2px 6px; border-radius: 8px; background: rgba(255, 255, 255, .1); }
 
 /* Extensions settings: compact groups built from SillyTavern's own controls, so the theme applies. */
-.st-sable-settings-group { margin: 0; padding: 10px 0 8px; border-top: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,.12)); }
-.st-sable-settings-group:first-child { padding-top: 4px; border-top: 0; }
+.st-sable-settings-group { margin: 0; padding: 0 10px; min-width: 0; border-top: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,.12)); }
+.st-sable-settings-group:first-child { border-top: 0; }
+.st-sable-group[open] { padding-bottom: 8px; }
+.st-sable-group-summary { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 10px; margin-inline: -10px; box-sizing: border-box; cursor: pointer; list-style: none; }
+.st-sable-group-summary::-webkit-details-marker { display: none; }
+.st-sable-group-summary::marker { content: ''; }
+.st-sable-group-summary:hover { background: color-mix(in srgb, var(--st-sable-accent, #f5f4ee) 8%, transparent); }
+.st-sable-group-summary > .st-sable-settings-heading { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.st-sable-group-summary > .fa-chevron-right { flex: none; font-size: .75em; }
+.st-sable-group[open] > .st-sable-group-summary > .fa-chevron-right { transform: rotate(90deg); }
 .st-sable-settings-heading { margin: 0 0 6px; font-size: .74em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .6; }
 .st-sable-settings :is(select, input:not([type="checkbox"]):not([type="range"]):not([type="color"]), button, summary, .checkbox_label, .inline-drawer-toggle) { min-height: 36px; }
 /* Theme checkboxes keep their own size; stretching them made tall ovals on some themes. */
@@ -483,9 +491,8 @@
 /* Appearance settings: sub-headings, background picker, theme tools. */
 .st-sable-settings-subheading { margin: 12px 0 4px; font-size: .8em; font-weight: 600; letter-spacing: .02em; opacity: .8; }
 .st-sable-settings .st-sable-danger { border-left: 2px solid rgba(224,86,75,.6); border-left: 2px solid color-mix(in srgb, #e0564b 60%, transparent); padding-left: 10px; min-width: 0; }
-.st-sable-settings :is(.st-sable-danger, .st-sable-prompt, .st-sable-log-entry) > summary { min-height: 36px; padding-block: 8px; cursor: pointer; overflow-wrap: anywhere; }
-.st-sable-danger > summary > h4 { display: inline; margin: 0; opacity: 1; }
-.st-sable-danger > summary > h4 > i { margin-right: 8px; }
+.st-sable-settings :is(.st-sable-prompt, .st-sable-log-entry) > summary { min-height: 36px; padding-block: 8px; cursor: pointer; overflow-wrap: anywhere; }
+.st-sable-danger > summary > h4 { opacity: 1; }
 .st-sable-settings .st-sable-danger .st-sable-settings-wide { display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; }
 .st-sable-settings .st-sable-dump { max-height: 40vh; overflow: auto; white-space: pre-wrap; word-break: break-word; font: 12px/1.4 monospace; }
 .st-sable-danger [data-changed] { margin-left: 8px; font-size: .75em; opacity: .7; }
@@ -495,9 +502,10 @@
 .st-sable-prompt, .st-sable-log-entry { min-width: 0; }
 @container (max-width: 480px) {
   .st-sable-settings .st-sable-danger { padding-left: 6px; }
+  .st-sable-danger > .st-sable-group-summary { margin-left: -6px; padding-left: 6px; }
   .st-sable-danger .st-sable-settings-buttons { flex-wrap: wrap; }
 }
-.st-sable-settings-heading + .st-sable-settings-subheading { margin-top: 2px; }
+.st-sable-group-summary + .st-sable-settings-subheading { margin-top: 2px; }
 .st-sable-settings-grid > .st-sable-settings-wide { grid-column: 1 / -1; }
 .st-sable-settings-group[data-group="visual"] .st-sable-settings-inline > select.text_pole { width: min(12em, 58%); text-overflow: ellipsis; }
 .st-sable-settings-bg { display: flex; align-items: center; gap: 10px; margin: 2px 0 4px; }

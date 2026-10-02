@@ -6,7 +6,7 @@ import { createSettings } from '../src/ui/settings.js';
 import { createDrawer } from '../src/ui/drawer.js';
 import { createRuntime } from '../src/run.js';
 import { createFakeST } from './fakes/st.mjs';
-import { VISUAL_DEFAULTS, normalizeSettings } from '../src/settings.js';
+import { GROUP_IDS, VISUAL_DEFAULTS, normalizeSettings, saveSettings } from '../src/settings.js';
 import { COMMON_RULES } from '../src/prompt.js';
 
 function setup(t, profileEvent = false, host = 'extensions_settings2') {
@@ -37,6 +37,68 @@ function setup(t, profileEvent = false, host = 'extensions_settings2') {
   const button = text => [...ui.element.querySelectorAll('button')].find(b => b.textContent === text);
   return { dom, fake, runtime, ui, calls, query, change, input, button };
 }
+
+test('settings groups normalize known boolean flags idempotently and merge partial patches', () => {
+  assert.ok(Object.isFrozen(GROUP_IDS));
+  const normalized = normalizeSettings({ groups: { bogus: true, context: 'yes', visual: true } });
+  assert.deepEqual(normalized.groups, { connection: true, visual: true });
+  assert.equal(JSON.stringify(normalizeSettings(normalized)), JSON.stringify(normalized));
+  const fake = createFakeST();
+  saveSettings(fake.ctx, { groups: { connection: false, visual: true } });
+  const saved = saveSettings(fake.ctx, { groups: { context: true } });
+  assert.deepEqual(saved.groups, { connection: false, context: true, visual: true });
+});
+
+test('settings groups default to Connection open and retain nodes and flags across publishes', async t => {
+  const { ui, query, runtime, calls, fake, dom } = setup(t);
+  const groups = [...ui.element.querySelectorAll('details.st-sable-group')];
+  assert.deepEqual(groups.map(group => group.dataset.group), GROUP_IDS);
+  for (const group of groups) {
+    assert.equal(group.hasAttribute('open'), group.dataset.group === 'connection');
+    assert.ok(group.querySelector(':scope > summary.st-sable-group-summary > h4 > i'));
+    assert.ok(group.querySelector(':scope > summary > .fa-chevron-right'));
+  }
+  // Native toggle events are queued, including those caused by render setting open.
+  const flush = () => new Promise(resolve => dom.window.setTimeout(resolve, 0));
+  await flush(); assert.deepEqual(calls.patches, []);
+  for (const id of ['context', 'connection', 'danger']) {
+    const group = query(`[data-group="${id}"]`);
+    group.querySelector('summary').click(); await flush();
+    assert.deepEqual(calls.patches.at(-1), { groups: { [id]: group.open } });
+    assert.equal(runtime.snapshot().settings.groups[id], group.open);
+  }
+  const danger = query('[data-group="danger"]');
+  assert.ok(danger.classList.contains('st-sable-danger'));
+  assert.ok(danger.open);
+  assert.equal(danger.querySelectorAll('.st-sable-settings-subheading').length, 3);
+  assert.ok(danger.querySelector('[name="prompts.rules"]'));
+  assert.ok(danger.querySelector('[data-preview]'));
+  assert.ok(danger.querySelector('.st-sable-log'));
+  const patches = calls.patches.length;
+  runtime.updateSettings({ messages: 7 }); await flush();
+  for (const group of groups) {
+    assert.equal(query(`[data-group="${group.dataset.group}"]`), group);
+    assert.equal(group.hasAttribute('open'), ['context', 'danger'].includes(group.dataset.group));
+  }
+  runtime.updateSettings({ groups: { visual: true } }); await flush();
+  assert.ok(query('[data-group="visual"]').open);
+  assert.equal(calls.patches.length, patches);
+  assert.equal(fake.calls.requests.length, 0);
+  assert.equal(calls.refresh, 0);
+});
+
+test('settings group CSS keeps summary targets and narrow container rules', async () => {
+  const css = await readFile(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(css, /\.st-sable-group-summary \{[^}]*min-height: 36px;[^}]*cursor: pointer;[^}]*list-style: none;/);
+  assert.match(css, /\.st-sable-group-summary::-webkit-details-marker \{ display: none; \}/);
+  assert.match(css, /\.st-sable-group\[open\] > \.st-sable-group-summary > \.fa-chevron-right \{ transform: rotate\(90deg\); \}/);
+  assert.match(css, /\.st-sable-settings \{ container-type: inline-size; \}/);
+  const narrow = css.slice(css.indexOf('@container (max-width: 480px)'));
+  assert.match(narrow, /\.st-sable-settings-grid \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+  assert.match(narrow, /\.st-sable-settings-thead \{ display: none; \}/);
+  assert.match(narrow, /\.st-sable-settings-section \{ grid-template-columns: minmax\(0, 1fr\) 3\.6em auto; \}/);
+  assert.match(narrow, /\.st-sable-settings-section-name \{ grid-column: 1 \/ -1; \}/);
+});
 
 test('danger zone edits and resets instructions while preserving focused drafts', t => {
   const { query, change, button, runtime, calls, dom } = setup(t);

@@ -102,7 +102,8 @@ shows the same bar node surviving a re-render with a new value and `data-st-sabl
 only on changed rows; CSS test confirms the off selectors cover every new transition and that
 `full`-only rules are scoped to `data-st-sable-effects="full"`. Effects are the composable `visual.fx` set of SPEC §16. Built as a comparison round: two independent implementations on two branches, reviewed side by side.
 
-## T11 — Collapsible settings groups  [ ]
+## T11 — Collapsible settings groups  [x]
+Done: persistent collapsible groups, shared Danger zone rendering and regression coverage; 136 tests and changed JavaScript syntax checks pass. No dependencies or commit.
 SPEC §17: every settings group becomes a `<details>` with its heading in `<summary>`; open state in
 `settings.groups` (Connection open by default, the rest closed), merged per key by `saveSettings` like
 `folded`; the Danger zone keeps its look and joins the same path. Done when: jsdom test toggles a group
@@ -126,6 +127,7 @@ Done: `putEntry` keeps the newest `keep` distinct `mesId`s with up to `SWIPES_PE
 
 ## Notes from previous tasks
 (append here)
+- T11 → T8b: add the Packs group id to `GROUP_IDS` in `src/settings.js` and use `group()` in the settings UI; `settings.groups[id]` is a boolean open flag (missing = closed), and partial `groups` patches merge per key. Appearance keeps its existing `visual` id.
 - 2026-10-02 the maintainer answered the hand-off questions: docs/HANDOFF-2026-10-02.md §6 "Answers". Settings groups become collapsible first (T11, SPEC §17), then T8b builds the Packs group on top; T9 is a two-implementation comparison round.
 - T8a → T8b: `snapshot().packs` exposes `{ enabled: string[], available: [{ id, title, icon, description, builtin, scope }] }` with localized built-in labels. `runtime.setPack(id, on)` returns false for unknown ids; otherwise persists the chat list and re-publishes without starting a run. Use `getSections(settings, snapshot().packs.enabled)` for pack cards; the one-argument call still returns only built-ins + custom blocks. Descriptors have `custom: true`, `pack`, literal `title`, `shape: 'stats' | 'tags'` and array schemas: stats rows `{ key, value, max, unit, note }` (merge adds `delta`; null max means counter), tags are unique strings. Explicit pack positions survive in `settings.order`; absent pack ids append in registry order. T8c replaces provisional instructions; no UI or commit in T8a.
 - 2026-10-02 design round (docs only): packs, live cards and the swipe ring bug are written up in `docs/HANDOFF-2026-10-02.md` with the decisions, a repro and open questions. Start there before T8a–T10.

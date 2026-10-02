@@ -1,7 +1,7 @@
 import { getSections, orderedSectionIds } from '../sections.js';
 import { COMMON_RULES, getPromptTexts } from '../prompt.js';
 import { t } from '../i18n.js';
-import { ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
+import { GROUP_IDS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
 import { applyVisual, glyphNode, sectionGlyph } from './drawer.js';
 
@@ -94,16 +94,18 @@ export function createSettings(runtime, { document = globalThis.document,
   toggle.append(text('b', '', 'settingsTitle'), node('div', 'inline-drawer-icon fa-solid fa-circle-chevron-down down'));
   const content = node('div', 'inline-drawer-content st-sable-settings-body');
   drawer.append(toggle, content); element.append(drawer); host.append(element);
+  const groups = new Map();
   function group(id, key) {
-    const section = node(id === 'danger' ? 'details' : 'section', 'st-sable-settings-group'); section.dataset.group = id;
-    const heading = node('h4', 'st-sable-settings-heading');
-    if (id === 'danger') {
-      section.classList.add('st-sable-danger');
-      const summary = node('summary'); heading.append(icon('triangle-exclamation'), text('span', '', key));
-      summary.append(heading); section.append(summary);
-    } else heading.append(text('span', '', key));
-    if (id !== 'danger') section.append(heading);
-    content.append(section);
+    const section = node('details', 'st-sable-settings-group st-sable-group'); section.dataset.group = id;
+    const summary = node('summary', 'st-sable-group-summary'), heading = node('h4', 'st-sable-settings-heading');
+    const glyphs = { connection: 'plug', context: 'align-left', sections: 'list', custom: 'puzzle-piece', visual: 'palette', actions: 'bolt', danger: 'triangle-exclamation' };
+    heading.append(icon(glyphs[id]), text('span', '', key));
+    summary.append(heading, icon('chevron-right')); section.append(summary);
+    if (id === 'danger') section.classList.add('st-sable-danger');
+    section.addEventListener('toggle', () => {
+      if (section.open !== !!runtime.snapshot().settings.groups?.[id]) runtime.updateSettings({ groups: { [id]: section.open } });
+    });
+    groups.set(id, section); content.append(section);
     return section;
   }
   const controls = new Map();
@@ -646,6 +648,10 @@ export function createSettings(runtime, { document = globalThis.document,
   function render(next, force) {
     view = next; forced = force;
     applyLabels(labels);
+    for (const id of GROUP_IDS) {
+      const section = groups.get(id), open = !!view.settings.groups?.[id];
+      if (section && section.open !== open) section.open = open;
+    }
     for (const [key, input] of controls) {
       if (input.type === 'checkbox') input.checked = !!view.settings[key];
       else if (key !== 'profileId') setValue(input, view.settings[key]);

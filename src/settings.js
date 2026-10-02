@@ -4,6 +4,7 @@ import { enabledPacks } from './store.js';
 import { COMMON_RULES } from './prompt.js';
 
 export const SETTINGS_KEY = 'sableTrackers';
+export const GROUP_IDS = Object.freeze(['connection', 'context', 'sections', 'custom', 'visual', 'actions', 'danger']);
 // Drawer look (SPEC §12). Ranges are inclusive; the UI sliders use the same bounds.
 // base/text: null = automatic (dark glass, theme text; a base derives its own ink). Hex colours override (SPEC §12).
 // bgImage: null or a sanitised data:/http(s) URL (normalizeBgImage); the other keys are numbers, booleans or choices.
@@ -25,6 +26,7 @@ export const DEFAULTS = {
   prompts: { rules: null, sections: {}, packs: {} },
   packs: [], packDefaults: [], packScope: {},
   order: SECTION_ORDER, customSections: [],
+  groups: { connection: true },
   folded: {}, pinned: false, floatingPosition: null,
   sections: Object.fromEntries(SECTIONS.map(s => [s.id, { mode: s.defaultMode, period: s.period }])),
   visual: { ...VISUAL_DEFAULTS },
@@ -55,6 +57,8 @@ export function normalizeSettings(value = {}) {
   const all = getAllSections({ ...result, prompts: {} });
   const ids = all.map(section => section.id);
   result.folded = Object.fromEntries(ids.filter(id => typeof value.folded?.[id] === 'boolean').map(id => [id, value.folded[id]]));
+  result.groups = { ...DEFAULTS.groups, ...Object.fromEntries(GROUP_IDS
+    .filter(id => typeof value.groups?.[id] === 'boolean').map(id => [id, value.groups[id]])) };
   const position = value.floatingPosition;
   result.floatingPosition = position && Number.isFinite(position.x) && Number.isFinite(position.y)
     ? { x: Math.max(0, position.x), y: Math.max(0, position.y) } : null;
@@ -154,7 +158,8 @@ export function saveSettings(ctx, patch) {
     sections: { ...previous.prompts.sections, ...patch.prompts?.sections },
     packs: { ...previous.prompts.packs, ...patch.prompts?.packs } };
   const packScope = { ...previous.packScope, ...patch.packScope };
-  ctx.extensionSettings[SETTINGS_KEY] = normalizeSettings({ ...previous, ...patch, sections, customSections, prompts, packScope });
+  const groups = { ...previous.groups, ...patch.groups };
+  ctx.extensionSettings[SETTINGS_KEY] = normalizeSettings({ ...previous, ...patch, sections, customSections, prompts, packScope, groups });
   ctx.saveSettingsDebounced();
   return ctx.extensionSettings[SETTINGS_KEY];
 }

@@ -13,7 +13,7 @@ Scene-state tracking for SillyTavern 1.19.x, with Russian output by default and 
 5. Choose the output language. Turn off any other tracker that writes tracking blocks into the reply.
 6. Open a character chat and generate a reply, or press **Run now** to update from the latest character reply.
 
-Open the scene drawer from the edge tab, the extensions wand menu, or the panel under the latest character reply. The gear opens settings. The drawer supports folding, reordering and pinning. The pen button on a card opens an editor for that section: fix a field, add or remove rows, then Save (the change is injected into the next reply) or Cancel. Settings can hide the reply panel or edge tab.
+Open the scene drawer from the edge tab, the extensions wand menu, or the panel under the latest character reply. The gear opens settings. Settings groups fold and remember their open or closed state. The drawer supports folding, reordering and pinning. The pen button on a card opens an editor for that section: fix a field, add or remove rows, then Save (the change is injected into the next reply) or Cancel. Settings can hide the reply panel or edge tab.
 
 While an update is running, the status says “updating…” with a pulsing dot and a spinning ⟳ (animations can be disabled). Tapping ⟳ for the same reply keeps that update running; otherwise it updates all enabled sections regardless of period. Folding, pinning and appearance changes never interrupt an update.
 
@@ -69,7 +69,7 @@ Only `inject` sections enter the main prompt, at depth 2 by default, with a dige
 
 Sable Trackers хранит состояние сцены отдельно от сообщений. Недорогая вспомогательная модель обновляет трекеры, а основная получает только краткую выжимку выбранных разделов.
 
-Установка: скопируйте URL этого репозитория, откройте **Extensions → Install extension**, вставьте URL и перезагрузите SillyTavern. В **Extensions → Sable Trackers** включите расширение и выберите профиль **chat-completion** для недорогой модели. Отключите другие трекеры, записывающие блоки в ответ. Русский язык выбран по умолчанию.
+Установка: скопируйте URL этого репозитория, откройте **Extensions → Install extension**, вставьте URL и перезагрузите SillyTavern. В **Extensions → Sable Trackers** включите расширение и выберите профиль **chat-completion** для недорогой модели. Отключите другие трекеры, записывающие блоки в ответ. Русский язык выбран по умолчанию. Группы настроек сворачиваются и запоминают своё открытое или закрытое состояние.
 
 Режимы: **в промпт** — обновлять, показывать и передавать основной модели; **показ** — только обновлять и показывать; **выкл** — не запрашивать раздел, сохранив старое значение. Период задаётся в ответах персонажа. Переключатель «только для этого чата» сохраняет локальные режимы, кнопка сброса возвращает общие. «Обновить сейчас» запускает обновление вручную. Импорт старого Sable доступен при наличии совместимых данных и пустой истории трекера.
 
