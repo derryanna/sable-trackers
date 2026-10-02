@@ -108,7 +108,7 @@ test('requested NPC and bond rules preserve legacy canon semantics', () => {
     'suspicion = suspicion toward toward', 'respect = respect for toward', 'fear = fear of toward',
     'grudge = resentment toward toward, not general anger', 'can drop independently of affection',
     '0 means known absence, null means unknown', 'Do not fill everything with 50',
-    'Keep the previous known value without new basis', 'derive new starting values cautiously from canon',
+    'Keep the previous known value without new basis', 'derive new starting values cautiously from canon', 'A scale absent from PREVIOUS STATE is new',
     'desire = null for minors', 'unless a clearly major event', 'no automatic affection growth',
   ]) assert.ok(system.includes(rule), rule);
 });
