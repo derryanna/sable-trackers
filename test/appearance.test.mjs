@@ -51,8 +51,8 @@ test('appearance group: panel / cards / background / theme sub-groups with the n
   assert.deepEqual([...ui.element.querySelectorAll('.st-sable-settings-heading')].map(item => item.textContent),
     ['Connection', 'Context', 'Sections', 'Custom blocks', 'Appearance', 'Actions', 'Packs', 'Danger zone'], 'top-level settings groups');
   const group = query('[data-group="visual"]');
-  assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Panel', 'Card colours', 'Cards', 'Background', 'Theme']);
-  for (const name of ['opacity', 'blur', 'fontSize', 'widthVw', 'base', 'text', 'accent', 'motion', 'radius', 'cardFill', 'border', 'titleWeight',
+  assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Panel', 'Card colours', 'Cards', 'Effects', 'Background', 'Theme']);
+  for (const name of ['opacity', 'blur', 'fontSize', 'widthVw', 'base', 'text', 'accent', 'effects', 'radius', 'cardFill', 'border', 'titleWeight',
     'titleFont', 'chipStyle', 'spacing', 'icons', 'accentBar', 'bgFile', 'bgUrl', 'bgDim', 'bgFit', 'preset', 'themeFile']) {
     assert.ok(group.querySelector(`[name="${name}"]`), name);
   }
@@ -61,7 +61,8 @@ test('appearance group: panel / cards / background / theme sub-groups with the n
   assert.equal(query('[name="titleWeight"]').step, '100');
   assert.equal(query('[name="bgFile"]').accept, 'image/*');
   assert.equal(query('[name="bgFile"]').hidden, true, 'a button opens the native picker');
-  assert.equal(query('[name="motion"]').checked, true);
+  assert.equal(query('[name="effects"]').value, 'subtle');
+  assert.deepEqual([...group.querySelectorAll('[name="effects"] option')].map(item => item.value), ['off', 'subtle', 'full']);
   assert.equal(query('[name="accentBar"]').checked, true);
   // No picture yet: the preview says so and the picture-only controls are off.
   assert.ok(query('.st-sable-settings-thumb').hasAttribute('data-empty'));
@@ -71,8 +72,9 @@ test('appearance group: panel / cards / background / theme sub-groups with the n
   assert.ok(button('Save theme file') && button('Load theme file') && button('Restore default look'));
   assert.equal(query('img'), null, 'the preview is a CSS background, not an <img>');
   runtime.updateSettings({ language: 'ru' });
-  assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Панель', 'Цвета карточек', 'Карточки', 'Фон', 'Тема']);
-  assert.equal(query('[name="motion"]').parentElement.textContent, 'Анимации');
+  assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Панель', 'Цвета карточек', 'Карточки', 'Эффекты', 'Фон', 'Тема']);
+  assert.equal(query('[name="effects"]').closest('label').querySelector('.st-sable-settings-label').textContent, 'Эффекты');
+  assert.deepEqual([...group.querySelectorAll('[name="effects"] option')].map(item => item.textContent), ['выкл', 'мягко', 'полные']);
   for (const label of ['Убрать фон', 'Выбрать картинку', 'Экспорт темы', 'Импорт темы', 'Сбросить вид']) assert.ok(button(label), label);
   assert.equal(query('[name="preset"]').selectedOptions[0].textContent, 'Стекло');
 });
@@ -94,16 +96,16 @@ test('appearance: new sliders preview on input and persist on change; selects an
   change('[name="chipStyle"]', 'outline');
   change('[name="spacing"]', 'compact');
   change('[name="accentBar"]', false);
-  change('[name="motion"]', false);
+  change('[name="effects"]', 'off');
   assert.deepEqual(visual(), { ...VISUAL_DEFAULTS, cardFill: 0.2, border: 0.3, titleWeight: 600, titleFont: 'serif', chipStyle: 'outline',
-    spacing: 'compact', accentBar: false, motion: false });
-  assert.deepEqual({ ...drawer.dataset }, { stSableMotion: 'off', stSableTitleFont: 'serif', stSableChip: 'outline', stSableAccentBar: 'off', stSableSpacing: 'compact' });
+    spacing: 'compact', accentBar: false, effects: 'off' });
+  assert.deepEqual({ ...drawer.dataset }, { stSableEffects: 'off', stSableTitleFont: 'serif', stSableChip: 'outline', stSableAccentBar: 'off', stSableSpacing: 'compact' });
   assert.deepEqual([drawer.style.getPropertyValue('--st-sable-border'), drawer.style.getPropertyValue('--st-sable-title-weight')], ['0.3', '600']);
-  assert.equal(tab.dataset.stSableMotion, 'off', 'the tab follows the motion switch');
-  assert.equal(query('[name="motion"]').checked, false);
+  assert.equal(tab.dataset.stSableEffects, 'off', 'the tab follows the effects level');
+  assert.equal(query('[name="effects"]').value, 'off');
   button('Restore default look').click();
   assert.deepEqual(visual(), { ...VISUAL_DEFAULTS });
-  assert.deepEqual({ ...drawer.dataset }, {}, 'the default look carries no data attributes');
+  assert.deepEqual({ ...drawer.dataset }, { stSableEffects: 'subtle' }, 'the default look carries no data attributes besides the effects level');
   assert.equal(query('[name="accentBar"]').checked, true);
 });
 
@@ -203,8 +205,8 @@ test('applyVisual: numbers as variables, choices as data attributes only when no
   const vars = element => Object.fromEntries(['card-fill', 'border', 'title-weight', 'bg-dim', 'bg-image'].map(name => [name, element.style.getPropertyValue(`--st-sable-${name}`)]));
   applyVisual(panel, {});
   assert.deepEqual(vars(panel), { 'card-fill': '0.05', border: '0.13', 'title-weight': '700', 'bg-dim': '0.45', 'bg-image': '' });
-  assert.deepEqual({ ...panel.dataset }, {});
-  const custom = { bgImage: PNG, bgFit: 'contain', bgDim: 0.2, motion: false, titleFont: 'mono', chipStyle: 'outline', accentBar: false, spacing: 'compact' };
+  assert.deepEqual({ ...panel.dataset }, { stSableEffects: 'subtle' });
+  const custom = { bgImage: PNG, bgFit: 'contain', bgDim: 0.2, effects: 'off', titleFont: 'mono', chipStyle: 'outline', accentBar: false, spacing: 'compact' };
   let imageWrites = 0;
   const setProperty = panel.style.setProperty.bind(panel.style);
   panel.style.setProperty = (name, ...rest) => { if (name === '--st-sable-bg-image') imageWrites++; return setProperty(name, ...rest); };
@@ -213,18 +215,18 @@ test('applyVisual: numbers as variables, choices as data attributes only when no
   applyVisual(panel, { ...custom, bgDim: 0.4 });
   assert.equal(imageWrites, 1, 'an unchanged picture is not re-set on every render or slider tick');
   assert.equal(panel.style.getPropertyValue('--st-sable-bg-image'), `url("${PNG}")`);
-  assert.deepEqual({ ...panel.dataset }, { stSableMotion: 'off', stSableTitleFont: 'mono', stSableChip: 'outline', stSableAccentBar: 'off',
+  assert.deepEqual({ ...panel.dataset }, { stSableEffects: 'off', stSableTitleFont: 'mono', stSableChip: 'outline', stSableAccentBar: 'off',
     stSableSpacing: 'compact', stSableBg: '1', stSableFit: 'contain' });
   applyVisual(tab, custom);
   assert.equal(tab.style.getPropertyValue('--st-sable-bg-image'), '');
   assert.equal(tab.dataset.stSableBg, undefined);
-  assert.equal(tab.dataset.stSableMotion, 'off');
+  assert.equal(tab.dataset.stSableEffects, 'off');
   applyVisual(panel, { ...custom, bgImage: 'https://example.com/x.png"); background: red' });
   assert.equal(panel.style.getPropertyValue('--st-sable-bg-image'), '', 'an unsafe URL never reaches the style');
   assert.equal(panel.dataset.stSableBg, undefined);
   assert.equal(panel.dataset.stSableFit, undefined, 'fit only matters with a picture');
   applyVisual(panel, {});
-  assert.deepEqual({ ...panel.dataset }, {});
+  assert.deepEqual({ ...panel.dataset }, { stSableEffects: 'subtle' });
 });
 
 test('round 3 CSS: picture layer under the cards, ink-only overlays, readable cards, motion switch, reveal without @starting-style', () => {
@@ -247,8 +249,8 @@ test('round 3 CSS: picture layer under the cards, ink-only overlays, readable ca
   for (const font of ['serif', 'mono', 'rounded']) assert.match(block, new RegExp(`\\[data-st-sable-title-font="${font}"\\] :is\\(\\.st-sable-title, \\.st-sable-card-title\\) \\{ font-family:`));
   assert.match(block, /\[data-st-sable-chip="outline"\] \.st-sable-mode\[data-mode="inject"\]/);
   assert.match(block, /\[data-st-sable-accent-bar="off"\] \.st-sable-card::before\s*\{\s*display:\s*none/);
-  assert.match(block, /\.st-sable-tab\[data-st-sable-motion="off"\]\s*\{\s*animation:\s*none !important;\s*transition:\s*none !important/);
-  assert.match(block, /\.st-sable-drawer\[data-st-sable-motion="off"\] \*, [^{]*\{\s*animation:\s*none !important;\s*transition:\s*none !important/);
+  assert.match(block, /\.st-sable-tab\[data-st-sable-effects="off"\], [^{]*\{\s*animation:\s*none !important;\s*transition:\s*none !important/);
+  assert.match(block, /\.st-sable-drawer\[data-st-sable-effects="off"\] \*, [^{]*\{\s*animation:\s*none !important;\s*transition:\s*none !important/);
   assert.match(block, /@media \(prefers-reduced-motion: reduce\)\s*\{[^@]*animation:\s*none !important/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.st-sable-drawer, \.st-sable-tab\[aria-expanded="true"\] \{ animation: none; \}/, 'the original rule stays');
   // Unfold motion lives on the persistent card, so full re-renders never replay it (see the comment in style.css).
@@ -258,7 +260,9 @@ test('round 3 CSS: picture layer under the cards, ink-only overlays, readable ca
   // Press feedback uses the scale property, which composes with the tab's translateY(-50%) centring.
   assert.match(block, /\.st-sable-tab:active\s*\{\s*scale:\s*\.97/);
   assert.equal(/:active[^{]*\{[^}]*transform:/.test(block), false);
-  for (const [, , value] of block.matchAll(/(animation|transition):([^;}]*)/g)) {
+  // The live-card rules (SPEC §16) follow with their own limits; see test/effects.test.mjs.
+  const round3 = block.slice(0, block.indexOf('/* Live cards (SPEC §16)'));
+  for (const [, , value] of round3.matchAll(/(animation|transition):([^;}]*)/g)) {
     if (value.includes('st-sable-pulse')) { assert.match(value, /1\.5s ease-in-out infinite/); continue; }
     for (const [, amount, unit] of value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)) assert.ok(Number(amount) * (unit === 's' ? 1000 : 1) <= 200);
   }

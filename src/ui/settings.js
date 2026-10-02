@@ -1,11 +1,11 @@
 import { getAllSections, getSections, orderedSectionIds } from '../sections.js';
 import { COMMON_RULES, getPromptTexts } from '../prompt.js';
 import { t } from '../i18n.js';
-import { GROUP_IDS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
+import { FX_DEFAULTS, FX_RANGES, FX_SPEEDS, GROUP_IDS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
 import { BUILTIN_PACKS } from '../packs/index.js';
 import { copyPack, exportPack, importPack } from '../packs/io.js';
-import { applyVisual, glyphNode, packTitle, sectionGlyph } from './drawer.js';
+import { applyVisual, glyphNode, inkFor, packTitle, sectionGlyph } from './drawer.js';
 
 const CONTEXT_KEYS = ['messages', 'cardChars', 'loreChars', 'maxTokens', 'depth', 'keep'];
 const ZERO_ALLOWED = new Set(['cardChars', 'loreChars', 'depth']);
@@ -448,7 +448,6 @@ export function createSettings(runtime, { document = globalThis.document,
       previous = row.element;
     }
   }
-  visualCheck('motion');
 
   subgroup('sub.cards');
   for (const key of ['radius', 'cardFill', 'border', 'titleWeight']) range(key);
@@ -457,6 +456,77 @@ export function createSettings(runtime, { document = globalThis.document,
   choice('spacing', 'spacing');
   choice('icons', 'icons');
   visualCheck('accentBar');
+
+  // Effects (SPEC §16): the level select, then one row per composable effect, shown only at «full». Knobs preview on
+  // input and persist on change through the same visual path; a null colour means automatic.
+  subgroup('sub.effects');
+  choice('effects', 'effects');
+  const fxBlock = node('div', 'st-sable-fx st-sable-settings-wide'); visualGrid.append(fxBlock);
+  visualGroup.append(text('p', 'st-sable-settings-hint', 'fx.hint'));
+  const fxRows = new Map();
+  const fxWith = (name, patch) => {
+    const current = normalizeVisual(runtime.snapshot().settings.visual);
+    return visualWith('fx', { ...current.fx, [name]: { ...current.fx[name], ...patch } });
+  };
+  const formatFx = (knob, value) => (knob === 'angle' ? `${value}°` : `${Math.round(value * 100)}%`);
+  for (const [name, defaults] of Object.entries(FX_DEFAULTS)) {
+    const row = node('div', 'st-sable-fx-row'); row.dataset.fx = name;
+    const toggle = node('label', 'checkbox_label st-sable-settings-check');
+    const on = node('input'); on.type = 'checkbox'; on.name = `fx.${name}.on`;
+    on.addEventListener('change', () => writeVisual(fxWith(name, { on: on.checked })));
+    toggle.append(on, text('span', '', `fx.${name}`)); row.append(toggle);
+    const knobs = node('div', 'st-sable-fx-knobs'), controls = { on, knobs, outputs: new Map() };
+    for (const knob of Object.keys(defaults)) {
+      if (knob === 'on') continue;
+      const key = `fx.${name}.${knob}`;
+      if (knob === 'color') {
+        const wrap = node('div', 'st-sable-settings-inline st-sable-settings-optional');
+        const input = node('input'); input.type = 'color'; input.name = key;
+        bind(labels, input, 'fx.color', 'aria-label');
+        const auto = node('button', 'menu_button st-sable-settings-auto'); auto.type = 'button'; auto.name = `${key}Auto`;
+        bind(labels, auto, 'visual.auto'); bind(labels, auto, 'fx.colorAutoHint', 'title');
+        input.addEventListener('input', () => previewVisual(fxWith(name, { color: input.value })));
+        input.addEventListener('change', () => writeVisual(fxWith(name, { color: input.value })));
+        auto.addEventListener('click', () => { if (normalizeVisual(runtime.snapshot().settings.visual).fx[name].color) writeVisual(fxWith(name, { color: null })); });
+        wrap.append(text('span', 'st-sable-settings-label', 'fx.color'), input, auto); knobs.append(wrap);
+        controls.color = input; controls.auto = auto;
+      } else if (knob === 'speed') {
+        const wrap = node('label', 'st-sable-settings-inline');
+        const input = options(node('select', 'text_pole'), FX_SPEEDS, value => `fx.speed.${value}`); input.name = key;
+        input.addEventListener('change', () => writeVisual(fxWith(name, { speed: input.value })));
+        wrap.append(text('span', 'st-sable-settings-label', 'fx.speed'), input); knobs.append(wrap);
+        controls.speed = input;
+      } else {
+        const [min, max, step] = FX_RANGES[`${name}.${knob}`];
+        const wrap = node('label', 'st-sable-settings-range');
+        const input = node('input'); input.type = 'range'; input.name = key; input.min = String(min); input.max = String(max); input.step = String(step);
+        const output = node('output', 'st-sable-settings-value');
+        input.addEventListener('input', () => {
+          const visual = fxWith(name, { [knob]: input.value });
+          output.textContent = formatFx(knob, visual.fx[name][knob]); previewVisual(visual);
+        });
+        input.addEventListener('change', () => writeVisual(fxWith(name, { [knob]: input.value })));
+        wrap.append(text('span', 'st-sable-settings-label', `fx.${knob}`), output, input); knobs.append(wrap);
+        controls[knob] = input; controls.outputs.set(knob, output);
+      }
+    }
+    if (knobs.childNodes.length) row.append(knobs);
+    fxBlock.append(row); fxRows.set(name, controls);
+  }
+  function renderFx(visual) {
+    fxBlock.hidden = visual.effects !== 'full';
+    // Automatic colours show their stand-in: the accent for glow and shimmer, the ink for rain (white on dark glass).
+    const ink = visual.text ?? (visual.base ? `rgb(${inkFor(visual.base)})` : null);
+    const fallback = name => (name === 'rain' ? (ink === 'rgb(0,0,0)' ? '#000000' : /^#/.test(ink ?? '') ? ink : '#ffffff') : visual.accent);
+    for (const [name, controls] of fxRows) {
+      const fx = visual.fx[name];
+      controls.on.checked = fx.on;
+      controls.knobs.hidden = !fx.on;
+      if (controls.color) { setValue(controls.color, fx.color ?? fallback(name)); controls.auto.setAttribute('aria-pressed', String(!fx.color)); }
+      if (controls.speed) setValue(controls.speed, fx.speed);
+      for (const [knob, output] of controls.outputs) { setValue(controls[knob], fx[knob]); output.textContent = formatFx(knob, fx[knob]); }
+    }
+  }
 
   // Background: a file (shrunk to a JPEG data URL) or an http(s) link, stored in the visual object like everything else.
   subgroup('sub.background');
@@ -541,6 +611,7 @@ export function createSettings(runtime, { document = globalThis.document,
   });
   function renderVisualExtras(visual) {
     for (const [key, input] of visualChecks) input.checked = visual[key];
+    renderFx(visual);
     renderBackground(visual);
     setValue(preset, presetOf(visual));
   }

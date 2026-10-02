@@ -170,7 +170,7 @@ test('stats and tags render safely: bars, counters, units, delta badges with not
   assert.equal(hp.querySelector('.st-sable-scale-name').textContent, 'Guard · HP');
   const bar = hp.querySelector('[role="meter"]');
   assert.deepEqual([bar.getAttribute('aria-valuemax'), bar.getAttribute('aria-valuenow')], ['100', '40']);
-  assert.equal(bar.querySelector('.st-sable-bar-fill').style.width, '40%');
+  assert.equal(bar.querySelector('.st-sable-bar-fill').style.transform, 'scaleX(0.4)');
   assert.equal(hp.querySelector('.st-sable-score').textContent, '40/100');
   assert.equal(hp.querySelector('.st-sable-badge').textContent, '−12');
   assert.ok(hp.querySelector('.st-sable-badge').classList.contains('st-sable-down'));

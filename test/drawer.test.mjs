@@ -211,7 +211,8 @@ test('drawer CSS docks a full-height side panel, wraps text and keeps inset acce
   for (const summary of ui.element.querySelectorAll('summary')) assert.ok(parseFloat(computed(summary).minHeight) >= 36, 'foldable rows are tap targets');
   assert.equal(computed(query('.st-sable-title')).minWidth, '0');
   assert.match(css, /\.st-sable-card::before\s*\{[^}]*top:\s*14px;\s*bottom:\s*14px;\s*width:\s*3px/);
-  for (const [, property, value] of css.matchAll(/(animation|transition):([^;}]*)/g)) {
+  // Up to the live-card block (SPEC §16), which states its own limits per rule in test/effects.test.mjs.
+  for (const [, property, value] of css.slice(0, css.indexOf('/* Live cards (SPEC §16)')).matchAll(/(animation|transition):([^;}]*)/g)) {
     if (value.includes('st-sable-pulse')) { assert.match(value, /1\.5s ease-in-out infinite/); continue; }
     for (const [, amount, unit] of value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)) {
       assert.ok(Number(amount) * (unit === 's' ? 1000 : 1) <= 200, `${property} longer than 200 ms`);
@@ -283,7 +284,7 @@ test('cards read at a glance: icons, mode accents, priority dots, bars with delt
   assert.equal(maren.querySelector('.st-sable-kv dt').textContent, 'Одежда');
   const trust = card('bonds').querySelector('[role="meter"][aria-label="Доверие"]');
   assert.equal(trust.getAttribute('aria-valuenow'), '34');
-  assert.equal(trust.querySelector('.st-sable-bar-fill').style.width, '34%');
+  assert.equal(trust.querySelector('.st-sable-bar-fill').style.transform, 'scaleX(0.34)', 'the fill is scaled, so a new value slides it (SPEC §16)');
   assert.ok(trust.classList.contains('st-sable-affinity'));
   assert.ok(card('bonds').querySelector('[aria-label="Напряжение"]').classList.contains('st-sable-friction'));
   assert.equal(card('bonds').querySelector('[aria-label="Влечение"]'), null, 'unknown scales stay hidden');
@@ -698,7 +699,7 @@ test('drawer shows running and skipped status, with refresh busy state and optio
   assert.equal(refresh.getAttribute('aria-busy'), 'true');
   assert.ok(refresh.querySelector('.fa-spin'));
   refresh.click(); assert.equal(fake.calls.requests.length, 1);
-  runtime.updateSettings({ visual: { motion: false } });
+  runtime.updateSettings({ visual: { effects: 'off' } });
   assert.equal(refresh.querySelector('.fa-spin'), null);
   assert.equal(styled()(query('.st-sable-busy')).animation, 'none');
   finish('<sable_state>{"world":{"location":"Dome"}}</sable_state>'); await running;
