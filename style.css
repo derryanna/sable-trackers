@@ -633,7 +633,7 @@
 .st-sable-drawer .st-sable-group::before { content: ''; position: absolute; left: 0; top: 14px; height: 16px; width: 3px; border-radius: 0 3px 3px 0; background: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); pointer-events: none; }
 .st-sable-drawer .st-sable-group[data-mode="show"]::before { background: rgba(var(--st-sable-ink-rgb, 245,244,238), .38); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 38%, transparent); }
 .st-sable-drawer .st-sable-group[data-mode="mixed"]::before { background: linear-gradient(180deg, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 50%, rgba(var(--st-sable-ink-rgb, 245,244,238), .3) 50%); }
-.st-sable-drawer .st-sable-group[data-mode="off"]::before, .st-sable-drawer .st-sable-drawer[data-st-sable-accent-bar="off"] .st-sable-group::before { display: none; }
+.st-sable-drawer .st-sable-group[data-mode="off"]::before, .st-sable-drawer[data-st-sable-accent-bar="off"] .st-sable-group::before { display: none; }
 .st-sable-drawer .st-sable-group.st-sable-dragging { border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .42); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
 .st-sable-drawer .st-sable-group.st-sable-menu-open { overflow: visible; z-index: 2; }
 .st-sable-drawer .st-sable-group.st-sable-menu-open:last-child { margin-bottom: 126px; }
