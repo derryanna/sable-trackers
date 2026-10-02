@@ -160,7 +160,7 @@
 .st-sable-drawer summary.st-sable-scale-row { min-height: 36px; }
 .st-sable-scale-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .72; }
 .st-sable-bar { display: block; height: 6px; overflow: hidden; border-radius: 999px; background: rgba(var(--st-sable-ink-rgb, 255,255,255), .09); }
-.st-sable-bar-fill { display: block; height: 100%; border-radius: inherit; background: rgba(var(--st-sable-ink-rgb, 245,244,238), .82); }
+.st-sable-bar-fill { display: block; width: 100%; height: 100%; transform-origin: 0 50%; background: rgba(var(--st-sable-ink-rgb, 245,244,238), .82); }
 .st-sable-friction > .st-sable-bar-fill { background: #e39a8d; }
 .st-sable-score { text-align: right; font-size: calc(var(--st-sable-fs) - .5px); font-weight: 700; font-variant-numeric: tabular-nums; }
 .st-sable-badge { justify-self: start; padding: 2px 6px; border-radius: 999px; font-size: calc(var(--st-sable-fs) - 2px); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
@@ -399,7 +399,8 @@
 /* More visual settings (SPEC §12). Numbers arrive as variables on the drawer and the tab: --st-sable-card-fill (card tint
    on the ink), --st-sable-border (card borders; dividers use half of it), --st-sable-title-weight, --st-sable-bg-dim and,
    on the drawer only, --st-sable-bg-image. Choices arrive as data attributes that exist only while they differ from the
-   default look: data-st-sable-title-font, -chip, -accent-bar, -spacing, -bg, -fit, -motion. Overlays stay on the ink.
+   default look: data-st-sable-title-font, -chip, -accent-bar, -spacing, -bg, -fit; the effects level (SPEC §16) is always
+   present as data-st-sable-effects. Overlays stay on the ink.
    The first two rules replace literal alphas above with the adjustable ones (same defaults). */
 .st-sable-card {
   border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), var(--st-sable-border, .13));
@@ -461,7 +462,7 @@
 .st-sable-drawer[data-st-sable-bg="1"] .st-sable-header { padding-block: 4px; }
 .st-sable-drawer[data-st-sable-bg="1"] .st-sable-status { padding: 6px 10px; border-top-color: transparent; opacity: .9; }
 
-/* Motion (visual.motion). Unfolding: the card, which persists when only its body's [hidden] flips, transitions a
+/* Motion (visual.effects, SPEC §16). Unfolding: the card, which persists when only its body's [hidden] flips, transitions a
    number that the body reads as opacity and a 4px slide. A card rebuilt by a full render has no previous style, so
    re-renders never replay it; @starting-style on the body would replay on every card after every mode tap. */
 @property --st-sable-reveal { syntax: '<number>'; inherits: true; initial-value: 1; }
@@ -478,13 +479,18 @@
 .st-sable-drawer:not(:has(.st-sable-cards :focus)) .st-sable-status > :is(.st-sable-status-dot, .st-sable-status-text) { animation: st-sable-flash 200ms ease-out; }
 @keyframes st-sable-pulse { 50% { opacity: .35; } }
 .st-sable-drawer .st-sable-status > .st-sable-status-dot.st-sable-busy { background: currentColor; animation: st-sable-pulse 1.5s ease-in-out infinite; }
-/* Off switch (data-st-sable-motion="off" on the drawer and the tab), and the system reduced-motion setting. */
-.st-sable-drawer[data-st-sable-motion="off"], .st-sable-drawer[data-st-sable-motion="off"]::before,
-.st-sable-drawer[data-st-sable-motion="off"] *, .st-sable-drawer[data-st-sable-motion="off"] *::before, .st-sable-drawer[data-st-sable-motion="off"] *::after,
-.st-sable-tab[data-st-sable-motion="off"] { animation: none !important; transition: none !important; }
-.st-sable-drawer[data-st-sable-motion="off"] button:active, .st-sable-tab[data-st-sable-motion="off"]:active { scale: none !important; }
+/* Off level (data-st-sable-effects="off" on the drawer, the tab and the reply panel), and the system reduced-motion
+   setting: every animation and transition in this file stops, pseudo-elements included. */
+.st-sable-drawer[data-st-sable-effects="off"], .st-sable-drawer[data-st-sable-effects="off"]::before, .st-sable-drawer[data-st-sable-effects="off"]::after,
+.st-sable-drawer[data-st-sable-effects="off"] *, .st-sable-drawer[data-st-sable-effects="off"] *::before, .st-sable-drawer[data-st-sable-effects="off"] *::after,
+.st-sable-tab[data-st-sable-effects="off"], .st-sable-tab[data-st-sable-effects="off"]::before, .st-sable-tab[data-st-sable-effects="off"]::after,
+.st-sable-panel[data-st-sable-effects="off"], .st-sable-panel[data-st-sable-effects="off"] *,
+.st-sable-panel[data-st-sable-effects="off"] *::before, .st-sable-panel[data-st-sable-effects="off"] *::after { animation: none !important; transition: none !important; }
+.st-sable-drawer[data-st-sable-effects="off"] button:active, .st-sable-tab[data-st-sable-effects="off"]:active { scale: none !important; }
 @media (prefers-reduced-motion: reduce) {
-  .st-sable-drawer *, .st-sable-drawer *::before, .st-sable-drawer *::after, .st-sable-tab { animation: none !important; transition: none !important; }
+  .st-sable-drawer, .st-sable-drawer::before, .st-sable-drawer::after, .st-sable-drawer *, .st-sable-drawer *::before, .st-sable-drawer *::after,
+  .st-sable-tab, .st-sable-tab::before, .st-sable-tab::after,
+  .st-sable-panel, .st-sable-panel *, .st-sable-panel *::before, .st-sable-panel *::after { animation: none !important; transition: none !important; }
   .st-sable-drawer button:active, .st-sable-tab:active { scale: none !important; }
 }
 
@@ -609,3 +615,87 @@
 @container (max-width: 480px) {
   .st-sable-pack > .st-sable-custom-summary > .st-sable-pack-desc { flex-basis: 100%; white-space: normal; }
 }
+
+/* Live cards (SPEC §16). The level arrives as data-st-sable-effects="off | subtle | full" on the drawer, the tab and the
+   reply panel (the system reduced-motion setting forces "off"); the effects that are on arrive as data-st-sable-fx="glow
+   shimmer …" only at "full", with their knobs as variables: --st-sable-glow-rgb and --st-sable-glow (intensity 0–1),
+   --st-sable-shimmer-rgb and --st-sable-shimmer-duration, --st-sable-rain-rgb, --st-sable-rain-density and --st-sable-rain-angle.
+   Only transform, opacity, background-position and (glow only) box-shadow animate; nothing here changes layout. The off
+   selectors above and the reduced-motion block stop every rule of this section; every full-only rule is scoped to the level. */
+/* Subtle: the fill is full width and scaled, so a new value slides it; a brand-new node has no previous style and simply
+   appears. The track clips the fill, so the fill needs no rounded end of its own. */
+.st-sable-bar { position: relative; }
+.st-sable-bar-fill { transition: transform 180ms ease-out; }
+/* Every scale row is a <details>: a delta or a note opens the reason on tap; a static row ignores the tap and shows no hand. */
+.st-sable-scale.st-sable-static > .st-sable-scale-row { cursor: default; }
+.st-sable-scale-row > .st-sable-badge[hidden] { display: none; }
+/* Changed rows and cards (one render): the delta badge fades in; the card's accent bar brightens through a brighter twin
+   (::after at the same place) whose opacity flashes, so the bar itself never changes size or colour. */
+@keyframes st-sable-badge-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.st-sable-scale[data-st-sable-changed] .st-sable-badge { animation: st-sable-badge-in 300ms ease-out; }
+.st-sable-card::after { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: rgb(var(--st-sable-ink-rgb, 255,255,255)); opacity: 0; pointer-events: none; }
+.st-sable-drawer[data-st-sable-accent-bar="off"] .st-sable-card::after, .st-sable-card[data-mode="off"]::after { display: none; }
+@keyframes st-sable-accent-flash { 0% { opacity: 0; } 30% { opacity: .85; } 100% { opacity: 0; } }
+.st-sable-card[data-st-sable-changed]::after { animation: st-sable-accent-flash 300ms ease-out; }
+/* Title dot: a card with a change keeps it until it is unfolded or the next run. */
+.st-sable-change-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); }
+.st-sable-change-dot[hidden] { display: none; }
+/* Reply panel (SPEC §7): one line per enabled pack, "name ▬ 40/100 · name ▬ 70/100"; the bars share the drawer's fill and slide. */
+.st-sable-panel-pack { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin-top: 4px; }
+.st-sable-panel-stat { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.st-sable-panel-stat + .st-sable-panel-stat::before { content: '·'; margin-right: 1px; opacity: .5; }
+.st-sable-panel-stat-name { opacity: .75; }
+.st-sable-panel-stat-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.st-sable-panel-bar { position: relative; display: inline-block; width: 42px; height: 5px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.14); }
+/* The rain layer exists in the DOM at every level and only shows at full with rain on (below). */
+.st-sable-rain { display: none; }
+
+/* Effects settings: one row per effect, its switch on the left and the knobs underneath while it is on. */
+.st-sable-fx { display: flex; flex-direction: column; gap: 4px; }
+.st-sable-fx[hidden] { display: none; }
+.st-sable-fx-row { padding: 4px 0; border-top: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,.1)); }
+.st-sable-fx-row:first-child { border-top: 0; }
+.st-sable-fx-knobs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 18px; padding: 2px 0 4px 26px; }
+.st-sable-fx-knobs[hidden] { display: none; }
+.st-sable-fx-knobs > .st-sable-settings-inline > select.text_pole { width: min(12em, 58%); }
+@container (max-width: 480px) { .st-sable-fx-knobs { grid-template-columns: minmax(0, 1fr); padding-left: 0; } }
+
+/* Full: every rule below is scoped to [data-st-sable-effects="full"] and to its effect's name in data-st-sable-fx. */
+/* Glow: cards and bar tracks glow in the chosen colour (default: the accent, which falls back to the ink); a changed card pulses once. */
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="glow"] .st-sable-card { box-shadow: 0 6px 18px rgba(0,0,0,.16), 0 0 calc(6px + 16px * var(--st-sable-glow, .5)) rgba(var(--st-sable-glow-rgb, var(--st-sable-ink-rgb, 245,244,238)), calc(.15 + .45 * var(--st-sable-glow, .5))); }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="glow"] .st-sable-bar { box-shadow: 0 0 calc(3px + 7px * var(--st-sable-glow, .5)) rgba(var(--st-sable-glow-rgb, var(--st-sable-ink-rgb, 245,244,238)), calc(.3 + .5 * var(--st-sable-glow, .5))); }
+@keyframes st-sable-glow-pulse { 50% { box-shadow: 0 0 28px 6px rgba(var(--st-sable-glow-rgb, var(--st-sable-ink-rgb, 245,244,238)), .85); } }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="glow"] .st-sable-card[data-st-sable-changed] { animation: st-sable-glow-pulse 600ms ease-out; }
+/* Shimmer: a highlight runs across the bars (::after on the track) and down the drawer's left edge (::after on the panel). */
+@keyframes st-sable-shimmer { from { background-position: 200% 0; } to { background-position: -100% 0; } }
+@keyframes st-sable-shimmer-edge { from { background-position: 0 200%; } to { background-position: 0 -100%; } }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="shimmer"] .st-sable-bar::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 0 35%, rgba(var(--st-sable-shimmer-rgb, var(--st-sable-ink-rgb, 245,244,238)), .45) 50%, transparent 65% 100%); background-size: 300% 100%; animation: st-sable-shimmer var(--st-sable-shimmer-duration, 4s) linear infinite; }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="shimmer"]::after { content: ''; position: absolute; left: 0; top: 0; width: 3px; height: 100%; pointer-events: none; border-radius: inherit; background: linear-gradient(180deg, transparent 0 35%, rgba(var(--st-sable-shimmer-rgb, var(--st-sable-ink-rgb, 245,244,238)), .7) 50%, transparent 65% 100%); background-size: 100% 300%; animation: st-sable-shimmer-edge var(--st-sable-shimmer-duration, 4s) linear infinite; }
+/* Rain: one layer behind the cards (z-index -1, above the picture layer), three slanted streak gradients with different
+   tile sizes falling through background-position. Density sets the streak opacity; the colour defaults to the ink. */
+@keyframes st-sable-rain { to { background-position: 0 900px, 0 1400px, 0 2100px; } }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="rain"] .st-sable-rain {
+  display: block; position: absolute; z-index: -1; top: 0; left: 0; right: 0; height: 100%; pointer-events: none; border-radius: inherit;
+  --st-sable-rain-a: calc(.06 + .3 * var(--st-sable-rain-density, .5));
+  background-image:
+    linear-gradient(calc(90deg + var(--st-sable-rain-angle, 10deg)), transparent 0 46%, rgba(var(--st-sable-rain-rgb, var(--st-sable-ink-rgb, 255,255,255)), var(--st-sable-rain-a)) 50%, transparent 54% 100%),
+    linear-gradient(calc(90deg + var(--st-sable-rain-angle, 10deg)), transparent 0 47%, rgba(var(--st-sable-rain-rgb, var(--st-sable-ink-rgb, 255,255,255)), calc(var(--st-sable-rain-a) * .7)) 50%, transparent 53% 100%),
+    linear-gradient(calc(90deg + var(--st-sable-rain-angle, 10deg)), transparent 0 48%, rgba(var(--st-sable-rain-rgb, var(--st-sable-ink-rgb, 255,255,255)), calc(var(--st-sable-rain-a) * .45)) 50%, transparent 52% 100%);
+  background-size: 13px 90px, 21px 140px, 34px 210px; background-repeat: repeat;
+  animation: st-sable-rain 1.4s linear infinite;
+}
+/* Value colour: an affinity bar shades from the accent towards the friction tint as it drops and pulses slowly under 20 %. */
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="valueColor"] .st-sable-affinity > .st-sable-bar-fill { background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) calc(var(--st-sable-ratio, 1) * 100%), #e39a8d); }
+@keyframes st-sable-low { 50% { opacity: .4; } }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="valueColor"] .st-sable-affinity[data-st-sable-low] > .st-sable-bar-fill { animation: st-sable-low 1.6s ease-in-out infinite; }
+/* Dice: the die spins for 400 ms (resumed where the roll's render left it), the result row flashes, a crit glows the card. */
+@keyframes st-sable-spin { to { transform: rotate(360deg); } }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="dice"] .st-sable-dice.st-sable-rolling > * { animation: st-sable-spin 400ms ease-in-out var(--st-sable-roll-delay, 0ms); }
+@keyframes st-sable-rolled { 0% { opacity: .15; } 50% { opacity: 1; } 75% { opacity: .5; } 100% { opacity: 1; } }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="dice"] .st-sable-line[data-st-sable-rolled] { animation: st-sable-rolled 400ms ease-out; }
+@keyframes st-sable-crit { 40% { box-shadow: 0 0 30px 8px rgba(var(--st-sable-glow-rgb, var(--st-sable-ink-rgb, 245,244,238)), .9); } }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="dice"] .st-sable-card[data-st-sable-crit] { animation: st-sable-crit 700ms ease-out; }
+/* Card glow: the glow pulse replaces the accent flash on a changed card, and the reply panel's changed bars pulse too. */
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="cardGlow"] .st-sable-card[data-st-sable-changed]::after { animation: none; }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="cardGlow"] .st-sable-card[data-st-sable-changed] { animation: st-sable-glow-pulse 600ms ease-out; }
+.st-sable-panel[data-st-sable-effects="full"][data-st-sable-fx~="cardGlow"] .st-sable-panel-stat[data-st-sable-changed] > .st-sable-panel-bar { animation: st-sable-glow-pulse 600ms ease-out; }

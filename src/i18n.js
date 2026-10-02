@@ -222,7 +222,7 @@ Object.assign(STRINGS.ru, {
 Object.assign(STRINGS.en, {
   'sub.panel': 'Panel', 'sub.cards': 'Cards', 'sub.background': 'Background', 'sub.theme': 'Theme',
   cardColors: 'Card colours', cardColorsHint: "Empty = the shared accent. The colour tints the card's bar, chip and border.",
-  'visual.motion': 'Animations', 'visual.cardFill': 'Card fill', 'visual.border': 'Borders',
+  'visual.cardFill': 'Card fill', 'visual.border': 'Borders',
   'visual.titleFont': 'Title font', 'visual.titleWeight': 'Title weight', 'visual.chipStyle': '“inject” chip',
   'visual.accentBar': 'Accent bar on cards', 'visual.spacing': 'Spacing', 'visual.bgDim': 'Dimming', 'visual.bgFit': 'Fit',
   'font.theme': 'Theme font', 'font.serif': 'Serif', 'font.mono': 'Monospace', 'font.rounded': 'Rounded',
@@ -235,14 +235,14 @@ Object.assign(STRINGS.en, {
   'bg.badUrl': 'Sable: a picture link must start with http:// or https:// and have no spaces, quotes or brackets.',
   'bg.readFailed': 'Sable: this picture could not be read. Try a JPEG, PNG or WebP file.',
   'theme.preset': 'Preset', 'theme.custom': 'custom', 'preset.glass': 'Glass', 'preset.paper': 'Paper', 'preset.neon': 'Neon',
-  'theme.presetHint': 'A preset sets colours and style; the background, font size, phone width and animations stay. Tweak anything afterwards.',
+  'theme.presetHint': 'A preset sets colours and style; the background, font size, phone width and effects stay. Tweak anything afterwards.',
   'theme.export': 'Save theme file', 'theme.import': 'Load theme file',
   'theme.invalid': 'Sable: this file is not a Sable theme.', 'theme.imported': 'Sable: theme imported.',
 });
 Object.assign(STRINGS.ru, {
   'sub.panel': 'Панель', 'sub.cards': 'Карточки', 'sub.background': 'Фон', 'sub.theme': 'Тема',
   cardColors: 'Цвета карточек', cardColorsHint: 'Пусто = общий акцент. Цвет красит полоску, чип и рамку карточки.',
-  'visual.motion': 'Анимации', 'visual.cardFill': 'Заливка карточек', 'visual.border': 'Рамки',
+  'visual.cardFill': 'Заливка карточек', 'visual.border': 'Рамки',
   'visual.titleFont': 'Шрифт заголовков', 'visual.titleWeight': 'Жирность заголовков', 'visual.chipStyle': 'Кнопка «в промпт»',
   'visual.accentBar': 'Полоса слева на карточках', 'visual.spacing': 'Плотность', 'visual.bgDim': 'Затемнение', 'visual.bgFit': 'Размещение',
   'font.theme': 'Как в теме', 'font.serif': 'С засечками', 'font.mono': 'Моноширинный', 'font.rounded': 'Округлый',
@@ -255,7 +255,7 @@ Object.assign(STRINGS.ru, {
   'bg.badUrl': 'Sable: ссылка на картинку должна начинаться с http:// или https:// и не содержать пробелов, кавычек и скобок.',
   'bg.readFailed': 'Sable: не удалось прочитать картинку. Подойдёт JPEG, PNG или WebP.',
   'theme.preset': 'Пресет', 'theme.custom': 'свой', 'preset.glass': 'Стекло', 'preset.paper': 'Бумага', 'preset.neon': 'Неон',
-  'theme.presetHint': 'Пресет задаёт цвета и стиль; фон, размер шрифта, ширина и анимации остаются. Дальше всё можно подкрутить.',
+  'theme.presetHint': 'Пресет задаёт цвета и стиль; фон, размер шрифта, ширина и эффекты остаются. Дальше всё можно подкрутить.',
   'theme.export': 'Экспорт темы', 'theme.import': 'Импорт темы',
   'theme.invalid': 'Sable: это не файл темы Sable.', 'theme.imported': 'Sable: тема загружена.',
 });
@@ -292,4 +292,24 @@ Object.assign(STRINGS.ru, {
   'pack.keyHint': 'Латинские буквы и цифры, начинается с буквы, до 16 знаков; это имя поля в JSON.',
   'pack.lastSection': 'В наборе остаётся хотя бы одна карточка', 'prompts.packRules': 'правила набора',
   dice: 'Бросить d100', 'dice.hit': 'попадание', 'dice.miss': 'промах', 'dice.rolled': 'Бросок',
+});
+
+// Live cards (SPEC §16): the effects level, the composable fx rows and the change dot.
+Object.assign(STRINGS.en, {
+  'sub.effects': 'Effects', 'visual.effects': 'Effects', 'effects.off': 'off', 'effects.subtle': 'subtle', 'effects.full': 'full',
+  'fx.hint': 'Subtle: bars slide, changes flash. Full unlocks the effects below; each one is off until you turn it on. The system reduced-motion setting turns everything off.',
+  'fx.glow': 'Glow', 'fx.shimmer': 'Shimmer', 'fx.rain': 'Rain', 'fx.ticks': 'Numbers tick', 'fx.valueColor': 'Bar colour follows the value',
+  'fx.dice': 'Dice animation', 'fx.cardGlow': 'Glow pulse on change',
+  'fx.color': 'Colour', 'fx.colorAutoHint': 'Automatic colour (the accent; the text colour for rain)', 'fx.intensity': 'Intensity',
+  'fx.speed': 'Speed', 'fx.speed.slow': 'slow', 'fx.speed.medium': 'medium', 'fx.speed.fast': 'fast', 'fx.density': 'Density', 'fx.angle': 'Angle',
+  changed: 'changed',
+});
+Object.assign(STRINGS.ru, {
+  'sub.effects': 'Эффекты', 'visual.effects': 'Эффекты', 'effects.off': 'выкл', 'effects.subtle': 'мягко', 'effects.full': 'полные',
+  'fx.hint': 'Мягко: полоски плавно двигаются, изменения подсвечиваются. Полные открывают эффекты ниже; каждый выключен, пока вы его не включите. Системная настройка «меньше движения» выключает всё.',
+  'fx.glow': 'Свечение', 'fx.shimmer': 'Блик', 'fx.rain': 'Дождь', 'fx.ticks': 'Числа бегут', 'fx.valueColor': 'Цвет полоски по значению',
+  'fx.dice': 'Анимация кубика', 'fx.cardGlow': 'Вспышка свечения при изменении',
+  'fx.color': 'Цвет', 'fx.colorAutoHint': 'Автоматический цвет (акцент; для дождя — цвет текста)', 'fx.intensity': 'Сила',
+  'fx.speed': 'Скорость', 'fx.speed.slow': 'медленно', 'fx.speed.medium': 'средне', 'fx.speed.fast': 'быстро', 'fx.density': 'Плотность', 'fx.angle': 'Наклон',
+  changed: 'изменилось',
 });

@@ -6,8 +6,8 @@ import { BG_MAX_SIDE, PRESETS, PRESET_IDS, PRESET_KEEPS, THEME_FILE, applyPreset
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 test('round 3 visual keys: defaults, clamped ranges, closed choices and booleans', () => {
-  assert.deepEqual(Object.fromEntries(['bgImage', 'bgDim', 'bgFit', 'motion', 'cardFill', 'border', 'titleFont', 'titleWeight', 'chipStyle', 'accentBar', 'spacing']
-    .map(key => [key, VISUAL_DEFAULTS[key]])), { bgImage: null, bgDim: 0.45, bgFit: 'cover', motion: true, cardFill: 0.05, border: 0.13,
+  assert.deepEqual(Object.fromEntries(['bgImage', 'bgDim', 'bgFit', 'effects', 'cardFill', 'border', 'titleFont', 'titleWeight', 'chipStyle', 'accentBar', 'spacing']
+    .map(key => [key, VISUAL_DEFAULTS[key]])), { bgImage: null, bgDim: 0.45, bgFit: 'cover', effects: 'subtle', cardFill: 0.05, border: 0.13,
     titleFont: 'theme', titleWeight: 700, chipStyle: 'filled', accentBar: true, spacing: 'cozy' });
   assert.deepEqual(normalizeVisual(undefined), { ...VISUAL_DEFAULTS });
   const clamped = normalizeVisual({ bgDim: 0.95, cardFill: -1, border: '0.555', titleWeight: 650 });
@@ -15,12 +15,12 @@ test('round 3 visual keys: defaults, clamped ranges, closed choices and booleans
   assert.equal(normalizeVisual({ cardFill: 0.126 }).cardFill, 0.13, 'rounded to the slider step');
   assert.equal(normalizeVisual({ titleWeight: 1000 }).titleWeight, 800);
   assert.equal(normalizeVisual({ titleWeight: 420 }).titleWeight, 500);
-  const choices = normalizeVisual({ bgFit: 'tile', titleFont: 'mono', chipStyle: 'outline', spacing: 'compact', motion: false, accentBar: false });
-  assert.deepEqual([choices.bgFit, choices.titleFont, choices.chipStyle, choices.spacing, choices.motion, choices.accentBar],
-    ['tile', 'mono', 'outline', 'compact', false, false]);
-  const junk = normalizeVisual({ bgFit: 'stretch', titleFont: 'Comic Sans', chipStyle: 1, spacing: null, motion: 'false', accentBar: 0 });
-  assert.deepEqual([junk.bgFit, junk.titleFont, junk.chipStyle, junk.spacing, junk.motion, junk.accentBar],
-    ['cover', 'theme', 'filled', 'cozy', true, true], 'unknown choices and non-boolean flags fall back to defaults');
+  const choices = normalizeVisual({ bgFit: 'tile', titleFont: 'mono', chipStyle: 'outline', spacing: 'compact', effects: 'off', accentBar: false });
+  assert.deepEqual([choices.bgFit, choices.titleFont, choices.chipStyle, choices.spacing, choices.effects, choices.accentBar],
+    ['tile', 'mono', 'outline', 'compact', 'off', false]);
+  const junk = normalizeVisual({ bgFit: 'stretch', titleFont: 'Comic Sans', chipStyle: 1, spacing: null, effects: 'loud', accentBar: 0 });
+  assert.deepEqual([junk.bgFit, junk.titleFont, junk.chipStyle, junk.spacing, junk.effects, junk.accentBar],
+    ['cover', 'theme', 'filled', 'cozy', 'subtle', true], 'unknown choices and non-boolean flags fall back to defaults');
 });
 
 test('background image: only base64 png/jpeg/webp data URLs or http(s) URLs that are safe inside CSS url("…")', () => {
@@ -40,10 +40,10 @@ test('background image: only base64 png/jpeg/webp data URLs or http(s) URLs that
   assert.equal(normalizeVisual({ bgImage: PNG }).bgImage, PNG);
 });
 
-test('presets: glass is the default look; paper and neon set their values and keep the background, size, width and motion', () => {
+test('presets: glass is the default look; paper and neon set their values and keep the background, size, width and effects', () => {
   assert.deepEqual(PRESET_IDS, ['glass', 'paper', 'neon']);
   assert.deepEqual(applyPreset({}, 'glass'), { ...VISUAL_DEFAULTS });
-  const mine = { ...VISUAL_DEFAULTS, bgImage: PNG, bgDim: 0.6, bgFit: 'tile', motion: false, fontSize: 15, widthVw: 92, radius: 10, accent: '#ff0000', spacing: 'compact' };
+  const mine = { ...VISUAL_DEFAULTS, bgImage: PNG, bgDim: 0.6, bgFit: 'tile', effects: 'off', fontSize: 15, widthVw: 92, radius: 10, accent: '#ff0000', spacing: 'compact' };
   const paper = applyPreset(mine, 'paper');
   assert.deepEqual([paper.base, paper.accent, paper.titleFont, paper.blur], ['#f4f1ea', '#8a6d1e', 'serif', 0]);
   assert.equal(paper.radius, VISUAL_DEFAULTS.radius, 'a preset starts from the defaults');
@@ -58,7 +58,7 @@ test('presets: glass is the default look; paper and neon set their values and ke
 
 test('presetOf names the matching preset, ignoring kept keys, and returns "" after a tweak', () => {
   assert.equal(presetOf({}), 'glass');
-  assert.equal(presetOf({ ...VISUAL_DEFAULTS, bgImage: PNG, fontSize: 16, motion: false }), 'glass');
+  assert.equal(presetOf({ ...VISUAL_DEFAULTS, bgImage: PNG, fontSize: 16, effects: 'off' }), 'glass');
   assert.equal(presetOf(applyPreset({ bgImage: PNG }, 'paper')), 'paper');
   assert.equal(presetOf(applyPreset({}, 'neon')), 'neon');
   assert.equal(presetOf({ ...applyPreset({}, 'neon'), cardFill: 0.1 }), '');

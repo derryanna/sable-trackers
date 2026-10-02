@@ -84,7 +84,7 @@ export function applyVisual(element, visual) {
   for (const card of element.querySelectorAll('.st-sable-card')) applyCardColor(card, value.cardColors[card.dataset.section]);
   // Light bases need darker status colours; see style.css.
   flag('stSableTone', colors.tone || null);
-  flag('stSableMotion', value.motion ? null : 'off');
+  applyEffects(element, value);
   flag('stSableTitleFont', value.titleFont === 'theme' ? null : value.titleFont);
   flag('stSableChip', value.chipStyle === 'filled' ? null : value.chipStyle);
   flag('stSableAccentBar', value.accentBar ? null : 'off');
@@ -96,6 +96,31 @@ export function applyVisual(element, visual) {
   // normalizeVisual guarantees no quotes, parentheses, backslashes or whitespace inside url("…").
   const css = image ? `url("${image}")` : null;
   if (appliedImages.get(element) !== css) { set('bg-image', css); appliedImages.set(element, css); }
+}
+
+// Live cards (SPEC §16): shimmer period per speed knob, number tick and dice animation lengths (ms).
+const SHIMMER_DURATIONS = { slow: '7s', medium: '4s', fast: '2s' };
+export const TICK_MS = 250, DICE_MS = 400;
+
+/** Effects level and fx set (SPEC §16) on the drawer, the tab and the reply panel: `data-st-sable-effects="<level>"`,
+ *  `data-st-sable-fx` = the names of the effects that are on (only at `full`) and the fx knobs as variables. The system
+ *  reduced-motion setting forces the level to `off`, so the rAF paths that read the attribute stop too; style.css has
+ *  its own media query as well. Null colours leave the variable unset, so the CSS falls back to the accent or the ink. */
+export function applyEffects(element, visual) {
+  const value = normalizeVisual(visual), { fx } = value;
+  const reduced = !!element.ownerDocument?.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const level = reduced ? 'off' : value.effects;
+  element.dataset.stSableEffects = level;
+  const on = Object.keys(fx).filter(name => fx[name].on);
+  if (level === 'full' && on.length) element.dataset.stSableFx = on.join(' '); else delete element.dataset.stSableFx;
+  const accent = value.accent === VISUAL_DEFAULTS.accent ? null : value.accent;
+  const rgb = hex => (hex ? hexRgb(hex).join(',') : null);
+  for (const [name, css] of [['glow-rgb', rgb(fx.glow.color ?? accent)], ['glow', String(fx.glow.intensity)],
+    ['shimmer-rgb', rgb(fx.shimmer.color ?? accent)], ['shimmer-duration', SHIMMER_DURATIONS[fx.shimmer.speed]],
+    ['rain-rgb', rgb(fx.rain.color)], ['rain-density', String(fx.rain.density)], ['rain-angle', `${fx.rain.angle}deg`]]) {
+    if (css === null) element.style.removeProperty(`--st-sable-${name}`); else element.style.setProperty(`--st-sable-${name}`, css);
+  }
+  return level;
 }
 
 /** One emoji/text glyph, or Font Awesome classes ('fa-key' or 'fa-solid fa-key'); never parsed as HTML. */
@@ -145,6 +170,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   random ??= cryptoRandom(win?.crypto ?? globalThis.crypto);
   let view = runtime.snapshot(), opener, drag;
   let modeMenu, revealOff = false, rollNote = null, rollTimer;
+  // Live cards (SPEC §16): cards with a change keep a title dot until unfolded or the next run; the last dice roll
+  // drives the spin, the result flash and the crit glow of the renders within DICE_MS of it.
+  let freshCards = new Set(), lastEntryKey, rolling = null, rolled = null;
   const cleanups = [];
   const label = key => t(key, view.settings.language);
   // Enabled packs add their cards after the built-in and custom ones (SPEC §15).
@@ -228,7 +256,10 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   const status = node('footer', 'status');
   status.setAttribute('role', 'status');
   const seed = button(label('seedLegacy'), 'seedLegacy', () => { void runtime.seedLegacy(); }, 'legacy-button');
-  drawer.append(header, seed, cards, hiddenRow, status, sheet);
+  // Rain overlay (SPEC §16): one CSS-only layer behind the cards, display: none unless the level is full and rain is on.
+  const rain = node('div', 'rain');
+  rain.setAttribute('aria-hidden', 'true');
+  drawer.append(rain, header, seed, cards, hiddenRow, status, sheet);
   // Edge pull tab: glued to the screen edge when closed, to the panel's left edge when open.
   const tab = button('', 'open', () => { if (drawer.hidden) open(tab); else hide(false); }, 'tab');
   tab.append(icon('wand-magic-sparkles'), icon('chevron-right'));
@@ -262,6 +293,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   function hide(restoreFocus = true) {
     closeModeMenu(false);
     closeSheet(false);
+    stopTicks();
     drawer.hidden = true;
     syncExpanded();
     if (restoreFocus) opener?.focus?.();
@@ -446,59 +478,187 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       const die = button('', 'dice', event => { event.preventDefault(); castDice(target.id, key, chance); }, 'dice');
       die.dataset.control = 'dice';
       die.append(view.settings.visual?.icons === 'emoji' ? node('span', 'emoji', '🎲') : icon('dice'));
+      // The die is rebuilt by the render the roll triggers; a negative delay resumes the spin where it was.
+      const elapsed = rolling?.key === key ? Date.now() - rolling.at : DICE_MS;
+      if (elapsed < DICE_MS) {
+        die.classList.add('st-sable-rolling');
+        die.style.setProperty('--st-sable-roll-delay', `-${elapsed}ms`);
+        die.addEventListener('animationend', () => die.classList.remove('st-sable-rolling'), { once: true });
+      }
       return die;
     };
   }
   function castDice(id, key, chance) {
     const name = key.replace(/\s*%$/, '').trim() || key;
     const result = roll(chance, random);
-    if (runtime.editState(id, formatRoll(result, name)) === false) return;
+    // Crit (SPEC §16 dice animation): a hit on a "crit" chance, or a natural 1 or 100.
+    const at = Date.now(), crit = (result.hit && /crit/i.test(name)) || result.roll === 1 || result.roll === 100;
+    rolling = { key, at }; rolled = { id, at, crit };
+    if (runtime.editState(id, formatRoll(result, name)) === false) { rolling = rolled = null; return; }
     rollNote = `${label('dice.rolled')}: ${result.roll} vs ${name} ${result.chance} → ${label(result.hit ? 'dice.hit' : 'dice.miss')}`;
     renderStatus();
     win.clearTimeout(rollTimer);
     rollTimer = win.setTimeout(() => { rollNote = null; renderStatus(); }, 6000);
   }
-  // Stats rows reuse the bond bar markup: a bar when max is set, a plain counter otherwise; a delta badge opens the note.
-  function statRow(section, item, dice) {
-    const delta = Number.isFinite(item.delta) && item.delta !== 0 ? item.delta : 0;
-    const row = node(delta ? 'summary' : 'div', 'scale-row');
-    row.classList.add('st-sable-stat-row');
-    row.append(node('span', 'scale-name', item.key));
-    if (item.max != null) {
-      const bar = node('span', 'bar');
-      bar.classList.add('st-sable-affinity');
-      bar.setAttribute('role', 'meter');
-      bar.setAttribute('aria-label', item.key);
-      bar.setAttribute('aria-valuemin', '0');
-      bar.setAttribute('aria-valuemax', String(item.max));
-      bar.setAttribute('aria-valuenow', String(item.value));
-      const fill = node('span', 'bar-fill');
-      fill.style.width = `${Math.min(100, Math.max(0, (item.value / item.max) * 100))}%`;
-      bar.append(fill);
-      row.append(bar);
-    } else { row.classList.add('st-sable-counter'); row.append(node('span', 'bar-gap')); }
-    row.append(node('span', 'score', `${item.value}${item.max == null ? '' : `/${item.max}`}${item.unit ? ` ${item.unit}` : ''}`));
-    if (delta) {
-      const badge = node('span', 'badge', `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`);
-      badge.classList.add(delta > 0 ? 'st-sable-up' : 'st-sable-down');
-      row.append(badge);
-    }
-    const die = dice?.(item.key, item.value);
-    if (die) row.append(die);
-    if (!delta) { if (item.note) row.title = String(item.note); return row; }
-    const wrap = node('details', 'scale');
-    wrap.classList.add('st-sable-delta');
-    wrap.dataset.key = `${section.id}:${item.key}`;
-    wrap.open = openRows.get(wrap.dataset.key) ?? false;
-    wrap.append(row, node('div', 'reason', item.note || '—'));
-    return wrap;
+  // Live cards (SPEC §16): bond scales and pack stats are keyed rows that keep their node across renders, so the bar
+  // fill slides to its new value (a transform transition in style.css) and a changed value is flagged for exactly one
+  // render. Every row is a <details>: a delta or a stat note opens the reason on tap; a static row keeps the same markup
+  // and ignores the tap, so a delta appearing later never swaps the node. A brand-new row appears at its value.
+  const ticks = new Map();
+  const ticksOn = () => drawer.dataset.stSableEffects === 'full' && !!view.settings.visual?.fx?.ticks?.on
+    && typeof win?.requestAnimationFrame === 'function';
+  function stopTick(score, settle = true) {
+    const tick = ticks.get(score);
+    if (!tick) return;
+    win.cancelAnimationFrame(tick.frame);
+    ticks.delete(score);
+    if (settle) score.textContent = tick.final;
   }
+  const stopTicks = () => { for (const score of [...ticks.keys()]) stopTick(score); };
+  /** One rAF run of at most TICK_MS: the number counts from the old value to the new one, then the run ends. */
+  function startTick(score, from, to, format) {
+    stopTick(score, false);
+    const started = win.performance.now(), tick = { final: format(to), frame: 0 };
+    const step = now => {
+      const progress = Math.min(1, (now - started) / TICK_MS);
+      score.textContent = progress < 1 ? format(Math.round(from + (to - from) * progress)) : tick.final;
+      if (progress < 1) tick.frame = win.requestAnimationFrame(step); else ticks.delete(score);
+    };
+    ticks.set(score, tick);
+    tick.frame = win.requestAnimationFrame(step);
+  }
+  const place = (parent, element, previous) => {
+    const expected = previous ? previous.nextSibling : parent.firstChild;
+    if (element !== expected) parent.insertBefore(element, expected);
+  };
+  // Existing keyed children by key; a duplicate key (a model slip) keeps the first node and drops the rest.
+  function keyedChildren(parent, selector) {
+    const map = new Map();
+    for (const item of parent.querySelectorAll(selector)) { if (map.has(item.dataset.key)) dropRow(item); else map.set(item.dataset.key, item); }
+    return map;
+  }
+  const dropRow = item => { for (const score of item.querySelectorAll('.st-sable-score')) stopTick(score, false); item.remove(); };
+  const unique = (seen, key) => { let candidate = key; for (let n = 2; seen.has(candidate); n++) candidate = `${key}#${n}`; seen.add(candidate); return candidate; };
+  /** Creates or updates the row for `key`. spec: { name, title, stat, friction, value, max, plain, unit, delta, reason, openable, die };
+   *  `plain` shows the bare number (bond scales are always out of 100). */
+  function scaleRow(existing, key, spec) {
+    const kind = spec.max == null ? 'counter' : 'bar';
+    let wrap = existing.get(key);
+    if (wrap && wrap.dataset.kind !== kind) { dropRow(wrap); wrap = undefined; }
+    const fresh = !wrap;
+    if (fresh) {
+      wrap = node('details', 'scale'); wrap.dataset.key = key; wrap.dataset.kind = kind;
+      const row = node('summary', 'scale-row');
+      row.addEventListener('click', event => { if (wrap.classList.contains('st-sable-static')) event.preventDefault(); });
+      row.append(node('span', 'scale-name'));
+      if (kind === 'bar') {
+        const bar = node('span', 'bar'); bar.setAttribute('role', 'meter'); bar.setAttribute('aria-valuemin', '0');
+        bar.append(node('span', 'bar-fill')); row.append(bar);
+      } else row.append(node('span', 'bar-gap'));
+      row.append(node('span', 'score'), node('span', 'badge'));
+      wrap.append(row, node('div', 'reason'));
+    }
+    const [row, reason] = wrap.children, [name, bar, score, badge] = row.children;
+    row.classList.toggle('st-sable-stat-row', !!spec.stat);
+    row.classList.toggle('st-sable-counter', kind === 'counter');
+    name.textContent = spec.name;
+    if (spec.title) name.title = spec.title; else name.removeAttribute('title');
+    const value = Number(spec.value), previous = fresh ? undefined : Number(wrap.dataset.value);
+    const changed = !fresh && previous !== value;
+    const format = number => `${number}${spec.max == null || spec.plain ? '' : `/${spec.max}`}${spec.unit ? ` ${spec.unit}` : ''}`;
+    if (kind === 'bar') {
+      bar.className = `st-sable-bar ${spec.friction ? 'st-sable-friction' : 'st-sable-affinity'}`;
+      bar.setAttribute('aria-label', spec.name);
+      bar.setAttribute('aria-valuemax', String(spec.max));
+      bar.setAttribute('aria-valuenow', String(value));
+      const ratio = Math.min(1, Math.max(0, value / spec.max)), fill = bar.firstElementChild;
+      fill.style.transform = `scaleX(${ratio})`;
+      fill.style.setProperty('--st-sable-ratio', String(ratio));
+      // Value colour (full): affinity bars pulse under 20 %; friction bars are not "low" when they drop.
+      bar.toggleAttribute('data-st-sable-low', !spec.friction && ratio < 0.2);
+    }
+    if (changed && Number.isFinite(previous) && ticksOn()) startTick(score, previous, value, format);
+    else { stopTick(score, false); score.textContent = format(value); }
+    const delta = Number.isFinite(spec.delta) && spec.delta !== 0 ? spec.delta : 0;
+    badge.hidden = !delta;
+    if (delta) { badge.textContent = `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`; badge.className = `st-sable-badge ${delta > 0 ? 'st-sable-up' : 'st-sable-down'}`; }
+    row.querySelector('.st-sable-dice')?.remove();
+    const die = spec.die?.();
+    if (die) row.append(die);
+    const openable = !!delta || !!spec.openable;
+    wrap.classList.toggle('st-sable-delta', !!delta);
+    wrap.classList.toggle('st-sable-static', !openable);
+    reason.textContent = spec.reason || '—';
+    wrap.open = openable && (openRows.get(key) ?? false);
+    wrap.toggleAttribute('data-st-sable-changed', changed);
+    wrap.dataset.value = String(value);
+    return { element: wrap, changed };
+  }
+  function renderBonds(body, value) {
+    for (const child of [...body.children]) if (!child.classList.contains('st-sable-bond')) child.remove();
+    const groups = keyedChildren(body, ':scope > .st-sable-bond'), seen = new Set();
+    let changedAny = false, previousGroup = null;
+    for (const bond of value) {
+      const groupKey = unique(seen, `bonds:${bond.id}`);
+      let group = groups.get(groupKey); groups.delete(groupKey);
+      if (!group) { group = node('div', 'bond'); group.dataset.key = groupKey; group.append(node('div', 'bond-name')); }
+      const head = group.firstElementChild;
+      head.replaceChildren(node('span', 'name', bond.name || bond.id), muted(` → ${bond.toward || '—'}`));
+      const rows = keyedChildren(group, ':scope > details');
+      let previous = head;
+      for (const scale of BOND_SCALES) {
+        const score = bond.stats?.[scale];
+        if (!Number.isFinite(score)) continue;
+        const change = bond.changes?.[scale], key = `${groupKey}:${scale}`;
+        const { element, changed } = scaleRow(rows, key, { name: label(scale), title: label(scale), friction: FRICTION.has(scale),
+          value: score, max: 100, plain: true, delta: change?.delta, reason: change?.reason });
+        rows.delete(key); changedAny ||= changed;
+        place(group, element, previous); previous = element;
+      }
+      for (const leftover of rows.values()) dropRow(leftover);
+      place(body, group, previousGroup); previousGroup = group;
+    }
+    for (const leftover of groups.values()) dropRow(leftover);
+    return changedAny;
+  }
+  // Stats rows (SPEC §15) share the bond row: a bar when max is set, a plain counter otherwise; a delta or a note opens on tap.
+  function renderStats(section, body, value, dice) {
+    for (const child of [...body.children]) if (!child.classList.contains('st-sable-stats')) child.remove();
+    let group = body.querySelector(':scope > .st-sable-stats');
+    if (!group) { group = node('div', 'stats'); body.append(group); }
+    const rows = keyedChildren(group, ':scope > details'), seen = new Set();
+    let changedAny = false, previous = null;
+    for (const item of value) {
+      const key = unique(seen, `${section.id}:${item.key}`);
+      const { element, changed } = scaleRow(rows, key, { name: item.key, stat: true, value: item.value, max: item.max, unit: item.unit,
+        delta: item.delta, reason: item.note, openable: !!item.note, die: () => dice?.(item.key, item.value) });
+      rows.delete(key); changedAny ||= changed;
+      place(group, element, previous); previous = element;
+    }
+    for (const leftover of rows.values()) dropRow(leftover);
+    if (!group.childNodes.length) group.remove();
+    return changedAny;
+  }
+  /** Fills a card body from the state. Keyed sections reconcile their rows in place and report whether a value changed;
+   *  every other body is rebuilt. An empty body shows "—". */
   function renderBody(section, body, state) {
+    const { id } = section, value = state[id];
+    const keyed = id === 'bonds' || (section.custom && section.shape === 'stats');
+    let changed = false;
+    if (keyed && Array.isArray(value)) changed = id === 'bonds' ? renderBonds(body, value) : renderStats(section, body, value, diceFor(section));
+    else { body.replaceChildren(); if (value) fillBody(section, body, value, state); }
+    if (!body.childNodes.length) body.append(node('span', 'empty', '—'));
+    return changed;
+  }
+  function fillBody(section, body, value, state) {
     const { id } = section;
-    const value = state[id];
-    if (!value) return;
     if (section.custom) {
-      if (section.shape === 'text') { body.append(node('p', 'line', value)); return; }
+      if (section.shape === 'text') {
+        const line = node('p', 'line', value);
+        // The dice result row flashes in the renders right after a roll (CSS, full level + dice effect).
+        if (rolled?.id === id && Date.now() - rolled.at < DICE_MS) line.toggleAttribute('data-st-sable-rolled', true);
+        body.append(line); return;
+      }
       if (!Array.isArray(value) || !value.length) return;
       const dice = diceFor(section);
       if (section.shape === 'list') {
@@ -518,10 +678,6 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         const chips = node('div', 'chips');
         for (const tag of value) { const chip = node('span', 'tag', tag); chip.classList.add('st-sable-ban'); chips.append(chip); }
         body.append(chips);
-      } else if (section.shape === 'stats') {
-        const group = node('div', 'stats');
-        for (const item of value) group.append(statRow(section, item, dice));
-        body.append(group);
       }
       return;
     }
@@ -601,43 +757,6 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
           body.append(item);
         }
         break;
-      case 'bonds':
-        for (const bond of value) {
-          const group = node('div', 'bond');
-          const head = node('div', 'bond-name');
-          head.append(node('span', 'name', bond.name || bond.id), muted(` → ${bond.toward || '—'}`));
-          group.append(head);
-          for (const scale of BOND_SCALES) {
-            const score = bond.stats?.[scale];
-            if (!Number.isFinite(score)) continue;
-            const change = bond.changes?.[scale];
-            const row = node(change?.delta ? 'summary' : 'div', 'scale-row');
-            const name = node('span', 'scale-name', label(scale)); name.title = label(scale);
-            const bar = node('span', 'bar');
-            bar.classList.add(FRICTION.has(scale) ? 'st-sable-friction' : 'st-sable-affinity');
-            bar.setAttribute('role', 'meter');
-            bar.setAttribute('aria-label', label(scale));
-            bar.setAttribute('aria-valuemin', '0');
-            bar.setAttribute('aria-valuemax', '100');
-            bar.setAttribute('aria-valuenow', String(score));
-            const fill = node('span', 'bar-fill');
-            fill.style.width = `${Math.min(100, Math.max(0, score))}%`;
-            bar.append(fill);
-            row.append(name, bar, node('span', 'score', score));
-            if (!change?.delta) { group.append(row); continue; }
-            const badge = node('span', 'badge', `${change.delta > 0 ? '+' : '−'}${Math.abs(change.delta)}`);
-            badge.classList.add(change.delta > 0 ? 'st-sable-up' : 'st-sable-down');
-            row.append(badge);
-            const item = node('details', 'scale');
-            item.classList.add('st-sable-delta');
-            item.dataset.key = `bonds:${bond.id}:${scale}`;
-            item.open = openRows.get(item.dataset.key) ?? false;
-            item.append(row, node('div', 'reason', change.reason || '—'));
-            group.append(item);
-          }
-          body.append(group);
-        }
-        break;
       case 'dossiers':
         for (const dossier of value) {
           const parts = [node('span', 'name', dossier.name)];
@@ -699,7 +818,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const glyph = sectionGlyph(document, section, view.settings.visual?.icons);
     glyph.classList.add('st-sable-card-icon');
     glyph.setAttribute('aria-hidden', 'true');
-    title.append(glyph, node('span', 'card-label', name));
+    const dot = node('span', 'change-dot'); dot.hidden = true;
+    dot.setAttribute('role', 'img'); dot.setAttribute('aria-label', label('changed'));
+    title.append(glyph, node('span', 'card-label', name), dot);
     const wrap = node('div', 'mode-wrap');
     const chip = button(label(mode), section.title, () => openModeMenu(chip, wrap, id), 'mode');
     chip.setAttribute('aria-haspopup', 'menu');
@@ -713,7 +834,10 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     wrap.append(chip);
     chip.title = name;
     chip.setAttribute('aria-label', `${name}: ${label(mode)}`); chip.dataset.control = 'mode'; chip.dataset.mode = mode;
-    const fold = button('', 'fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [id]: !folded } }), 'fold');
+    const fold = button('', 'fold', () => {
+      if (folded) freshCards.delete(id);
+      runtime.updateSettings({ folded: { ...view.settings.folded, [id]: !folded } });
+    }, 'fold');
     fold.append(icon('chevron-down'));
     fold.dataset.control = 'fold'; fold.disabled = mode === 'off'; fold.setAttribute('aria-expanded', String(!folded));
     fold.setAttribute('aria-controls', `st-sable-body-${id}`);
@@ -747,6 +871,14 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (!body.childNodes.length) body.append(node('span', 'empty', '—'));
     card.append(buildHeader(section), body, buildFooter(section));
     return card;
+  }
+  /** A card that survives the render: header and footer follow the view, the body is refilled in place. Returns
+   *  whether a keyed value changed. */
+  function updateCard(card, section) {
+    refreshCard(card, section);
+    const body = card.querySelector('.st-sable-card-body');
+    if (cardState(section.id).mode === 'off') { body.replaceChildren(node('span', 'empty', '—')); return false; }
+    return renderBody(section, body, view.entry?.state ?? {});
   }
   function refreshCard(card, section) {
     const { mode, folded } = cardState(section.id);
@@ -928,7 +1060,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     syncExpanded();
     openRows = new Map([...cards.querySelectorAll('details[data-key]')].map(item => [item.dataset.key, item.open]));
     const scrollTop = cards.scrollTop;
-    const list = sections(), ordered = [];
+    const list = sections(), ordered = [], changedCards = new Set();
+    // Cards persist across renders (SPEC §16): keyed rows keep their nodes, so bars slide instead of jumping.
+    const existing = new Map([...cards.children].map(card => [card.dataset.section, card]));
     for (const id of orderedSectionIds(view.settings.order, list)) {
       const section = list.find(item => item.id === id), editor = editors.get(id);
       if (editor && view.modes[id] === 'off') editors.delete(id);
@@ -938,15 +1072,31 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         refreshCard(editor.card, section);
         editor.warning.hidden = JSON.stringify(view.entry?.state?.[id] ?? null) === editor.base;
         ordered.push(editor.card);
+      } else if (existing.has(id) && !editors.has(id)) {
+        const card = existing.get(id);
+        if (updateCard(card, section)) changedCards.add(id);
+        ordered.push(card);
       } else ordered.push(buildCard(section));
     }
-    for (const child of [...cards.children]) if (!ordered.includes(child)) child.remove();
+    for (const child of [...cards.children]) if (!ordered.includes(child)) dropRow(child);
     let cursor = cards.firstElementChild;
     for (const card of ordered) {
       if (card === cursor) cursor = cursor.nextElementSibling;
       else cards.insertBefore(card, cursor);
     }
     cards.scrollTop = scrollTop;
+    // Change flags (SPEC §16): the card flash lasts this render; the title dot stays until the card is unfolded or the
+    // next run (a new ring entry, an edit, or any changed value) recomputes the set.
+    const entryKey = JSON.stringify([view.entry?.mesId, view.entry?.swipeId, view.entry?.turn,
+      view.entry?.state?.meta?.updatedAt, view.entry?.state?.meta?.editedAt]);
+    if (changedCards.size || entryKey !== lastEntryKey) { freshCards = changedCards; lastEntryKey = entryKey; }
+    for (const card of ordered) {
+      const id = card.dataset.section;
+      card.toggleAttribute('data-st-sable-changed', changedCards.has(id));
+      card.toggleAttribute('data-st-sable-crit', !!rolled?.crit && rolled.id === id && Date.now() - rolled.at < DICE_MS);
+      const dot = card.querySelector('.st-sable-card-title > .st-sable-change-dot');
+      if (dot) dot.hidden = !freshCards.has(id);
+    }
     const offCount = list.filter(section => view.modes[section.id] === 'off').length;
     hiddenRow.hidden = !view.settings.hideOff || offCount === 0;
     const hiddenLabel = revealOff ? label('hideSections') : `${label('hiddenSections')}: ${offCount}`;
@@ -955,7 +1105,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     hiddenToggle.setAttribute('aria-label', hiddenLabel);
     hiddenToggle.setAttribute('aria-expanded', String(revealOff));
     refresh.setAttribute('aria-busy', String(!!view.running));
-    refresh.firstElementChild.classList.toggle('fa-spin', !!view.running && view.settings.visual?.motion !== false);
+    refresh.firstElementChild.classList.toggle('fa-spin', !!view.running && drawer.dataset.stSableEffects !== 'off');
     renderStatus();
     if (focusId && focusRole) cards.querySelector(`[data-section="${focusId}"] [data-control="${focusRole}"]`)?.focus();
   }
@@ -1038,5 +1188,5 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   });
   render(view);
   const unsubscribe = runtime.subscribe(render);
-  return { open, close: hide, element: drawer, dispose() { unsubscribe(); win.clearTimeout(rollTimer); cleanups.forEach(fn => fn()); drawer.remove(); tab.remove(); menu.remove(); } };
+  return { open, close: hide, element: drawer, dispose() { unsubscribe(); stopTicks(); win.clearTimeout(rollTimer); cleanups.forEach(fn => fn()); drawer.remove(); tab.remove(); menu.remove(); } };
 }

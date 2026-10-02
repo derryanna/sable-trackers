@@ -5,8 +5,8 @@ import { VISUAL_DEFAULTS, normalizeVisual } from './settings.js';
 export const THEME_FILE = 'sable-theme.json';
 export const THEME_FORMAT = 'sable-theme';
 
-// Personal choices a preset leaves alone: the background image, reading size, phone width and motion.
-export const PRESET_KEEPS = Object.freeze(['bgImage', 'bgDim', 'bgFit', 'motion', 'fontSize', 'widthVw', 'cardColors']);
+// Personal choices a preset leaves alone: the background image, reading size, phone width, the effects level and the fx set.
+export const PRESET_KEEPS = Object.freeze(['bgImage', 'bgDim', 'bgFit', 'effects', 'fx', 'fontSize', 'widthVw', 'cardColors']);
 
 /** Bundled starting points: partial visual objects over the defaults. The user tweaks from there. */
 export const PRESETS = Object.freeze({

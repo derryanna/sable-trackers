@@ -8,14 +8,29 @@ export const GROUP_IDS = Object.freeze(['connection', 'context', 'sections', 'cu
 // Drawer look (SPEC §12). Ranges are inclusive; the UI sliders use the same bounds.
 // base/text: null = automatic (dark glass, theme text; a base derives its own ink). Hex colours override (SPEC §12).
 // bgImage: null or a sanitised data:/http(s) URL (normalizeBgImage); the other keys are numbers, booleans or choices.
+// Live cards (SPEC §16): `effects` is the level the user picks and `fx` the composable set that `full` unlocks.
+// Every effect is off until the user turns it on; null colours mean "automatic" (the accent, or the ink for rain).
+export const EFFECTS_LEVELS = Object.freeze(['off', 'subtle', 'full']);
+export const FX_SPEEDS = Object.freeze(['slow', 'medium', 'fast']);
+export const FX_DEFAULTS = Object.freeze({
+  glow: Object.freeze({ on: false, color: null, intensity: 0.5 }),
+  shimmer: Object.freeze({ on: false, speed: 'medium', color: null }),
+  rain: Object.freeze({ on: false, density: 0.5, color: null, angle: 10 }),
+  ticks: Object.freeze({ on: false }),
+  valueColor: Object.freeze({ on: false }),
+  dice: Object.freeze({ on: false }),
+  cardGlow: Object.freeze({ on: false }),
+});
+// Knob ranges as [min, max, step], keyed "effect.knob"; the settings sliders use the same bounds.
+export const FX_RANGES = Object.freeze({ 'glow.intensity': [0, 1, 0.05], 'rain.density': [0, 1, 0.05], 'rain.angle': [-30, 30, 1] });
 export const VISUAL_DEFAULTS = Object.freeze({ opacity: 0.93, blur: 14, fontSize: 13, widthVw: 80, accent: '#f5f4ee', base: null, text: null, icons: 'fa', radius: 18,
-  bgImage: null, bgDim: 0.45, bgFit: 'cover', motion: true, cardColors: Object.freeze({}),
+  bgImage: null, bgDim: 0.45, bgFit: 'cover', effects: 'subtle', fx: FX_DEFAULTS, cardColors: Object.freeze({}),
   cardFill: 0.05, border: 0.13, titleFont: 'theme', titleWeight: 700, chipStyle: 'filled', accentBar: true, spacing: 'cozy' });
 export const VISUAL_RANGES = Object.freeze({ opacity: [0.5, 1, 0.01], blur: [0, 30, 1], fontSize: [12, 16, 1], widthVw: [60, 100, 1], radius: [8, 24, 1],
   bgDim: [0, 0.9, 0.01], cardFill: [0, 0.3, 0.01], border: [0, 0.5, 0.01], titleWeight: [500, 800, 100] });
-// Closed choices; the first value is the default.
+// Closed choices in display order; VISUAL_DEFAULTS holds the default of each.
 export const VISUAL_CHOICES = Object.freeze({ icons: ['fa', 'emoji'], bgFit: ['cover', 'contain', 'tile'],
-  titleFont: ['theme', 'serif', 'mono', 'rounded'], chipStyle: ['filled', 'outline'], spacing: ['cozy', 'compact'] });
+  titleFont: ['theme', 'serif', 'mono', 'rounded'], chipStyle: ['filled', 'outline'], spacing: ['cozy', 'compact'], effects: EFFECTS_LEVELS });
 // About 900 KB of text; the settings UI refuses to store more than about 600 KB.
 export const BG_IMAGE_MAX_LENGTH = 900 * 1024;
 export const DEFAULTS = {
@@ -88,16 +103,37 @@ export function normalizeSettings(value = {}) {
   return result;
 }
 
+const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
+/** A number from a slider or a typed string, clamped to [min, max] and rounded to the step; the fallback otherwise. */
+function stepped(raw, [min, max, step], fallback) {
+  const number = typeof raw === 'number' || (typeof raw === 'string' && raw.trim()) ? Number(raw) : NaN;
+  const result = Number.isFinite(number) ? Math.min(max, Math.max(min, Math.round(number / step) * step)) : fallback;
+  return step < 1 ? Number(result.toFixed(2)) : result;
+}
+
+/** The composable effects (SPEC §16) with defaults filled, numbers clamped, colours validated (null = automatic),
+ *  speeds limited to FX_SPEEDS and unknown effects or knobs dropped. Idempotent; nothing a user types can break the drawer. */
+export function normalizeFx(value) {
+  const source = isObject(value) ? value : {};
+  const result = {};
+  for (const [name, defaults] of Object.entries(FX_DEFAULTS)) {
+    const item = isObject(source[name]) ? source[name] : {}, effect = {};
+    for (const [key, fallback] of Object.entries(defaults)) {
+      if (key === 'on') effect.on = typeof item.on === 'boolean' ? item.on : fallback;
+      else if (key === 'color') effect.color = normalizeHex(item.color);
+      else if (key === 'speed') effect.speed = FX_SPEEDS.includes(item.speed) ? item.speed : fallback;
+      else effect[key] = stepped(item[key], FX_RANGES[`${name}.${key}`], fallback);
+    }
+    result[name] = effect;
+  }
+  return result;
+}
+
 /** Fills missing visual keys from defaults and clamps numbers to their ranges. */
 export function normalizeVisual(value, settings = {}) {
-  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const source = isObject(value) ? value : {};
   const result = { ...VISUAL_DEFAULTS };
-  for (const [key, [min, max, step]] of Object.entries(VISUAL_RANGES)) {
-    const raw = source[key];
-    const number = typeof raw === 'number' || (typeof raw === 'string' && raw.trim()) ? Number(raw) : NaN;
-    if (Number.isFinite(number)) result[key] = Math.min(max, Math.max(min, Math.round(number / step) * step));
-    if (step < 1) result[key] = Number(result[key].toFixed(2));
-  }
+  for (const [key, range] of Object.entries(VISUAL_RANGES)) result[key] = stepped(source[key], range, VISUAL_DEFAULTS[key]);
   result.accent = normalizeHex(source.accent) ?? VISUAL_DEFAULTS.accent;
   result.cardColors = {};
   if (source.cardColors && typeof source.cardColors === 'object' && !Array.isArray(source.cardColors)) {
@@ -110,7 +146,10 @@ export function normalizeVisual(value, settings = {}) {
   result.base = normalizeHex(source.base);
   result.text = normalizeHex(source.text);
   for (const [key, values] of Object.entries(VISUAL_CHOICES)) result[key] = values.includes(source[key]) ? source[key] : VISUAL_DEFAULTS[key];
-  for (const key of ['motion', 'accentBar']) result[key] = typeof source[key] === 'boolean' ? source[key] : VISUAL_DEFAULTS[key];
+  // Migration (SPEC §16): the old `motion` boolean becomes the level (false → off, true → subtle) and is not kept.
+  if (!EFFECTS_LEVELS.includes(source.effects) && typeof source.motion === 'boolean') result.effects = source.motion ? 'subtle' : 'off';
+  result.fx = normalizeFx(source.fx);
+  result.accentBar = typeof source.accentBar === 'boolean' ? source.accentBar : VISUAL_DEFAULTS.accentBar;
   result.bgImage = normalizeBgImage(source.bgImage);
   return result;
 }
