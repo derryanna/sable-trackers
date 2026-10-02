@@ -12,7 +12,7 @@ import { PRESET_IDS, PRESET_KEEPS, applyPreset, exportTheme, parseTheme, presetO
 
 // Live cards (SPEC §16): the effects level, the composable fx set, keyed rows, the reply panel and the CSS gating.
 const fixture = JSON.parse(await readFile(new URL('../fixtures/state-full.json', import.meta.url), 'utf8'));
-const css = await readFile(new URL('../style.css', import.meta.url), 'utf8');
+const css = (await readFile(new URL('../style.css', import.meta.url), 'utf8')).replace(/\r\n/g, '\n'); // CRLF checkouts
 const drawerSource = await readFile(new URL('../src/ui/drawer.js', import.meta.url), 'utf8');
 const panelSource = await readFile(new URL('../src/ui/panel.js', import.meta.url), 'utf8');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
