@@ -36,7 +36,7 @@ export const BG_IMAGE_MAX_LENGTH = 900 * 1024;
 export const DEFAULTS = {
   enabled: true, profileId: '', language: 'ru', messages: 4,
   cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3, role: 'system',
-  perChatOverrides: false, showPanel: true, showFloatingButton: true,
+  recomputeOnEdit: false, perChatOverrides: false, showPanel: true, showFloatingButton: true,
   hideOff: true,
   prompts: { rules: null, sections: {}, packs: {} },
   packs: [], packDefaults: [], packScope: {},
@@ -54,7 +54,7 @@ export function normalizeSettings(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
   const result = { ...structuredClone(DEFAULTS), ...value };
   if (typeof result.hideOff !== 'boolean') result.hideOff = DEFAULTS.hideOff;
-  for (const key of ['enabled', 'perChatOverrides', 'showPanel', 'showFloatingButton', 'pinned']) {
+  for (const key of ['enabled', 'recomputeOnEdit', 'perChatOverrides', 'showPanel', 'showFloatingButton', 'pinned']) {
     if (typeof result[key] !== 'boolean') result[key] = DEFAULTS[key];
   }
   for (const key of ['messages', 'cardChars', 'loreChars', 'maxTokens', 'depth', 'keep']) {

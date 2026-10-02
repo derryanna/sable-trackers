@@ -13,7 +13,7 @@ Scene-state tracking for SillyTavern 1.19.x, with Russian output by default and 
 5. Choose the output language. Turn off any other tracker that writes tracking blocks into the reply.
 6. Open a character chat and generate a reply, or press **Run now** to update from the latest character reply.
 
-Open the scene drawer from the edge tab, the extensions wand menu, or the panel under the latest character reply. The gear opens settings. Settings groups fold and remember their open or closed state. The drawer supports folding, reordering and pinning. The pen button on a card opens an editor for that section: fix a field, add or remove rows, then Save (the change is injected into the next reply) or Cancel. Settings can hide the reply panel or edge tab.
+Open the scene drawer from the edge tab, the extensions wand menu, or the panel under the latest character reply. The gear opens settings. Settings groups fold and remember their open or closed state. The drawer supports folding, reordering and pinning. The pen button on a card opens an editor for that section: fix a field, add or remove rows, then Save (the change is injected into the next reply) or Cancel. Settings can hide the reply panel or edge tab. After editing the latest reply, its old state is no longer injected; enable **Context → Recompute after editing a reply** (off by default) to recompute it immediately.
 
 While an update is running, the status says “updating…” with a pulsing dot and a spinning ⟳ (the **Effects** level “off” stops every animation). Tapping ⟳ for the same reply keeps that update running; otherwise it updates all enabled sections regardless of period. Folding, pinning and appearance changes never interrupt an update.
 
@@ -74,11 +74,13 @@ Only `inject` sections enter the main prompt, at depth 2 by default, with a dige
 - **No profile:** create a Connection Manager profile and select it in Sable settings. Reopen the settings block if the list is outdated. A deleted selection is shown as missing.
 - **Not chat-completion:** use a profile whose completion mode is chat-completion. Text-completion profiles cannot be selected.
 - **Empty or invalid output:** check that the profile works, increase the output token limit if the response was cut off, then try **Run now**. The model should return a JSON object inside `<sable_state>` tags. Invalid sections retain their previous values; inspect the drawer status and browser console for errors.
-- **Nothing updates:** check Enabled, the selected profile, section modes and periods, and that the chat has a character reply. Group chats are unsupported. After editing the latest reply, refresh manually.
+- **Nothing updates:** check Enabled, the selected profile, section modes and periods, and that the chat has a character reply. Group chats are unsupported. After editing the latest reply, refresh manually or enable **Recompute after editing a reply**.
 
 <a id="ru"></a>
 
 ## Кратко по-русски
+
+После правки последнего ответа его старое состояние больше не вставляется в промпт; настройка «Контекст → Пересчитывать после правки ответа» (по умолчанию выключена) пересчитывает его сразу.
 
 В панели включённый пак — это одна **группа**: карточка-контейнер с названием пака, ручкой перетаскивания, кнопкой сворачивания и общей плашкой режима, внутри которой лежат карточки пака. У каждой вложенной карточки своя плашка режима, так что можно включить только нужные; плашка группы показывает их общий режим или **смешано** и задаёт режим всем карточкам пака сразу. Ручка группы (или ↑/↓ на ней) двигает весь пак среди остальных карточек; вложенная карточка двигается только внутри своего пака. Выключенные карточки скрываются внутри группы и учитываются в **Скрыто: N**; пак, у которого выключены все карточки, скрыт, пока вы их не покажете.
 
