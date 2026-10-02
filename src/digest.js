@@ -4,6 +4,18 @@ import { t } from './i18n.js';
 const join = values => values.filter(value => value !== '' && value != null).join(' · ');
 const clip = (value, max) => value.length <= max ? value : `${value.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
 const modeOf = (id, modes) => typeof modes?.[id] === 'string' ? modes[id] : modes?.[id]?.mode;
+const signed = delta => delta < 0 ? `−${Math.abs(delta)}` : `+${delta}`;
+
+function customText(section, value) {
+  if (section.shape === 'text') return value;
+  if (section.shape === 'list') return value.join(' | ');
+  if (section.shape === 'tags') return value.join(' · ');
+  if (section.shape === 'stats') return value.map(item => {
+    const note = [item.delta ? signed(item.delta) : '', item.note].filter(Boolean).join(' ');
+    return `${item.key} ${item.value}${item.max == null ? '' : `/${item.max}`}${item.unit ? ` ${item.unit}` : ''}${note ? ` (${note})` : ''}`;
+  }).join(' · ');
+  return value.map(item => item.key + ': ' + item.value).join(' · ');
+}
 
 const renderers = {
   world(value, tr, options) {
@@ -23,7 +35,7 @@ const renderers = {
   },
   npcs: (value, tr) => `${tr('npcs')}: ${value.map(x => `${x.name} (${x.present ? tr('here') : tr('away')}) — ${join([x.mood, x.agenda, x.action])}`).join(' | ')}`,
   thoughts: (value, tr) => `${tr('thoughts')}: ${value.map(x => `${x.name}: “${x.thought}”`).join(' | ')}`,
-  bonds: (value, tr) => `${tr('bonds')}: ${value.map(x => `${x.name}${x.toward ? ` → ${x.toward}` : ''}: ${Object.entries(x.stats ?? {}).filter(([,v]) => v != null).map(([key,v]) => { const c=x.changes?.[key]; return `${key} ${v}${c ? ` (${c.delta > 0 ? '+' : ''}${c.delta}${c.reason ? ` ${c.reason}` : ''})` : ''}`; }).join(', ')}`).join(' | ')}`,
+  bonds: (value, tr) => `${tr('bonds')}: ${value.map(x => `${x.name}${x.toward ? ` → ${x.toward}` : ''}: ${Object.entries(x.stats ?? {}).filter(([,v]) => v != null).map(([key,v]) => { const c=x.changes?.[key]; return `${key} ${v}${c ? ` (${signed(c.delta)}${c.reason ? ` ${c.reason}` : ''})` : ''}`; }).join(', ')}`).join(' | ')}`,
   dossiers: (value, tr) => `${tr('dossiers')}: ${value.map(x => `${x.name} — ${join([x.role,x.look,x.voice,x.hook])}`).join(' | ')}`,
   planner: (value, tr) => `${tr('planner')}: ${join([...(value.beats ?? []).map((x,i)=>`${i+1}. ${x.beat}${x.why ? ` (${x.why})` : ''}`), value.remember ? `${tr('remember')}: ${value.remember}` : ''])}`,
   banlist: (value, tr) => `${tr('avoid')}: ${value.map(x => `“${x.example || x.pattern}”${x.example ? ` (${x.pattern})` : ''}`).join(' · ')}`,
@@ -43,7 +55,7 @@ export function buildDigest(state = {}, modes = {}, options = {}) {
     // A definition's shape may change while its old value remains in the ring.
     if (section.custom && (section.shape === 'text' ? typeof value !== 'string' : !Array.isArray(value))) continue;
     const line = section.custom
-      ? section.title.toUpperCase() + ': ' + (section.shape === 'text' ? value : section.shape === 'list' ? value.join(' | ') : value.map(item => item.key + ': ' + item.value).join(' · '))
+      ? section.title.toUpperCase() + ': ' + customText(section, value)
       : renderers[id]?.(value, tr, { ...options, state });
     if (line && line !== `${tr(id)}: `) lines.push(line);
   }

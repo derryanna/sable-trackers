@@ -1,12 +1,13 @@
 import { seedFromLegacy } from './legacy.js';
 import { getSections } from './sections.js';
+import { getPacks } from './packs/index.js';
 import { buildPrompt } from './prompt.js';
 import { parseStateOutput, sanitizeSection } from './parse.js';
 import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
 import { loadSettings, saveSettings, effectiveModes } from './settings.js';
-import { STORE_KEY, loadStore, saveStore, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries } from './store.js';
+import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries } from './store.js';
 
 export const LOG_LIMIT = 5;
 const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue']);
@@ -26,6 +27,9 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const ctx = getContext();
     const settings = loadSettings(ctx), store = loadStore(ctx);
     return { settings, store, log, entry: currentEntry(store, ctx.chat), modes: effectiveModes(settings, store),
+      packs: { enabled: enabledPacks(store, settings), available: getPacks(settings).map(p => ({ id: p.id,
+        title: p.builtin ? t(p.title, settings.language) : p.title, icon: p.icon,
+        description: p.builtin ? t(p.description, settings.language) : p.description, builtin: !!p.builtin, scope: p.scope })) },
       running: active ? { mesId: active.mesId, swipeId: active.swipeId, startedAt: active.startedAt } : null,
       canSeedLegacy: !store.ring.length && !!seedFromLegacy(ctx.chat),
       name1: ctx.name1, name2: ctx.name2 };
@@ -34,7 +38,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   function publish() {
     const ctx = getContext();
     const view = snapshot();
-    const sections = getSections(view.settings);
+    const sections = getSections(view.settings, enabledPacks(view.store, view.settings));
     const hasState = sections.some(s => view.entry?.state[s.id] !== undefined && view.modes[s.id] === 'inject');
     const text = view.settings.enabled && !isGroup(ctx) && hasState
       ? buildDigest(view.entry.state, view.modes, { sections, language: view.settings.language,
@@ -75,13 +79,14 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     // Failed or superseded requests between snapshots still count as replies.
     const elapsed = base ? ctx.chat.slice(base.mesId + 1, mesId + 1).filter(characterMessage).length : 1;
     const turn = (base?.turn ?? 0) + elapsed;
-    const sections = getSections(settings);
+    const packIds = enabledPacks(data, settings);
+    const sections = getSections(settings, packIds);
     const counters = Object.fromEntries(sections.map(s => [s.id, (base?.turnsSince?.[s.id] ?? 0) + elapsed]));
     const modes = effectiveModes(settings, data);
     const dueSections = sections.filter(s => modes[s.id] !== 'off'
-      && (force || s.id === 'dossiers' || counters[s.id] >= Math.max(1, s.custom ? s.period : settings.sections[s.id].period))).map(s => s.id);
+      && (force || s.id === 'dossiers' || counters[s.id] >= Math.max(1, s.custom && !s.pack ? s.period : settings.sections[s.id].period))).map(s => s.id);
     const built = buildPrompt({ settings: { ...settings, language: settings.language === 'en' ? 'English' : 'Russian' },
-      sections, modes, dueSections, previousState: base?.state ?? {},
+      sections, packs: getPacks(settings).filter(p => packIds.includes(p.id)), modes, dueSections, previousState: base?.state ?? {},
       card: ctx.substituteParams('{{description}}\n{{personality}}\n{{scenario}}'),
       persona: ctx.substituteParams('{{persona}}'), lore,
       chat: ctx.chat.slice(0, mesId + 1).filter(m => !m.is_system), userName: ctx.name1, characterName: ctx.name2 });
@@ -125,12 +130,21 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       warnedProfile = false;
       lastFingerprint = fingerprint;
       const { base, turn, sections, counters, dueSections, built } = prepare(mesId, force);
+      // Refresh replaces this ring entry; preserve disabled pack values already stored in it.
+      const previousState = { ...base?.state };
+      const cached = findEntry(data, mesId, swipeId);
+      for (const pack of getPacks(settings).filter(p => !sections.some(s => s.pack === p.id))) {
+        for (const section of pack.sections) {
+          const id = `${pack.id}_${section.key}`;
+          if (cached?.state[id] !== undefined) previousState[id] = cached.state[id];
+        }
+      }
       entry = { at: lastLogAt = Math.max(Date.now(), lastLogAt + 1), chatId: ctx.getCurrentChatId(), mesId, swipeId,
         ms: 0, status: 'skipped', requestedSections: built.requestedSections, validSections: [], warnings: [],
         error: null, request: null, response: null, inChars: 0, outChars: 0 };
       if (!dueSections.length) {
         // Advance the cadence even when only slow sections are enabled.
-        const state = mergeState(base?.state ?? {}, {}, { sections, requestedSections: [],
+        const state = mergeState(previousState, {}, { sections, requestedSections: [],
           meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
         putEntry(data, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
         data.lastRun = { mesId, ok: true, at: Date.now(), skipped: true };
@@ -163,7 +177,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       entry.warnings = parsed.warnings; entry.validSections = parsed.validSections;
       for (const warning of parsed.warnings) console.warn(`Sable Trackers: ${warning}`);
       if (!parsed.ok || !parsed.validSections.length) { record('invalid'); throw new Error(t('invalidOutput', settings.language)); }
-      const state = mergeState(base?.state ?? {}, parsed, { sections, requestedSections: built.requestedSections,
+      const state = mergeState(previousState, parsed, { sections, requestedSections: built.requestedSections,
         meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
       for (const id of parsed.validSections) counters[id] = 0;
       putEntry(current, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
@@ -224,7 +238,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   }
 
   function updateSettings(patch) {
-    if (['enabled', 'profileId', 'language', 'customSections'].some(key => Object.hasOwn(patch, key))) {
+    if (['enabled', 'profileId', 'language', 'customSections', 'packs'].some(key => Object.hasOwn(patch, key))) {
       cancel(); lastFingerprint = undefined; warnedProfile = false;
     }
     saveSettings(getContext(), patch);
@@ -233,8 +247,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
 
   function setMode(id, mode, chatOnly = loadSettings(getContext()).perChatOverrides) {
     // null removes a chat override so the global mode becomes effective again.
-    if (!getSections(loadSettings(getContext())).some(s => s.id === id) || (!(mode === null && chatOnly) && !['inject', 'show', 'off'].includes(mode))) return;
-    const ctx = getContext();
+    const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
+    if (!getSections(settings, enabledPacks(data, settings)).some(s => s.id === id) || (!(mode === null && chatOnly) && !['inject', 'show', 'off'].includes(mode))) return;
     if (chatOnly) {
       if (mode === null) delete loadStore(ctx).modeOverride[id];
       else loadStore(ctx).modeOverride[id] = mode;
@@ -243,10 +257,20 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     publish();
   }
 
+  function setPack(id, on) {
+    const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
+    if (!getPacks(settings).some(pack => pack.id === id)) return false;
+    const ids = Array.isArray(data.packs) ? data.packs : settings.packDefaults;
+    data.packs = [...new Set(on ? [...ids, id] : ids.filter(value => value !== id))];
+    void saveStore(ctx);
+    publish();
+    return true;
+  }
+
   /** Manual edit: replace one section in the current state. Returns false when nothing could be saved. */
   function editState(id, value) {
     const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
-    const section = getSections(settings).find(item => item.id === id);
+    const section = getSections(settings, enabledPacks(data, settings)).find(item => item.id === id);
     const cleaned = sanitizeSection(section, value);
     if (!section || cleaned === undefined) return false;
     let entry = currentEntry(data, ctx.chat);
@@ -304,7 +328,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
     idle: () => active?.promise ?? Promise.resolve(),
     preview, clearLog() { log = []; publish(); },
-    snapshot, publish, updateSettings, setMode, seedLegacy, editState,
+    snapshot, publish, updateSettings, setMode, setPack, seedLegacy, editState,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },
   };

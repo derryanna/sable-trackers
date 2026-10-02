@@ -1,4 +1,11 @@
+import { getPacks } from './packs/index.js';
+
 export const STORE_KEY = 'sableTrackers';
+
+export function enabledPacks(data, settings = {}) {
+  const ids = Array.isArray(data?.packs) ? data.packs : settings.packDefaults ?? [];
+  return getPacks(settings).filter(pack => ids.includes(pack.id)).map(pack => pack.id);
+}
 
 export function loadStore(ctx) {
   const data = ctx.chatMetadata[STORE_KEY] ??= {};

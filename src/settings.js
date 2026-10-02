@@ -1,4 +1,6 @@
-import { SECTIONS, SECTION_ORDER, getSections, normalizeCustomSections, orderedSectionIds } from './sections.js';
+import { SECTIONS, SECTION_ORDER, getSections, getAllSections, normalizeCustomSections } from './sections.js';
+import { BUILTIN_PACKS, getPacks, normalizePacks } from './packs/index.js';
+import { enabledPacks } from './store.js';
 import { COMMON_RULES } from './prompt.js';
 
 export const SETTINGS_KEY = 'sableTrackers';
@@ -20,7 +22,8 @@ export const DEFAULTS = {
   cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3,
   perChatOverrides: false, showPanel: true, showFloatingButton: true,
   hideOff: true,
-  prompts: { rules: null, sections: {} },
+  prompts: { rules: null, sections: {}, packs: {} },
+  packs: [], packDefaults: [], packScope: {},
   order: SECTION_ORDER, customSections: [],
   folded: {}, pinned: false, floatingPosition: null,
   sections: Object.fromEntries(SECTIONS.map(s => [s.id, { mode: s.defaultMode, period: s.period }])),
@@ -42,33 +45,44 @@ export function normalizeSettings(value = {}) {
   result.profileId = typeof result.profileId === 'string' ? result.profileId : '';
   result.language = ['ru', 'en'].includes(result.language) ? result.language : 'ru';
   result.customSections = normalizeCustomSections(value.customSections);
-  const ids = getSections(result).map(section => section.id);
+  result.packs = normalizePacks(value.packs);
+  const packIds = getPacks(result).map(pack => pack.id);
+  result.packDefaults = [...new Set(Array.isArray(value.packDefaults) ? value.packDefaults : [])].filter(id => packIds.includes(id));
+  result.packScope = Object.fromEntries(packIds.filter(id => ['all', 'user'].includes(value.packScope?.[id])).map(id => [id, value.packScope[id]]));
+  const all = getAllSections({ ...result, prompts: {} });
+  const ids = all.map(section => section.id);
   result.folded = Object.fromEntries(ids.filter(id => typeof value.folded?.[id] === 'boolean').map(id => [id, value.folded[id]]));
   const position = value.floatingPosition;
   result.floatingPosition = position && Number.isFinite(position.x) && Number.isFinite(position.y)
     ? { x: Math.max(0, position.x), y: Math.max(0, position.y) } : null;
-  result.order = orderedSectionIds(value.order, getSections(result));
-  result.sections = Object.fromEntries(SECTIONS.map(s => {
+  // Keep explicit pack positions globally without adding disabled cards to the legacy UI order.
+  result.order = [...new Set([...(Array.isArray(value.order) ? value.order : []).filter(id => ids.includes(id)),
+    ...getSections(result).map(s => s.id)])];
+  result.sections = Object.fromEntries(all.map(s => {
     const item = value.sections?.[s.id];
     const period = Number(item?.period);
     return [s.id, { mode: isMode(item?.mode) ? item.mode : s.defaultMode,
       period: Number.isInteger(period) && period >= 0 ? period : s.period }];
   }));
-  result.visual = normalizeVisual(value.visual);
+  result.visual = normalizeVisual(value.visual, result);
   const override = (value, limit, fallback) => {
     const text = typeof value === 'string' ? value.trim().slice(0, limit).trim() : '';
     return text && text !== fallback ? text : null;
   };
-  result.prompts = { rules: override(value.prompts?.rules, 4000, COMMON_RULES), sections: {} };
-  for (const section of SECTIONS) {
+  result.prompts = { rules: override(value.prompts?.rules, 4000, COMMON_RULES), sections: {}, packs: {} };
+  for (const section of all.filter(s => !s.custom || s.builtin)) {
     const text = override(value.prompts?.sections?.[section.id], 2000, section.instructions);
     if (text) result.prompts.sections[section.id] = text;
+  }
+  for (const pack of BUILTIN_PACKS) {
+    const text = override(value.prompts?.packs?.[pack.id], 2000, pack.rules);
+    if (text) result.prompts.packs[pack.id] = text;
   }
   return result;
 }
 
 /** Fills missing visual keys from defaults and clamps numbers to their ranges. */
-export function normalizeVisual(value) {
+export function normalizeVisual(value, settings = {}) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const result = { ...VISUAL_DEFAULTS };
   for (const [key, [min, max, step]] of Object.entries(VISUAL_RANGES)) {
@@ -80,9 +94,10 @@ export function normalizeVisual(value) {
   result.accent = normalizeHex(source.accent) ?? VISUAL_DEFAULTS.accent;
   result.cardColors = {};
   if (source.cardColors && typeof source.cardColors === 'object' && !Array.isArray(source.cardColors)) {
+    const ids = new Set(getAllSections(settings).map(s => s.id));
     for (const [id, value] of Object.entries(source.cardColors)) {
       const color = normalizeHex(value);
-      if ((SECTION_ORDER.includes(id) || /^c_[0-9a-f]{8}$/.test(id)) && color) result.cardColors[id] = color;
+      if ((ids.has(id) || /^c_[0-9a-f]{8}$/.test(id)) && color) result.cardColors[id] = color;
     }
   }
   result.base = normalizeHex(source.base);
@@ -127,19 +142,21 @@ export function loadSettings(ctx) {
 
 export function saveSettings(ctx, patch) {
   const previous = loadSettings(ctx);
-  const sections = Object.fromEntries(SECTIONS.map(s => [s.id, { ...previous.sections[s.id], ...patch.sections?.[s.id] }]));
+  const sections = Object.fromEntries(getAllSections({ ...previous, ...patch }).map(s => [s.id, { ...previous.sections[s.id], ...patch.sections?.[s.id] }]));
   // Custom definitions own their modes/periods; accept the shared setMode patch API too.
   const customSections = normalizeCustomSections(patch.customSections ?? previous.customSections).map(item => ({
     ...item, ...patch.sections?.[item.id], id: item.id,
   }));
   const prompts = { ...previous.prompts, ...patch.prompts,
-    sections: { ...previous.prompts.sections, ...patch.prompts?.sections } };
-  ctx.extensionSettings[SETTINGS_KEY] = normalizeSettings({ ...previous, ...patch, sections, customSections, prompts });
+    sections: { ...previous.prompts.sections, ...patch.prompts?.sections },
+    packs: { ...previous.prompts.packs, ...patch.prompts?.packs } };
+  const packScope = { ...previous.packScope, ...patch.packScope };
+  ctx.extensionSettings[SETTINGS_KEY] = normalizeSettings({ ...previous, ...patch, sections, customSections, prompts, packScope });
   ctx.saveSettingsDebounced();
   return ctx.extensionSettings[SETTINGS_KEY];
 }
 
 export function effectiveModes(settings, store) {
-  return Object.fromEntries(getSections(settings).map(s => [s.id,
-    isMode(store?.modeOverride?.[s.id]) ? store.modeOverride[s.id] : s.custom ? s.defaultMode : settings.sections[s.id].mode]));
+  return Object.fromEntries(getSections(settings, enabledPacks(store, settings)).map(s => [s.id,
+    isMode(store?.modeOverride?.[s.id]) ? store.modeOverride[s.id] : s.custom && !s.pack ? s.defaultMode : settings.sections?.[s.id]?.mode ?? s.defaultMode]));
 }

@@ -4,9 +4,14 @@ const trim = (value, max = 500) => typeof value === 'string' ? value.trim().slic
 
 function sanitize(value, schema) {
   if (!schema) return undefined;
-  if (schema.type === 'string') return trim(value, schema.max);
+  if (schema.type === 'string') {
+    const result = trim(value, schema.max);
+    return schema.min && !result ? undefined : result;
+  }
   if (schema.type === 'boolean') return typeof value === 'boolean' ? value : undefined;
   if (schema.type === 'integer') {
+    if (schema.nullable && (value == null || typeof value !== 'number' || !Number.isFinite(value))) return null;
+    if (schema.numberOnly && typeof value !== 'number') return undefined;
     const n = Number(value); if (!Number.isFinite(n)) return undefined;
     return Math.min(schema.max ?? n, Math.max(schema.min ?? n, Math.round(n)));
   }
@@ -17,6 +22,18 @@ function sanitize(value, schema) {
   if (schema.type === 'enum') return schema.values.includes(value) ? value : schema.fallback;
   if (schema.type === 'array') {
     if (!Array.isArray(value)) return undefined;
+    if (schema.unique) {
+      const seen = new Set(), items = [];
+      for (const raw of value) {
+        const item = sanitize(raw, schema.item);
+        if (item === undefined) continue;
+        const key = schema.unique === true ? item : item[schema.unique];
+        if (seen.has(key)) continue;
+        seen.add(key); items.push(item);
+        if (items.length >= schema.max) break;
+      }
+      return items;
+    }
     const items = value.slice(0, schema.max).map(item => sanitize(item, schema.item)).filter(item => item !== undefined);
     return items;
   }

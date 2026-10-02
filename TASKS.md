@@ -68,7 +68,8 @@ Normalized per-card colours, preset preservation and theme round-trips; ordered 
 ## Round 5 — danger zone [x]
 Editable built-in prompt instructions with normalized partial overrides and resets; shared request preparation for exact Run now previews; runtime-only five-entry request log retaining raw invalid and dropped responses. Closed settings group includes safe text dumps, copy/select fallback, JSON download and clear, with English/Russian labels and documentation. Validation: 115 tests pass, all changed JavaScript syntax checks and diff whitespace checks pass. Live SillyTavern/Android layout and native clipboard permissions remain unverified. Working-tree delivery only; no commit.
 
-## T8a — Packs core (pure)  [ ]
+## T8a — Packs core (pure)  [x]
+Shipped full provisional combat/intimacy definitions, user-pack IO, stats/tags, scope-aware prompts, global settings, per-chat runtime toggles and local dice; covered by pure and fake-runtime tests.
 SPEC §15 without UI. `src/packs/` with the pack registry (`getPacks(settings)` =
 built-ins + user packs), `normalizePacks`, `src/packs/io.js` (export/import of
 `sable-pack.json`), `getSections(settings, enabledPacks)`, the `stats` and `tags`
@@ -115,6 +116,7 @@ shows up in replies.
 
 ## Notes from previous tasks
 (append here)
+- T8a → T8b: `snapshot().packs` exposes `{ enabled: string[], available: [{ id, title, icon, description, builtin, scope }] }` with localized built-in labels. `runtime.setPack(id, on)` returns false for unknown ids; otherwise persists the chat list and re-publishes without starting a run. Use `getSections(settings, snapshot().packs.enabled)` for pack cards; the one-argument call still returns only built-ins + custom blocks. Descriptors have `custom: true`, `pack`, literal `title`, `shape: 'stats' | 'tags'` and array schemas: stats rows `{ key, value, max, unit, note }` (merge adds `delta`; null max means counter), tags are unique strings. Explicit pack positions survive in `settings.order`; absent pack ids append in registry order. T8c replaces provisional instructions; no UI or commit in T8a.
 - 2026-10-02 design round (docs only): packs, live cards and the swipe ring bug are written up in `docs/HANDOFF-2026-10-02.md` with the decisions, a repro and open questions. Start there before T8a–T10.
 - T5 complete: Extensions settings with localized fields, cc-only profile selection and refresh, per-chat override reset, legacy import and manual run; English README with Russian quick start. jsdom coverage and syntax checks pass. No commit created (requested).
 - T2 complete: settings, ring persistence, abortable event runtime, injection and fake-driven tests. T1 core reused; i18n only gained runtime warnings/errors. No commit (working-tree delivery requested).

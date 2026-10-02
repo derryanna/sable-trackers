@@ -28,12 +28,12 @@ test('prompt settings trim, clamp, drop defaults and merge partial overrides ide
   assert.equal(value.prompts.sections.npcs, 'Keep names');
   assert.deepEqual(Object.keys(value.prompts.sections), ['world', 'npcs']);
   assert.equal(JSON.stringify(normalizeSettings(value)), JSON.stringify(value));
-  assert.deepEqual(normalizeSettings({ prompts: { rules: ` ${COMMON_RULES} ` } }).prompts, { rules: null, sections: {} });
+  assert.deepEqual(normalizeSettings({ prompts: { rules: ` ${COMMON_RULES} ` } }).prompts, { rules: null, sections: {}, packs: {} });
   assert.equal(normalizeSettings({ prompts: { rules: '  ' } }).prompts.rules, null);
   const { ctx } = createFakeST();
   saveSettings(ctx, { prompts: { rules: 'Rules', sections: { world: 'World' } } });
   saveSettings(ctx, { prompts: { sections: { threads: 'Threads' } } });
-  assert.deepEqual(loadSettings(ctx).prompts, { rules: 'Rules', sections: { world: 'World', threads: 'Threads' } });
+  assert.deepEqual(loadSettings(ctx).prompts, { rules: 'Rules', sections: { world: 'World', threads: 'Threads' }, packs: {} });
   saveSettings(ctx, { prompts: { sections: { world: null } } });
   assert.deepEqual(loadSettings(ctx).prompts.sections, { threads: 'Threads' });
 });

@@ -1,3 +1,5 @@
+import { getPacks, packSections } from './packs/index.js';
+
 const s = (max = 500) => ({ type: 'string', max });
 const npcBase = { id: s(80), name: s(120) };
 const scales = ['affection', 'trust', 'desire', 'reputation', 'suspicion', 'respect', 'fear', 'grudge', 'tension'];
@@ -32,20 +34,33 @@ export function normalizeCustomSections(value) {
     used.add(id);
     const text = key => typeof item[key] === 'string' ? item[key].trim() : '';
     return { id, title: text('title'), icon: text('icon'), instructions: text('instructions'),
-      shape: ['text', 'list', 'kv'].includes(item.shape) ? item.shape : 'text',
+      shape: ['text', 'list', 'kv', 'stats', 'tags'].includes(item.shape) ? item.shape : 'text',
       max: Number.isFinite(Number(item.max)) ? Math.max(1, Math.min(20, Math.floor(Number(item.max)))) : 8,
       mode: ['inject', 'show', 'off'].includes(item.mode) ? item.mode : 'inject',
       period: Number.isInteger(item.period) && item.period >= 0 ? item.period : 1 };
   });
 }
 
-export function getSections(settings = {}) {
+export function shapeSchema(shape, max = 8) {
+  if (shape === 'text') return s(600);
+  const item = shape === 'list' ? s(200) : shape === 'tags' ? { ...s(40), min: 1 }
+    : shape === 'stats' ? { type: 'object', fields: {
+      key: { ...s(40), min: 1 }, value: { type: 'integer', min: 0, max: 9999, numberOnly: true },
+      max: { type: 'integer', min: 1, max: 9999, numberOnly: true, nullable: true }, unit: s(8), note: s(120),
+    }, required: ['key', 'value'] }
+    : { type: 'object', fields: { key: s(60), value: s(200) }, required: ['key', 'value'] };
+  return { type: 'array', max, item, ...(['stats', 'tags'].includes(shape) ? { unique: shape === 'stats' ? 'key' : true } : {}) };
+}
+
+export function getSections(settings = {}, enabledPacks = []) {
   return [...SECTIONS, ...normalizeCustomSections(settings.customSections).map(item => ({
     ...item, custom: true, defaultMode: item.mode,
-    schema: item.shape === 'text' ? s(600) : { type: 'array', max: item.max,
-      item: item.shape === 'list' ? s(200) : { type: 'object', fields: { key: s(60), value: s(200) }, required: ['key', 'value'] } },
-  }))];
+    schema: shapeSchema(item.shape, item.max),
+  })), ...getPacks(settings).filter(pack => enabledPacks.includes(pack.id)).flatMap(pack => packSections(pack, settings))];
 }
+
+export function getAllSections(settings = {}) { return getSections(settings, getPacks(settings).map(pack => pack.id)); }
+export function isPackSectionId(id, settings = {}) { return getPacks(settings).some(pack => pack.sections.some(s => `${pack.id}_${s.key}` === id)); }
 
 export function orderedSectionIds(order, sections = SECTIONS) {
   const ids = sections.map(section => section.id);

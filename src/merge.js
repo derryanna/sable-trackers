@@ -62,7 +62,8 @@ export function mergeState(previousState = {}, parsed = {}, options = {}) {
   const incoming = parsed.sections ?? parsed.state ?? parsed;
   const valid = new Set(parsed.validSections ?? Object.keys(incoming ?? {}));
   const requested = options.requestedSections ?? options.requested ?? [...valid];
-  const known = new Set((options.sections ?? SECTIONS).map(section => section.id));
+  const registry = options.sections ?? SECTIONS;
+  const known = new Set(registry.map(section => section.id));
   const next = clone(previousState) ?? {};
   for (const id of requested) {
     if (!known.has(id) || !valid.has(id) || incoming?.[id] === undefined) continue;
@@ -70,7 +71,14 @@ export function mergeState(previousState = {}, parsed = {}, options = {}) {
     else if (id === 'banlist') next[id] = mergeBanlist(previousState.banlist, incoming[id]);
     else if (id === 'npcs') next[id] = mergeById(previousState.npcs, incoming[id]);
     else if (id === 'bonds') next[id] = recomputeBonds(previousState.bonds, incoming[id]);
-    else next[id] = clone(incoming[id]);
+    else if (registry.find(s => s.id === id)?.shape === 'stats') {
+      const before = new Map((Array.isArray(previousState[id]) ? previousState[id] : []).map(item => [item.key, item.value]));
+      next[id] = incoming[id].map(item => {
+        const value = clone(item); delete value.delta;
+        if (Number.isFinite(before.get(item.key))) value.delta = item.value - before.get(item.key);
+        return value;
+      });
+    } else next[id] = clone(incoming[id]);
   }
   if (options.meta) next.meta = { ...(previousState.meta ?? {}), ...options.meta };
   return next;

@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
@@ -53,7 +53,7 @@ test('danger zone edits and resets instructions while preserving focused drafts'
   danger.open = true; rules.focus(); rules.value = 'Unfinished draft'; runtime.publish(); assert.equal(rules.value, 'Unfinished draft');
   rules.blur(); change('[name="prompts.rules"]', 'Saved rules'); change('[name="prompts.world"]', 'World instructions');
   button('Reset all instructions').click(); assert.equal(runtime.snapshot().settings.prompts.rules, 'Saved rules');
-  button('Tap again to reset all instructions').click(); assert.deepEqual(runtime.snapshot().settings.prompts, { rules: null, sections: {} });
+  button('Tap again to reset all instructions').click(); assert.deepEqual(runtime.snapshot().settings.prompts, { rules: null, sections: {}, packs: {} });
   runtime.updateSettings({ order: ['threads', 'world'] });
   assert.equal(query('[data-prompt-section]').dataset.promptSection, 'threads');
   runtime.updateSettings({ language: 'ru' }); assert.equal(danger.querySelector('h4').textContent, 'Опасная зона');
