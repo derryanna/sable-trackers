@@ -150,6 +150,10 @@ export function createSettings(runtime, { document = globalThis.document,
     bind(labels, role.parentElement, 'hint.role', 'title');
   }
 
+  checkbox(context, 'recomputeOnEdit');
+  bind(labels, controls.get('recomputeOnEdit').parentElement, 'hint.recomputeOnEdit', 'title');
+  context.append(text('p', 'st-sable-settings-hint', 'hint.recomputeOnEdit'));
+
   // All sections follow drawer order; custom shape editing stays in Custom blocks.
   const sectionsGroup = group('sections', 'group.sections');
   const table = node('div', 'st-sable-settings-table');

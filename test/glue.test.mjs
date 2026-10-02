@@ -19,6 +19,86 @@ const data = fake => fake.ctx.chatMetadata.sableTrackers;
 const injection = fake => fake.calls.prompts.at(-1)[1];
 const answer = location => `<sable_state>${JSON.stringify({ world: { location } })}</sable_state>`;
 
+test('live lookup skips stale entries and inactive swipes, with an exclusive upper bound', () => {
+  const chat = [{}, { swipe_id: 1 }, {}];
+  const ring = [
+    { mesId: 0, swipeId: 0 }, { mesId: 1, swipeId: 0 },
+    { mesId: 1, swipeId: 1, stale: true }, { mesId: 2, swipeId: 0, stale: true },
+  ];
+  assert.equal(currentEntry({ ring }, chat), ring[3]);
+  assert.equal(currentEntry({ ring }, chat, Infinity, { skipStale: true }), ring[0]);
+  assert.equal(currentEntry({ ring }, chat, 0, { skipStale: true }), undefined);
+  ring[2].stale = false;
+  assert.equal(currentEntry({ ring }, chat, 2, { skipStale: true }), ring[2]);
+});
+
+test('edited state remains visible while injection and the next request use the live base', async t => {
+  for (const earlier of [false, true]) {
+    const fake = setup(t), { runtime } = fake;
+    if (earlier) { fake.respond(answer('Base')); await runtime.run(fake.add()); }
+    const expected = injection(fake);
+    fake.respond(answer('Removed ending')); const id = fake.add(); await runtime.run(id);
+    fake.ctx.chat[id].mes = 'Trimmed reply';
+    await fake.emit('MESSAGE_EDITED', id);
+    assert.equal(runtime.snapshot().entry.stale, true);
+    assert.equal(runtime.snapshot().injectedEntry?.mesId, earlier ? 0 : undefined);
+    assert.equal(injection(fake), expected);
+    assert.equal(runtime.preview().injection, expected);
+    assert.equal(fake.calls.requests.length, earlier ? 2 : 1);
+    fake.respond(answer('Next')); await fake.emit('MESSAGE_RECEIVED', fake.add(), 'normal'); await runtime.idle();
+    const previous = fake.calls.requests.at(-1)[1][2].content;
+    assert.doesNotMatch(previous, /Removed ending/);
+    if (earlier) assert.match(previous, /Base/);
+    assert.equal(runtime.snapshot().entry.stale, undefined);
+    assert.match(injection(fake), /Next/);
+  }
+});
+
+test('refresh replaces a stale reply and restores its injection', async t => {
+  const fake = setup(t), { runtime } = fake;
+  fake.respond(answer('Base')); await runtime.run(fake.add());
+  fake.respond(answer('Old')); const id = fake.add(); await runtime.run(id);
+  fake.ctx.chat[id].mes = 'Edited'; await fake.emit('MESSAGE_EDITED', id);
+  fake.respond(answer('Corrected')); await runtime.refresh();
+  assert.match(fake.calls.requests.at(-1)[1][2].content, /Base/);
+  assert.equal(runtime.snapshot().entry.stale, undefined);
+  assert.equal(runtime.snapshot().injectedEntry, runtime.snapshot().entry);
+  assert.equal(data(fake).ring.filter(e => e.mesId === id).length, 1);
+  assert.match(injection(fake), /Corrected/);
+});
+
+test('automatic edits run once each, cancel in-flight work and bypass the old fingerprint', async t => {
+  const fake = setup(t), { runtime } = fake;
+  const id = fake.add(); await runtime.run(id);
+  runtime.updateSettings({ recomputeOnEdit: true });
+  const pending = deferred(); fake.respond(() => pending.promise);
+  fake.ctx.chat[id].mes = 'First edit'; await fake.emit('MESSAGE_EDITED', id);
+  const first = runtime.idle(), signal = fake.calls.requests.at(-1)[3].signal;
+  assert.equal(fake.calls.requests.length, 2);
+  fake.respond(answer('Second edit'));
+  fake.ctx.chat[id].mes = 'Second edit'; await fake.emit('MESSAGE_EDITED', id); await runtime.idle();
+  assert.equal(signal.aborted, true); assert.equal(fake.calls.requests.length, 3);
+  pending.resolve(answer('Obsolete')); await first;
+  assert.match(injection(fake), /Second edit/);
+  assert.equal(runtime.snapshot().entry.stale, undefined);
+  await fake.emit('MESSAGE_RECEIVED', id, 'normal'); await runtime.idle();
+  assert.equal(fake.calls.requests.length, 3);
+  await fake.emit('MESSAGE_EDITED', id); await runtime.idle();
+  assert.equal(fake.calls.requests.length, 4, 'each edit event resets even an unchanged fingerprint');
+});
+
+test('recomputeOnEdit normalizes booleans idempotently and survives partial patches', () => {
+  for (const value of [undefined, null, 'true', 1, false, true]) {
+    const settings = normalizeSettings({ recomputeOnEdit: value });
+    assert.equal(settings.recomputeOnEdit, value === true);
+    assert.deepEqual(normalizeSettings(settings), settings);
+  }
+  const { ctx } = createFakeST();
+  saveSettings(ctx, { recomputeOnEdit: true }); saveSettings(ctx, { depth: 3 });
+  assert.equal(loadSettings(ctx).recomputeOnEdit, true);
+  saveSettings(ctx, { recomputeOnEdit: false }); assert.equal(loadSettings(ctx).depth, 3);
+});
+
 test('prompt settings trim, clamp, drop defaults and merge partial overrides idempotently', () => {
   const value = normalizeSettings({ prompts: { rules: ' x '.repeat(2000), sections: {
     world: ' y '.repeat(1000), threads: '  ', offscreen: SECTIONS.find(s => s.id === 'offscreen').instructions,

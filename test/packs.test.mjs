@@ -384,6 +384,20 @@ test('rollDice validates, clamps, persists and publishes independently of sectio
   assert.equal(runtime.rollDice('c_00000001', 'luck %', 50).sectionId, 'c_00000001');
 });
 
+test('editing a stale state preserves a pending roll in injection and preview', async t => {
+  const fake = createFakeST(), runtime = createRuntime(fake.getContext, { random: () => .1 });
+  t.after(() => runtime.dispose()); runtime.start();
+  const id = fake.add(); await runtime.run(id);
+  runtime.setPack('combat', true); runtime.rollDice('combat_odds', 'hit %', 80);
+  const roll = structuredClone(runtime.snapshot().store.roll);
+  fake.ctx.chat[id].mes = 'Edited reply'; await fake.emit('MESSAGE_EDITED', id);
+  const injection = fake.calls.prompts.at(-1)[1];
+  assert.match(injection, /ROLL:/);
+  assert.doesNotMatch(injection, /Observatory/);
+  assert.equal(runtime.preview().injection, injection);
+  assert.deepEqual(runtime.snapshot().store.roll, roll);
+});
+
 test('reply consumption survives swipes, deletions and chat switches without consuming twice', async t => {
   const fake = createFakeST(), runtime = createRuntime(fake.getContext, { random: () => .1 });
   t.after(() => runtime.dispose()); runtime.start();

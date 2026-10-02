@@ -34,8 +34,8 @@ export function findEntry(data, mesId, swipeId = 0) {
   return data.ring.findLast(entry => entry.mesId === mesId && entry.swipeId === swipeId);
 }
 
-export function currentEntry(data, chat, before = Infinity) {
-  return data.ring.filter(entry => entry.mesId < before && chat[entry.mesId]
+export function currentEntry(data, chat, before = Infinity, { skipStale = false } = {}) {
+  return data.ring.filter(entry => entry.mesId < before && (!skipStale || entry.stale !== true) && chat[entry.mesId]
     && entry.swipeId === (chat[entry.mesId].swipe_id ?? 0))
     .sort((a, b) => a.mesId - b.mesId).at(-1);
 }

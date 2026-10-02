@@ -11,7 +11,7 @@ import { ROLES, loadSettings, saveSettings, effectiveModes } from './settings.js
 import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries } from './store.js';
 
 export const LOG_LIMIT = 5;
-const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue']);
+const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue', 'edit']);
 const characterMessage = message => message && !message.is_user && !message.is_system;
 const isGroup = ctx => ctx.groupId !== undefined && ctx.groupId !== null && ctx.groupId !== '';
 
@@ -28,7 +28,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const ctx = getContext();
     const settings = loadSettings(ctx), store = loadStore(ctx);
     return { settings, store, log, rollArmed: armed !== null && armed === store.roll?.consumedBy,
-      entry: currentEntry(store, ctx.chat), modes: effectiveModes(settings, store),
+      entry: currentEntry(store, ctx.chat), injectedEntry: currentEntry(store, ctx.chat, Infinity, { skipStale: true }), modes: effectiveModes(settings, store),
       packs: { enabled: enabledPacks(store, settings), available: getPacks(settings).map(p => ({ id: p.id,
         title: p.builtin ? t(p.title, settings.language) : p.title, icon: p.icon,
         description: p.builtin ? t(p.description, settings.language) : p.description, builtin: !!p.builtin, scope: p.scope, scopeDefault: p.scopeDefault })) },
@@ -39,10 +39,10 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
 
   function injection(view, ctx) {
     const sections = getSections(view.settings, enabledPacks(view.store, view.settings));
-    const hasState = sections.some(s => view.entry?.state[s.id] !== undefined && view.modes[s.id] === 'inject');
+    const hasState = sections.some(s => view.injectedEntry?.state[s.id] !== undefined && view.modes[s.id] === 'inject');
     const rollArmed = armed !== null && armed === view.store.roll?.consumedBy;
     return view.settings.enabled && !isGroup(ctx) && (hasState || (view.store.roll && (view.store.roll.consumedAt == null || rollArmed)))
-      ? buildDigest(view.entry?.state, view.modes, { sections, language: view.settings.language,
+      ? buildDigest(view.injectedEntry?.state, view.modes, { sections, language: view.settings.language,
         order: view.settings.order, userName: ctx.name1, roll: view.store.roll, rollArmed }) : '';
   }
 
@@ -80,7 +80,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   function prepare(mesId, force) {
     const ctx = getContext(), settings = loadSettings(ctx);
     const data = loadStore({ chatMetadata: { [STORE_KEY]: structuredClone(ctx.chatMetadata[STORE_KEY]) } });
-    const base = currentEntry(data, ctx.chat, mesId);
+    const base = currentEntry(data, ctx.chat, mesId, { skipStale: true });
     // Failed or superseded requests between snapshots still count as replies.
     const elapsed = base ? ctx.chat.slice(base.mesId + 1, mesId + 1).filter(characterMessage).length : 1;
     const turn = (base?.turn ?? 0) + elapsed;
@@ -102,7 +102,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const ctx = getContext(), mesId = lastCharacterId(ctx);
     if (!loadSettings(ctx).enabled || isGroup(ctx) || mesId < 0) return null;
     const { built, settings, data, modes } = prepare(mesId, true);
-    return { mesId, ...built, injection: injection({ settings, store: data, modes, entry: currentEntry(data, ctx.chat) }, ctx), chars: built.messages.reduce((sum, m) => sum + m.content.length, 0) };
+    return { mesId, ...built, injection: injection({ settings, store: data, modes, injectedEntry: currentEntry(data, ctx.chat, Infinity, { skipStale: true }) }, ctx), chars: built.messages.reduce((sum, m) => sum + m.content.length, 0) };
   }
 
   async function execute(mesId, { force = false, type = 'normal' } = {}, promise) {
@@ -238,7 +238,9 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const data = loadStore(ctx), entry = findEntry(data, mesId, ctx.chat[mesId].swipe_id ?? 0);
     if (entry) entry.stale = true;
     publish();
-    return saveStore(ctx);
+    const saved = saveStore(ctx);
+    if (loadSettings(ctx).recomputeOnEdit) void run(mesId, { type: 'edit' });
+    return saved;
   }
 
   function chatChanged() {

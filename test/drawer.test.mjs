@@ -56,7 +56,7 @@ test('drawer renders full fixture safely and mode menu updates settings and dige
   assert.ok(card('story').textContent.includes('2 хода'));
   assert.ok(query('.st-sable-status').textContent.includes('~123 / ~45'));
   assert.ok(query('.st-sable-stale').textContent.includes('устарело'));
-  assert.ok(fake.calls.prompts.at(-1)[1].includes('МИР:'));
+  assert.equal(fake.calls.prompts.at(-1)[1], '');
   card('world').querySelector('.st-sable-mode').click();
   query('.st-sable-mode-option[data-mode="show"]').click();
   assert.equal(runtime.snapshot().settings.sections.world.mode, 'show');
@@ -69,7 +69,7 @@ test('drawer renders full fixture safely and mode menu updates settings and dige
   card('world').querySelector('.st-sable-mode').click();
   query('.st-sable-mode-option[data-mode="inject"]').click();
   assert.equal(runtime.snapshot().settings.sections.world.mode, 'inject');
-  assert.ok(fake.calls.prompts.at(-1)[1].includes('МИР:'));
+  assert.equal(fake.calls.prompts.at(-1)[1], '');
   runtime.updateSettings({ perChatOverrides: true });
   card('world').querySelector('.st-sable-mode').click();
   query('.st-sable-mode-option[data-mode="show"]').click();
@@ -77,8 +77,24 @@ test('drawer renders full fixture safely and mode menu updates settings and dige
   assert.equal(runtime.snapshot().store.modeOverride.world, 'show');
 });
 
+test('reply edit keeps the drawer state and stale hint while removing its injection', async t => {
+  const { fake, runtime, query, card } = setup(t);
+  delete runtime.snapshot().entry.stale;
+  runtime.publish();
+  const content = card('world').textContent;
+  assert.notEqual(fake.calls.prompts.at(-1)[1], '');
+  fake.ctx.chat[0].mes = 'Trimmed reply';
+  await fake.emit('MESSAGE_EDITED', 0);
+  assert.equal(card('world').textContent, content);
+  assert.ok(query('.st-sable-stale'));
+  assert.equal(runtime.snapshot().entry.stale, true);
+  assert.equal(fake.calls.prompts.at(-1)[1], '');
+});
+
 test('pointer reorder persists and changes digest order; cancel restores saved order', t => {
   const { card, query, pointer, document, runtime, fake } = setup(t);
+  delete runtime.snapshot().entry.stale;
+  runtime.publish();
   const order = runtime.snapshot().settings.order;
   for (const [index, item] of [...query('.st-sable-cards').children].entries()) {
     item.getBoundingClientRect = () => ({ top: index * 100, height: 100 });
@@ -167,6 +183,7 @@ test('display macros use current names as literal text without changing stored s
   const state = structuredClone(fixture);
   state.world.summary = '{{user}} meets {{char}} and {{user}}.';
   const { fake, runtime, card, ui } = setup(t, state);
+  delete runtime.snapshot().entry.stale;
   fake.ctx.name1 = '<img src=x> $&';
   fake.ctx.name2 = 'Guide {{user}}';
   runtime.publish();

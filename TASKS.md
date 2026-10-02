@@ -159,7 +159,7 @@ panel already uses `.st-sable-group` for its collapsible `<details>`, so every g
 `.st-sable-drawer`; a glow rule in the Full block keeps the glow on the container, not the members. Validation: 175 tests,
 syntax checks, headless Chromium renders of `dev/phone.html` and `dev/preview.html` (both still load).
 
-## T13 — Edited replies: stale state leaves the injection and the base  [ ]
+## T14 — Edited replies: stale state leaves the injection and the base  [x]
 SPEC §4 (2 Oct 2026 live report: the user trims the end of a reply, sends the next message, and the
 main model still gets the state computed from the deleted text). A stale entry (the latest reply was
 edited) stays in the drawer with the ↻ hint, but `publish()` injects the entry before it and `prepare()`
@@ -169,6 +169,8 @@ takes that earlier entry as the base, so the next run recomputes from the edited
 the injection switching to the earlier state after `MESSAGE_EDITED` and back after a refresh, the next
 run's request carrying the earlier state as its previous state, the drawer still showing the stale entry
 with the hint, and the setting firing exactly one run per edit.
+
+T14 edited replies: live-entry fallback drives injection and request bases; the drawer retains stale state, and optional recomputation runs once per edit. Regression coverage includes refresh, cancellation and settings.
 
 ## Notes from previous tasks
 (append here)

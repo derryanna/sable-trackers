@@ -38,6 +38,20 @@ function setup(t, profileEvent = false, host = 'extensions_settings2') {
   return { dom, fake, runtime, ui, calls, query, change, input, button };
 }
 
+test('Context offers localized automatic edit recomputation, off by default', t => {
+  const { query, change, runtime, calls } = setup(t);
+  const input = query('[data-group="context"] input[name="recomputeOnEdit"]');
+  assert.equal(input.checked, false);
+  assert.equal(input.parentElement.textContent, 'Recompute after editing a reply');
+  assert.equal(input.parentElement.title, 'One side-model request after every edit of the latest reply.');
+  change('[name="recomputeOnEdit"]', true);
+  assert.deepEqual(calls.patches.at(-1), { recomputeOnEdit: true });
+  runtime.updateSettings({ language: 'ru' });
+  assert.equal(input.checked, true);
+  assert.equal(input.parentElement.textContent, 'Пересчитывать после правки ответа');
+  assert.equal(input.parentElement.title, 'Один запрос вспомогательной модели после каждой правки последнего ответа.');
+});
+
 test('settings groups normalize known boolean flags idempotently and merge partial patches', () => {
   assert.ok(Object.isFrozen(GROUP_IDS));
   const normalized = normalizeSettings({ groups: { bogus: true, context: 'yes', visual: true } });
