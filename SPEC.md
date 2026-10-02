@@ -156,8 +156,15 @@ Swipes and edits:
   `(mesId, swipeId)`, restore it. Otherwise, once the new swipe is received,
   regenerate from the ring entry **before** that message (the "base").
 - `MESSAGE_DELETED`: drop ring entries with `mesId >= chat.length`.
-- `MESSAGE_EDITED` on the last character message: mark the entry stale. The drawer shows
-  a "↻ outdated" hint and the refresh button recomputes it. No automatic re-run.
+- `MESSAGE_EDITED` on the last character message: mark the entry stale. A stale
+  entry stays visible in the drawer with the "↻ outdated" hint, but it is
+  **neither injected nor used as a base**: the injection falls back to the entry
+  before it (the state that reply was generated from) and the next side-model
+  run starts from that earlier entry too, so facts from deleted or changed text
+  never survive the edit. The refresh button recomputes the stale entry at once;
+  `settings.recomputeOnEdit` (default off) does that automatically after every
+  edit, one side-model request each (decided 2 Oct 2026 after a live report:
+  an edited reply still fed the old state to the next generation).
 - `CHAT_CHANGED`: load, re-inject, re-render.
 
 ---
