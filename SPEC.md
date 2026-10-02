@@ -448,7 +448,7 @@ Built-in packs for v1 (content is a task; shapes are fixed here):
   damage without a described hit, numbers move only for shown events, death
   only when written.
 - `intimacy` (18+): `intimacy_scene` (text: position, pace, who leads, consent
-  state), `intimacy_arousal` (stats per participant: arousal 0–100, stamina),
+  state), `intimacy_arousal` (stats per participant: arousal 0–100 as a labelled estimate in any scene, stamina),
   `intimacy_counters` (stats with `max: null`: climaxes, minutes, volume in ml,
   max 8), `intimacy_marks` (tags: visible marks and state, max 10). Rules keep
   the canon guard from §2 unchanged: every participant must be an established
