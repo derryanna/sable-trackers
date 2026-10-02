@@ -671,18 +671,20 @@
 @keyframes st-sable-shimmer-edge { from { background-position: 0 200%; } to { background-position: 0 -100%; } }
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="shimmer"] .st-sable-bar::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 0 35%, rgba(var(--st-sable-shimmer-rgb, var(--st-sable-ink-rgb, 245,244,238)), .45) 50%, transparent 65% 100%); background-size: 300% 100%; animation: st-sable-shimmer var(--st-sable-shimmer-duration, 4s) linear infinite; }
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="shimmer"]::after { content: ''; position: absolute; left: 0; top: 0; width: 3px; height: 100%; pointer-events: none; border-radius: inherit; background: linear-gradient(180deg, transparent 0 35%, rgba(var(--st-sable-shimmer-rgb, var(--st-sable-ink-rgb, 245,244,238)), .7) 50%, transparent 65% 100%); background-size: 100% 300%; animation: st-sable-shimmer-edge var(--st-sable-shimmer-duration, 4s) linear infinite; }
-/* Rain: one layer behind the cards (z-index -1, above the picture layer), three slanted streak gradients with different
-   tile sizes falling through background-position. Density sets the streak opacity; the colour defaults to the ink. */
-@keyframes st-sable-rain { to { background-position: 0 900px, 0 1400px, 0 2100px; } }
+/* Rain: one layer behind the cards (z-index -1, above the picture layer) that clips an oversized, rotated ::before:
+   thin vertical streaks masked into dashes, falling through a transform loop (the mask repeats every 100px and the loop
+   travels 200px, so it is seamless). Density sets the opacity; the colour defaults to the ink. */
+@keyframes st-sable-rain { from { transform: rotate(var(--st-sable-rain-angle, 10deg)) translateY(-100px); } to { transform: rotate(var(--st-sable-rain-angle, 10deg)) translateY(100px); } }
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="rain"] .st-sable-rain {
-  display: block; position: absolute; z-index: -1; top: 0; left: 0; right: 0; height: 100%; pointer-events: none; border-radius: inherit;
-  --st-sable-rain-a: calc(.06 + .3 * var(--st-sable-rain-density, .5));
-  background-image:
-    linear-gradient(calc(90deg + var(--st-sable-rain-angle, 10deg)), transparent 0 46%, rgba(var(--st-sable-rain-rgb, var(--st-sable-ink-rgb, 255,255,255)), var(--st-sable-rain-a)) 50%, transparent 54% 100%),
-    linear-gradient(calc(90deg + var(--st-sable-rain-angle, 10deg)), transparent 0 47%, rgba(var(--st-sable-rain-rgb, var(--st-sable-ink-rgb, 255,255,255)), calc(var(--st-sable-rain-a) * .7)) 50%, transparent 53% 100%),
-    linear-gradient(calc(90deg + var(--st-sable-rain-angle, 10deg)), transparent 0 48%, rgba(var(--st-sable-rain-rgb, var(--st-sable-ink-rgb, 255,255,255)), calc(var(--st-sable-rain-a) * .45)) 50%, transparent 52% 100%);
-  background-size: 13px 90px, 21px 140px, 34px 210px; background-repeat: repeat;
-  animation: st-sable-rain 1.4s linear infinite;
+  display: block; position: absolute; z-index: -1; top: 0; left: 0; right: 0; height: 100%; overflow: hidden; pointer-events: none; border-radius: inherit;
+  opacity: calc(.03 + .2 * var(--st-sable-rain-density, .5));
+}
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="rain"] .st-sable-rain::before {
+  content: ''; position: absolute; inset: -30%;
+  background: repeating-linear-gradient(90deg, transparent 0 23px, rgb(var(--st-sable-rain-rgb, var(--st-sable-ink-rgb, 255,255,255))) 24px 25px, transparent 26px 48px);
+  -webkit-mask-image: repeating-linear-gradient(0deg, transparent 0 30px, #000 35px 65px, transparent 70px 100px);
+  mask-image: repeating-linear-gradient(0deg, transparent 0 30px, #000 35px 65px, transparent 70px 100px);
+  animation: st-sable-rain 2s linear infinite;
 }
 /* Value colour: an affinity bar shades from the accent towards the friction tint as it drops and pulses slowly under 20 %. */
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="valueColor"] .st-sable-affinity > .st-sable-bar-fill { background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) calc(var(--st-sable-ratio, 1) * 100%), #e39a8d); }

@@ -388,7 +388,7 @@ test('CSS: every transition and animation is covered by the off selectors and th
   }
   assert.match(live, /\.st-sable-dice\.st-sable-rolling > \* \{ animation: st-sable-spin 400ms/);
   assert.match(live, /\.st-sable-rain \{ display: none; \}/);
-  assert.match(live, /background-size: 13px 90px, 21px 140px, 34px 210px/);
+  assert.match(live, /\.st-sable-rain::before \{[^}]*mask-image: repeating-linear-gradient\(0deg/);
   assert.equal((live.match(/box-shadow/g) ?? []).length <= 8, true);
   for (const name of ['glow-pulse', 'crit']) assert.match(live, new RegExp(`@keyframes st-sable-${name} \\{[^}]*box-shadow`));
   for (const name of ['badge-in', 'accent-flash', 'rolled', 'low', 'spin', 'shimmer', 'rain']) assert.doesNotMatch(live, new RegExp(`@keyframes st-sable-${name} \\{[^}]*box-shadow`));
