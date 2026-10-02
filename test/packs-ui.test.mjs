@@ -236,7 +236,7 @@ test('stats and tags render safely: bars, counters, units, delta badges with not
   assert.equal(card('combat_odds').querySelector('.st-sable-dice').textContent, '🎲');
 });
 
-test('inline kv roll becomes dimmed after a reply and stays consumed across a swipe', async t => {
+test('inline kv roll is pending during consuming reply swipes and done after receipt or sending', async t => {
   const { runtime, fake, card, digest, styled, button, sq } = setup(t, { settings: { language: 'en' } });
   runtime.setPack('combat', true);
   card('combat_odds').querySelector('.st-sable-dice').click();
@@ -257,7 +257,16 @@ test('inline kv roll becomes dimmed after a reply and stays consumed across a sw
   resolve(JSON.stringify(packState())); await runtime.idle();
   fake.respond(JSON.stringify(packState()));
   fake.ctx.chat[id].swipe_id = 1;
-  await fake.emit('MESSAGE_SWIPED', id); await fake.emit('MESSAGE_RECEIVED', id, 'swipe'); await runtime.idle();
+  await fake.emit('MESSAGE_SWIPED', id);
+  assert.equal(result().dataset.stSableRoll, 'pending');
+  assert.ok(digest().includes('ROLL: 87 vs crit 15 → miss'));
+  await fake.emit('MESSAGE_RECEIVED', id, 'swipe'); await runtime.idle();
+  assert.equal(result().dataset.stSableRoll, 'done');
+  assert.ok(!digest().includes('ROLL:'));
+  fake.ctx.chat[id].swipe_id = 0;
+  await fake.emit('MESSAGE_SWIPED', id);
+  assert.equal(result().dataset.stSableRoll, 'pending');
+  await fake.emit('MESSAGE_SENT', fake.add('Next action', { is_user: true }));
   assert.equal(result().dataset.stSableRoll, 'done');
   assert.ok(!digest().includes('ROLL:'));
   card('combat_odds').querySelector('.st-sable-dice').click();

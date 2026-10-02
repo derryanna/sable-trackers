@@ -60,7 +60,7 @@ export function buildDigest(state = {}, modes = {}, options = {}) {
       : renderers[id]?.(value, tr, { ...options, state });
     if (line && line !== `${tr(id)}: `) lines.push(line);
   }
-  const pending = options.roll && options.roll.consumedAt == null ? formatRoll(options.roll, options.roll.label) : '';
+  const pending = options.roll && (options.roll.consumedAt == null || options.rollArmed) ? formatRoll(options.roll, options.roll.label) : '';
   if (!pending) return clip(lines.join('\n'), maxChars);
   // Reserve space for the one-shot result so truncating scene notes never loses the roll.
   const body = clip(lines.join('\n'), Math.max(0, maxChars - pending.length - 1));

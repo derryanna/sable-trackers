@@ -435,7 +435,7 @@ next action with it)`, for the next generation only: when a character reply
 arrives after `forMesId`, the roll is consumed, the line leaves the injection
 and the row keeps the last result greyed out until the next roll. There is no
 roll section and no roll card; nothing else in the extension rolls or decides.
-Consumption sets `consumedAt` on the stored roll; a swipe never re-arms it.
+Consumption sets `consumedAt` and `consumedBy` on the stored roll; swipes of that reply temporarily re-inject the same result and highlight the row until receipt, a new user message, deletion, chat change or a new roll, without consuming it twice.
 Deleting back below `forMesId` clears it. `runtime.preview().injection` shows
 the current main-prompt digest, including the pending roll within its size cap.
 The intimacy pack has no "%" rows and its description does not mention dice.

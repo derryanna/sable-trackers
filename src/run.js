@@ -18,7 +18,7 @@ const isGroup = ctx => ctx.groupId !== undefined && ctx.groupId !== null && ctx.
 /** Runtime shared by event wiring and future UI. No browser globals at import time. */
 export function createRuntime(getContext = () => globalThis.SillyTavern.getContext(), { random = () => globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32 } = {}) {
   let active, lore = [], lastFingerprint, warnedProfile = false;
-  let log = [], lastLogAt = 0;
+  let log = [], lastLogAt = 0, armed = null;
   const listeners = new Set();
   const bindings = [];
   const cancel = () => { if (active) { active.record?.('dropped'); active.controller.abort(); active = undefined; publish(); } };
@@ -27,7 +27,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   function snapshot() {
     const ctx = getContext();
     const settings = loadSettings(ctx), store = loadStore(ctx);
-    return { settings, store, log, entry: currentEntry(store, ctx.chat), modes: effectiveModes(settings, store),
+    return { settings, store, log, rollArmed: armed !== null && armed === store.roll?.consumedBy,
+      entry: currentEntry(store, ctx.chat), modes: effectiveModes(settings, store),
       packs: { enabled: enabledPacks(store, settings), available: getPacks(settings).map(p => ({ id: p.id,
         title: p.builtin ? t(p.title, settings.language) : p.title, icon: p.icon,
         description: p.builtin ? t(p.description, settings.language) : p.description, builtin: !!p.builtin, scope: p.scope, scopeDefault: p.scopeDefault })) },
@@ -39,9 +40,10 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   function injection(view, ctx) {
     const sections = getSections(view.settings, enabledPacks(view.store, view.settings));
     const hasState = sections.some(s => view.entry?.state[s.id] !== undefined && view.modes[s.id] === 'inject');
-    return view.settings.enabled && !isGroup(ctx) && (hasState || (view.store.roll && view.store.roll.consumedAt == null))
+    const rollArmed = armed !== null && armed === view.store.roll?.consumedBy;
+    return view.settings.enabled && !isGroup(ctx) && (hasState || (view.store.roll && (view.store.roll.consumedAt == null || rollArmed)))
       ? buildDigest(view.entry?.state, view.modes, { sections, language: view.settings.language,
-        order: view.settings.order, userName: ctx.name1, roll: view.store.roll }) : '';
+        order: view.settings.order, userName: ctx.name1, roll: view.store.roll, rollArmed }) : '';
   }
 
   function publish() {
@@ -208,6 +210,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     if (mesId !== lastCharacterId(ctx)) return;
     cancel(); lastFingerprint = undefined;
     const data = loadStore(ctx);
+    armed = data.roll?.consumedBy === mesId ? mesId : null;
     const entry = findEntry(data, mesId, ctx.chat[mesId]?.swipe_id ?? 0);
     restoreCounters(data, entry ?? currentEntry(data, ctx.chat, mesId));
     // Cached swipes need no side-model request when MESSAGE_RECEIVED follows.
@@ -217,6 +220,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   }
 
   function deleted(newChatLength) {
+    armed = null;
     cancel(); lastFingerprint = undefined;
     const ctx = getContext(), data = loadStore(ctx);
     const length = Math.min(ctx.chat.length, newChatLength);
@@ -238,6 +242,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   }
 
   function chatChanged() {
+    armed = null;
     cancel(); lore = []; lastFingerprint = undefined; warnedProfile = false;
     publish();
   }
@@ -280,6 +285,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       || typeof key !== 'string' || !key.trim() || forMesId < 0) return false;
     const result = { sectionId, key, label: key.replace(/\s*%$/, '').trim() || key,
       ...roll(Math.min(100, Math.max(0, chance)), random), forMesId, at: Date.now() };
+    armed = null;
     data.roll = result;
     void saveStore(ctx);
     publish();
@@ -288,12 +294,15 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
 
   function received(id, type) {
     const ctx = getContext(), data = loadStore(ctx);
+    const disarmed = armed !== null && armed === id;
+    if (disarmed) armed = null;
     if (Number.isInteger(id) && characterMessage(ctx.chat[id]) && data.roll
       && id > data.roll.forMesId && data.roll.consumedAt == null) {
       data.roll.consumedAt = Date.now();
+      data.roll.consumedBy = id;
       void saveStore(ctx);
       publish();
-    }
+    } else if (disarmed) publish();
     void run(id, { type });
   }
 
@@ -344,6 +353,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const ctx = getContext();
     const handlers = {
       MESSAGE_RECEIVED: received, MESSAGE_SWIPED: swipe,
+      MESSAGE_SENT: () => { armed = null; publish(); },
       MESSAGE_DELETED: deleted, MESSAGE_EDITED: edited, CHAT_CHANGED: chatChanged,
       WORLD_INFO_ACTIVATED: entries => { lore = Array.isArray(entries) ? structuredClone(entries) : []; },
     };

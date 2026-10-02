@@ -142,6 +142,8 @@ greyed), the inline row result, and the absence of a roll card; README and SPEC 
 
 T12 done: three scopes with per-pack defaults; chat-local dice with inline results and one-shot injection, consumed on receipt and retained across swipes; legacy roll cards removed. Fixtures and bilingual labels/docs updated; 164 tests, changed-JavaScript syntax checks and diff whitespace checks pass. No dependencies or commit. Live Android layout remains unverified.
 
+- [x] T12b: record `consumedBy`; runtime-only swipe arming restores the consuming reply's ROLL line and pending row, cleared on receipt, MESSAGE_SENT, deletion, chat change or a new roll without clearing `consumedAt`. Lifecycle and drawer regressions pass (168 tests); no dependencies or commit.
+
 ## Notes from previous tasks
 (append here)
 - T12 supersedes T8b dice notes: inject randomness through `createRuntime(getContext, { random })`; the drawer calls `runtime.rollDice(sectionId, key, chance)` and reads `snapshot().store.roll`. No `<pack>_roll` definition or `editState` call is needed. `packScopeOf(settings, pack)` resolves scope overrides/defaults; snapshot pack descriptors include `scopeDefault`. `preview().injection` is separate from its unchanged side-model `messages`.

@@ -384,7 +384,7 @@ test('rollDice validates, clamps, persists and publishes independently of sectio
   assert.equal(runtime.rollDice('c_00000001', 'luck %', 50).sectionId, 'c_00000001');
 });
 
-test('reply consumption survives swipes, deletions and chat switches without replaying a roll', async t => {
+test('reply consumption survives swipes, deletions and chat switches without consuming twice', async t => {
   const fake = createFakeST(), runtime = createRuntime(fake.getContext, { random: () => .1 });
   t.after(() => runtime.dispose()); runtime.start();
   runtime.updateSettings({ enabled: false }); // Consumption must not depend on a side-model run.
@@ -401,7 +401,7 @@ test('reply consumption survives swipes, deletions and chat switches without rep
   assert.ok(!fake.calls.prompts.at(-1)[1].includes('ROLL:'));
   await runtime.idle();
   const consumed = structuredClone(runtime.snapshot().store.roll);
-  assert.deepEqual(consumed, { ...pending, consumedAt: consumed.consumedAt });
+  assert.deepEqual(consumed, { ...pending, consumedAt: consumed.consumedAt, consumedBy: reply });
   assert.ok(Number.isFinite(consumed.consumedAt));
   fake.ctx.chat[reply].swipe_id = 1;
   await fake.emit('MESSAGE_SWIPED', reply); await fake.emit('MESSAGE_RECEIVED', reply, 'swipe'); await runtime.idle();
@@ -435,7 +435,74 @@ test('digest ignores legacy roll sections and budgets the pending roll as its la
     assert.ok(!digest.includes('LEGACY'));
   }
   assert.ok(!buildDigest(state, {}, { sections: all, roll: { ...result, consumedAt: 0 } }).includes('ROLL:'));
+  assert.ok(buildDigest(state, {}, { sections: all, roll: { ...result, consumedAt: 0 }, rollArmed: true }).endsWith(line));
 });
+
+test('only the consuming reply arms a roll, and sending clears it before the next prompt', async t => {
+  const fake = createFakeST(), runtime = createRuntime(fake.getContext, { random: () => .1 });
+  t.after(() => runtime.dispose()); runtime.start(); fake.add(); runtime.setPack('combat', true);
+  runtime.rollDice('combat_odds', 'crit %', 15);
+  const reply = fake.add(); await fake.emit('MESSAGE_RECEIVED', reply); await runtime.idle();
+  const consumed = structuredClone(runtime.snapshot().store.roll);
+  for (const swipeId of [1, 0]) {
+    fake.ctx.chat[reply].swipe_id = swipeId;
+    await fake.emit('MESSAGE_SWIPED', reply);
+    assert.equal(runtime.snapshot().rollArmed, true);
+    assert.ok(fake.calls.prompts.at(-1)[1].includes('ROLL:'));
+    assert.ok(runtime.preview().injection.includes('ROLL:'));
+    assert.deepEqual(runtime.snapshot().store.roll, consumed);
+    if (swipeId === 1) {
+      await fake.emit('MESSAGE_RECEIVED', reply, 'swipe'); await runtime.idle();
+      assert.equal(runtime.snapshot().rollArmed, false);
+      assert.ok(!fake.calls.prompts.at(-1)[1].includes('ROLL:'));
+    }
+  }
+  // ST builds the next generation prompt after awaited MESSAGE_SENT listeners.
+  let nextPrompt;
+  fake.ctx.eventSource.on('MESSAGE_SENT', () => { nextPrompt = fake.calls.prompts.at(-1)[1]; });
+  await fake.emit('MESSAGE_SENT', fake.add('Next action', { is_user: true }));
+  assert.equal(runtime.snapshot().rollArmed, false);
+  assert.ok(!nextPrompt.includes('ROLL:'));
+  const later = fake.add(); await fake.emit('MESSAGE_RECEIVED', later); await runtime.idle();
+  fake.ctx.chat[later].swipe_id = 1;
+  await fake.emit('MESSAGE_SWIPED', later);
+  assert.equal(runtime.snapshot().rollArmed, false);
+  assert.ok(!fake.calls.prompts.at(-1)[1].includes('ROLL:'));
+  assert.deepEqual(runtime.snapshot().store.roll, consumed);
+});
+
+for (const reset of ['deletion', 'chat change', 'new roll']) {
+  test(`an armed roll is cleared by ${reset}`, async t => {
+    const fake = createFakeST(), runtime = createRuntime(fake.getContext, { random: () => .1 });
+    t.after(() => runtime.dispose()); runtime.start(); fake.add(); runtime.setPack('combat', true);
+    runtime.rollDice('combat_odds', 'crit %', 15);
+    const reply = fake.add(); await fake.emit('MESSAGE_RECEIVED', reply); await runtime.idle();
+    const consumed = structuredClone(runtime.snapshot().store.roll);
+    await fake.emit('MESSAGE_SWIPED', reply);
+    assert.equal(runtime.snapshot().rollArmed, true);
+    const saved = JSON.stringify(fake.ctx.chatMetadata);
+    assert.ok(!saved.includes('rollArmed') && !saved.includes('"armed"'));
+    if (reset === 'deletion') {
+      fake.ctx.chat.length = reply; await fake.emit('MESSAGE_DELETED', reply);
+    } else if (reset === 'chat change') {
+      const metadata = fake.ctx.chatMetadata;
+      fake.ctx.chatId = 'chat-b'; fake.ctx.chatMetadata = {}; await fake.emit('CHAT_CHANGED');
+      fake.ctx.chatId = 'chat-a'; fake.ctx.chatMetadata = metadata; await fake.emit('CHAT_CHANGED');
+    } else {
+      runtime.rollDice('combat_odds', 'hit %', 80);
+    }
+    assert.equal(runtime.snapshot().rollArmed, false);
+    if (reset === 'new roll') {
+      assert.equal(runtime.snapshot().store.roll.consumedAt, undefined);
+      assert.equal(runtime.snapshot().store.roll.consumedBy, undefined);
+      assert.match(fake.calls.prompts.at(-1)[1], /ROLL: 11 vs hit 80/);
+      assert.ok(!fake.calls.prompts.at(-1)[1].includes('vs crit'));
+    } else {
+      assert.deepEqual(runtime.snapshot().store.roll, consumed);
+      assert.ok(!fake.calls.prompts.at(-1)[1].includes('ROLL:'));
+    }
+  });
+}
 
 test('received replies consume rolls even when generation is disabled or no profile exists', async t => {
   const fake = createFakeST(), runtime = createRuntime(fake.getContext, { random: () => .1 });

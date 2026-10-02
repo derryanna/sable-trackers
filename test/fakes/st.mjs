@@ -14,7 +14,7 @@ export function createFakeST() {
     extensionSettings: { sableTrackers: { profileId: 'side' },
       connectionManager: { profiles: [{ id: 'side', name: 'Side model', mode: 'cc', api: 'openai' }] },
       otherExtension: { untouched: true } },
-    eventTypes: Object.fromEntries(['MESSAGE_RECEIVED', 'MESSAGE_SWIPED', 'MESSAGE_DELETED',
+    eventTypes: Object.fromEntries(['MESSAGE_RECEIVED', 'MESSAGE_SENT', 'MESSAGE_SWIPED', 'MESSAGE_DELETED',
       'CHARACTER_MESSAGE_RENDERED', 'MESSAGE_EDITED', 'CHAT_CHANGED', 'WORLD_INFO_ACTIVATED'].map(key => [key, key])),
     eventSource: {
       on(event, handler) { if (!handlers.has(event)) handlers.set(event, new Set()); handlers.get(event).add(handler); },

@@ -494,7 +494,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       if (result?.sectionId === section.id && result.key === key) {
         const text = node('span', 'roll-result');
         text.textContent = `${result.roll} → ${label(result.hit ? 'dice.hit' : 'dice.miss')}`;
-        text.dataset.stSableRoll = result.consumedAt == null ? 'pending' : 'done';
+        text.dataset.stSableRoll = result.consumedAt == null || view.rollArmed ? 'pending' : 'done';
         if (rolled?.id === section.id && Date.now() - rolled.at < DICE_MS) text.toggleAttribute('data-st-sable-rolled', true);
         wrap.append(text);
       }
