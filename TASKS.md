@@ -88,7 +88,7 @@ group (list, default-for-new-chats, export/import, user-pack editor reusing the 
 editor). i18n ru/en. Done when: jsdom test toggles a pack on → cards appear, XSS in a stat key
 stays text, a roll writes the roll line and the digest contains it. The Packs settings group follows §17 (collapsible).
 
-## T8c — Built-in pack content  [ ]
+## T8c — Built-in pack content  [x]
 `combat` and `intimacy` per SPEC §15 (sections, instructions, rules, i18n titles), fixtures
 with synthetic states, digest snapshot tests, README section (en + ru). Instructions reuse the
 canon-safe rules; the intimacy pack keeps the adults-only guard. No real RP content in fixtures.
@@ -126,6 +126,7 @@ Done: `putEntry` keeps the newest `keep` distinct `mesId`s with up to `SWIPES_PE
 
 ## Notes from previous tasks
 (append here)
+- T8c: final combat/intimacy content, ru/en descriptions, synthetic state-packs.json, digest and prompt coverage, and bilingual pack documentation complete; T8b UI remains separate. No commit.
 - 2026-10-02 the maintainer answered the hand-off questions: docs/HANDOFF-2026-10-02.md §6 "Answers". Settings groups become collapsible first (T11, SPEC §17), then T8b builds the Packs group on top; T9 is a two-implementation comparison round.
 - T8a → T8b: `snapshot().packs` exposes `{ enabled: string[], available: [{ id, title, icon, description, builtin, scope }] }` with localized built-in labels. `runtime.setPack(id, on)` returns false for unknown ids; otherwise persists the chat list and re-publishes without starting a run. Use `getSections(settings, snapshot().packs.enabled)` for pack cards; the one-argument call still returns only built-ins + custom blocks. Descriptors have `custom: true`, `pack`, literal `title`, `shape: 'stats' | 'tags'` and array schemas: stats rows `{ key, value, max, unit, note }` (merge adds `delta`; null max means counter), tags are unique strings. Explicit pack positions survive in `settings.order`; absent pack ids append in registry order. T8c replaces provisional instructions; no UI or commit in T8a.
 - 2026-10-02 design round (docs only): packs, live cards and the swipe ring bug are written up in `docs/HANDOFF-2026-10-02.md` with the decisions, a repro and open questions. Start there before T8a–T10.

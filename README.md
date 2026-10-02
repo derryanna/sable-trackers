@@ -46,6 +46,15 @@ Tap a card header to fold or unfold it. Switched-off sections are hidden by defa
 
 The group has four parts. **Panel**: glass, colours and **Animations** (off stops every animation; the system reduced-motion setting is respected too). **Cards**: corner radius, card fill, borders, title font (theme, serif, monospace, rounded — rounded only where such a font is installed) and weight, the look of the "inject" chip (filled or outline), spacing (cozy or compact), icons and the accent bar. **Background**: choose a picture (it is shrunk to 1280 px and saved in the extension settings, so every device that shares them shows it; over 600 KB after shrinking is refused) or paste an http(s) link; **Dimming** and **Fit** (fill, whole picture, tile) tune it. **Theme**: presets Glass, Paper and Neon set colours and style but keep your background, font size, width and animations; **Save theme file** downloads `sable-theme.json` (the whole look, picture included) and **Load theme file** applies one.
 
+## Packs
+
+Packs bundle sections and side-model rules for a scene. They are off by default and switched per chat with 🎒 in the drawer header or the **Packs** settings group. Switching on does not start a request: generate the next reply or refresh. Switching off keeps the stored values. Choose whether to track everyone or only your character.
+
+- **Combat** tracks the fight, HP, stamina, wounds, estimated odds and the last local roll; unresolved attacks stay unresolved.
+- **Intimacy (18+)** tracks position, pace, consent state, arousal, stamina, explicit counters and visible marks only when every participant is an established adult; otherwise its values are empty.
+
+Create user packs or make an editable copy of a built-in pack, and export/import them as `sable-pack.json`. On rows whose key ends in `%`, 🎲 rolls d100 locally without a model request and saves the result in the pack's roll section for the next reply. The extension rolls or decides nothing else; a roll does not establish a hit or damage.
+
 ## Danger zone
 
 The **Danger zone** group in settings (closed by default) lets you override the side model's common rules and each built-in section's instructions, with a **Default** button per field and **Reset all instructions**. **Show prompt** builds exactly the next **Run now** request without sending it; **Copy** puts it on the clipboard. The **Request log** keeps the last five runs with the request, the raw response, status and timing, with copy buttons, **Download log** (`sable-log.json`) and **Clear**. The JSON schema and output format stay fixed. The log lives in memory only, survives chat switches and is lost on reload.
@@ -66,6 +75,8 @@ Only `inject` sections enter the main prompt, at depth 2 by default, with a dige
 <a id="ru"></a>
 
 ## Кратко по-русски
+
+Паки — наборы секций и правил для сцены, по умолчанию выключенные: включайте их для текущего чата через 🎒 в заголовке панели или группу «Паки» в настройках, затем обновите трекеры или дождитесь следующего ответа. «Бой» отслеживает ход боя, здоровье, силы, раны и шансы; «Интим (18+)» — положение, темп, согласие, возбуждение, силы, явные счётчики и видимые следы, только если все участники заведомо взрослые, иначе значения пустые. Можно учитывать всех или только своего персонажа, создавать свои паки, копировать встроенные и обмениваться файлами `sable-pack.json` через экспорт и импорт. Кнопка 🎲 у ключей с `%` бросает d100 локально, без запроса к модели, и сохраняет результат для следующего ответа; больше расширение ничего не разыгрывает и не решает, а бросок сам по себе не означает попадание или урон.
 
 Sable Trackers хранит состояние сцены отдельно от сообщений. Недорогая вспомогательная модель обновляет трекеры, а основная получает только краткую выжимку выбранных разделов.
 
