@@ -54,7 +54,7 @@ The **Danger zone** group in settings (closed by default) lets you override the 
 
 The side model reads the previous enabled state, the last 4 messages by default, up to 6000 character-card characters, up to 4000 activated-lore characters, and a short persona. It does not read the whole chat or lorebook. The output limit defaults to 3000 tokens. Reduce message/card/lore limits, turn unused sections off, or increase periods to reduce side-model usage. `show` still costs side-model tokens.
 
-Only `inject` sections enter the main prompt, at depth 2 by default, with a digest capped at about 6000 characters. Drawer token counts are estimates based on characters, not billing totals. The saved-state ring defaults to 3 entries per chat; this controls retained history, not model context length.
+Only `inject` sections enter the main prompt, at depth 2 by default, with a digest capped at about 6000 characters. **Injection role** (system by default) is the role of that block: if the state block starts showing up in replies, try "user". Drawer token counts are estimates based on characters, not billing totals. The saved-state ring defaults to the last 3 messages per chat, every swipe of each included; this controls retained history, not model context length.
 
 ## Troubleshooting
 
@@ -78,6 +78,8 @@ Sable Trackers хранит состояние сцены отдельно от 
 Внешний вид (настройки → «Внешний вид»): «Панель» — стекло, цвета и «Анимации» (выключатель убирает всю анимацию); «Карточки» — скругление, заливка, рамки, шрифт и жирность заголовков, кнопка «в промпт» (залитая или контур), плотность, значки и полоса слева; «Фон» — картинка с устройства (сжимается до 1280 px и хранится в настройках расширения, поэтому видна на всех устройствах; больше 600 КБ после сжатия не принимается) или ссылка http(s), затемнение и размещение; «Тема» — пресеты «Стекло», «Бумага», «Неон» (фон, размер шрифта, ширина и анимации остаются), «Экспорт темы» в файл `sable-theme.json` вместе с картинкой и «Импорт темы». «Сбросить вид» возвращает всё по умолчанию.
 
 «Опасная зона» (в настройках, свёрнута по умолчанию): общие правила и инструкции каждой встроенной секции можно переписать, у каждого поля есть кнопка «По умолчанию», внизу — «Сбросить все инструкции». «Показать промпт» собирает в точности следующий запрос «Обновить сейчас», не отправляя его; «Копировать» кладёт его в буфер. «Журнал запросов» хранит последние пять запусков: запрос, сырой ответ, статус и время, с копированием, «Скачать журнал» (`sable-log.json`) и «Очистить». Схема JSON и формат ответа не меняются. Журнал живёт только в памяти, переживает смену чата и исчезает при перезагрузке.
+
+«Роль вставки» (по умолчанию «система») — роль блока состояния в промпте: если блок состояния начал появляться в ответах, попробуйте «пользователь».
 
 Если нет обновлений, проверьте профиль, режим chat-completion и включённые разделы. При пустом ответе проверьте модель, увеличьте лимит токенов и повторите обновление. Групповые чаты не поддерживаются.
 

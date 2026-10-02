@@ -19,7 +19,7 @@ export const VISUAL_CHOICES = Object.freeze({ icons: ['fa', 'emoji'], bgFit: ['c
 export const BG_IMAGE_MAX_LENGTH = 900 * 1024;
 export const DEFAULTS = {
   enabled: true, profileId: '', language: 'ru', messages: 4,
-  cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3,
+  cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3, role: 'system',
   perChatOverrides: false, showPanel: true, showFloatingButton: true,
   hideOff: true,
   prompts: { rules: null, sections: {}, packs: {} },
@@ -30,6 +30,8 @@ export const DEFAULTS = {
   visual: { ...VISUAL_DEFAULTS },
 };
 const isMode = value => ['inject', 'show', 'off'].includes(value);
+// Injection role for setExtensionPrompt (SPEC §5), in the order of SillyTavern's extension_prompt_roles.
+export const ROLES = Object.freeze(['system', 'user', 'assistant']);
 
 export function normalizeSettings(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
@@ -43,6 +45,7 @@ export function normalizeSettings(value = {}) {
     result[key] = Number.isFinite(Number(result[key])) ? Math.max(min, Math.floor(Number(result[key]))) : DEFAULTS[key];
   }
   result.profileId = typeof result.profileId === 'string' ? result.profileId : '';
+  result.role = ROLES.includes(result.role) ? result.role : DEFAULTS.role;
   result.language = ['ru', 'en'].includes(result.language) ? result.language : 'ru';
   result.customSections = normalizeCustomSections(value.customSections);
   result.packs = normalizePacks(value.packs);
