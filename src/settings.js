@@ -68,7 +68,7 @@ export function normalizeSettings(value = {}) {
   result.packs = normalizePacks(value.packs);
   const packIds = getPacks(result).map(pack => pack.id);
   result.packDefaults = [...new Set(Array.isArray(value.packDefaults) ? value.packDefaults : [])].filter(id => packIds.includes(id));
-  result.packScope = Object.fromEntries(packIds.filter(id => ['all', 'user'].includes(value.packScope?.[id])).map(id => [id, value.packScope[id]]));
+  result.packScope = Object.fromEntries(packIds.filter(id => ['all', 'user', 'others'].includes(value.packScope?.[id])).map(id => [id, value.packScope[id]]));
   const all = getAllSections({ ...result, prompts: {} });
   const ids = all.map(section => section.id);
   result.folded = Object.fromEntries(ids.filter(id => typeof value.folded?.[id] === 'boolean').map(id => [id, value.folded[id]]));

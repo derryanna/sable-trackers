@@ -37,10 +37,10 @@ function setup(t, { state = structuredClone(fixture), visual, reduced = false, r
   fake.ctx.extensionSettings.sableTrackers.language = 'en';
   if (visual) fake.ctx.extensionSettings.sableTrackers.visual = visual;
   fake.ctx.chatMetadata.sableTrackers = { ring: [{ mesId: 0, swipeId: 0, turn: 14, state }], lastRun: { at: 1234567890000, ok: true, ms: 250 } };
-  const runtime = createRuntime(fake.getContext); runtime.start();
+  const runtime = createRuntime(fake.getContext, { random }); runtime.start();
   const patches = [];
   const wrapped = { ...runtime, updateSettings(patch) { patches.push(patch); runtime.updateSettings(patch); } };
-  const ui = createDrawer(runtime, { document, random });
+  const ui = createDrawer(runtime, { document });
   const settings = createSettings(wrapped, { document, getContext: fake.getContext });
   const panel = chat ? createPanel(runtime, ui, { document, getContext: fake.getContext }) : null;
   t.after(() => { panel?.dispose(); settings.dispose(); ui.dispose(); runtime.dispose(); dom.window.close(); });
@@ -270,19 +270,20 @@ test('full + ticks: the score counts over one rAF run of at most 250 ms and sett
   assert.equal(node.textContent, '55', 'below full the number just changes');
 });
 
-test('full + dice: the die spins, the result row flashes and a crit glows the roll card', t => {
+test('full + dice: the die spins, the result row flashes and a crit glows the source card', t => {
   const { card, runtime } = setup(t, { state: { world: { location: 'Gate' }, ...combat() }, visual: { effects: 'full', fx: { dice: { on: true } } }, random: () => 0.1 });
   runtime.setPack('combat', true);
   const die = card('combat_odds').querySelector('.st-sable-dice');
   assert.equal(die.classList.contains('st-sable-rolling'), false);
   die.click();
-  assert.equal(runtime.snapshot().entry.state.combat_roll, 'LAST ROLL: 11 vs crit 15 → hit');
+  assert.equal(runtime.snapshot().store.roll.roll, 11);
+  assert.equal(runtime.snapshot().store.roll.hit, true);
   const spinning = card('combat_odds').querySelector('.st-sable-dice');
   assert.ok(spinning.classList.contains('st-sable-rolling'), 'the rebuilt die carries the spin');
   assert.match(spinning.style.getPropertyValue('--st-sable-roll-delay'), /^-\d+ms$/, 'resumed where the render left it');
-  assert.ok(card('combat_roll').querySelector('.st-sable-line').hasAttribute('data-st-sable-rolled'));
-  assert.ok(card('combat_roll').hasAttribute('data-st-sable-crit'), 'a hit on a crit chance glows the card');
-  assert.equal(card('combat_odds').hasAttribute('data-st-sable-crit'), false);
+  assert.ok(card('combat_odds').querySelector('.st-sable-roll-result').hasAttribute('data-st-sable-rolled'));
+  assert.ok(card('combat_odds').hasAttribute('data-st-sable-crit'), 'a hit on a crit chance glows the card');
+  assert.equal(card('combat_roll'), null);
   spinning.dispatchEvent(new spinning.ownerDocument.defaultView.Event('animationend', { bubbles: true }));
   assert.equal(spinning.classList.contains('st-sable-rolling'), false);
 });

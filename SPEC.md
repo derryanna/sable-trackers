@@ -354,6 +354,7 @@ nothing and a fight chat gets its own cards for as long as the fight lasts.
 
 ```
 { id: 'combat',                 // built-in: [a-z][a-z0-9]{1,15}; user pack: 'p_' + 8 hex
+  scope: true, scopeDefault: 'all', // optional scope choice; intimacy defaults to 'others'
   title: 'Бой', icon: 'fa-hand-fist' | '⚔️', description: '…' (≤ 300),
   rules: '…',                   // ≤ 2000 chars, appended to the common rules while the pack is on
   sections: [ { key: 'stats', title, icon, instructions, shape, max, mode, period } ] }  // ≤ 8
@@ -425,7 +426,7 @@ for them (decided 2 Oct 2026).
 Dice (an integration, not a card; decided 2 Oct 2026): a `stats`/`kv` item
 whose key ends in "%" (e.g. `crit %`) gets a 🎲 button on its row, in any pack
 or custom section. The tap rolls d100 locally (`roll(chance, random)` pure,
-`crypto.getRandomValues` in the UI), never calls a model, and stores the result
+`crypto.getRandomValues` in the runtime), never calls a model, and stores the result
 as `chat_metadata.sableTrackers.roll = { sectionId, key, label, chance, roll,
 hit, forMesId, at }` (one pending roll per chat, the newest wins). The row shows
 the result inline next to the button (`87 → miss`, highlighted while pending)
@@ -434,6 +435,9 @@ next action with it)`, for the next generation only: when a character reply
 arrives after `forMesId`, the roll is consumed, the line leaves the injection
 and the row keeps the last result greyed out until the next roll. There is no
 roll section and no roll card; nothing else in the extension rolls or decides.
+Consumption sets `consumedAt` on the stored roll; a swipe never re-arms it.
+Deleting back below `forMesId` clears it. `runtime.preview().injection` shows
+the current main-prompt digest, including the pending roll within its size cap.
 The intimacy pack has no "%" rows and its description does not mention dice.
 
 Built-in packs for v1 (content is a task; shapes are fixed here):

@@ -1,4 +1,5 @@
 import { SECTIONS, orderedSectionIds } from './sections.js';
+import { formatRoll } from './packs/dice.js';
 import { t } from './i18n.js';
 
 const join = values => values.filter(value => value !== '' && value != null).join(' · ');
@@ -59,7 +60,11 @@ export function buildDigest(state = {}, modes = {}, options = {}) {
       : renderers[id]?.(value, tr, { ...options, state });
     if (line && line !== `${tr(id)}: `) lines.push(line);
   }
-  return clip(lines.join('\n'), maxChars);
+  const pending = options.roll && options.roll.consumedAt == null ? formatRoll(options.roll, options.roll.label) : '';
+  if (!pending) return clip(lines.join('\n'), maxChars);
+  // Reserve space for the one-shot result so truncating scene notes never loses the roll.
+  const body = clip(lines.join('\n'), Math.max(0, maxChars - pending.length - 1));
+  return clip(body ? body + '\n' + pending : pending, maxChars);
 }
 
 export const digest = buildDigest;

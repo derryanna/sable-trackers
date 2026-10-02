@@ -1,5 +1,6 @@
 import { seedFromLegacy } from './legacy.js';
 import { getSections } from './sections.js';
+import { roll } from './packs/dice.js';
 import { getPacks } from './packs/index.js';
 import { buildPrompt } from './prompt.js';
 import { parseStateOutput, sanitizeSection } from './parse.js';
@@ -15,7 +16,7 @@ const characterMessage = message => message && !message.is_user && !message.is_s
 const isGroup = ctx => ctx.groupId !== undefined && ctx.groupId !== null && ctx.groupId !== '';
 
 /** Runtime shared by event wiring and future UI. No browser globals at import time. */
-export function createRuntime(getContext = () => globalThis.SillyTavern.getContext()) {
+export function createRuntime(getContext = () => globalThis.SillyTavern.getContext(), { random = () => globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32 } = {}) {
   let active, lore = [], lastFingerprint, warnedProfile = false;
   let log = [], lastLogAt = 0;
   const listeners = new Set();
@@ -29,20 +30,22 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     return { settings, store, log, entry: currentEntry(store, ctx.chat), modes: effectiveModes(settings, store),
       packs: { enabled: enabledPacks(store, settings), available: getPacks(settings).map(p => ({ id: p.id,
         title: p.builtin ? t(p.title, settings.language) : p.title, icon: p.icon,
-        description: p.builtin ? t(p.description, settings.language) : p.description, builtin: !!p.builtin, scope: p.scope })) },
+        description: p.builtin ? t(p.description, settings.language) : p.description, builtin: !!p.builtin, scope: p.scope, scopeDefault: p.scopeDefault })) },
       running: active ? { mesId: active.mesId, swipeId: active.swipeId, startedAt: active.startedAt } : null,
       canSeedLegacy: !store.ring.length && !!seedFromLegacy(ctx.chat),
       name1: ctx.name1, name2: ctx.name2 };
   }
 
-  function publish() {
-    const ctx = getContext();
-    const view = snapshot();
+  function injection(view, ctx) {
     const sections = getSections(view.settings, enabledPacks(view.store, view.settings));
     const hasState = sections.some(s => view.entry?.state[s.id] !== undefined && view.modes[s.id] === 'inject');
-    const text = view.settings.enabled && !isGroup(ctx) && hasState
-      ? buildDigest(view.entry.state, view.modes, { sections, language: view.settings.language,
-        order: view.settings.order, userName: ctx.name1 }) : '';
+    return view.settings.enabled && !isGroup(ctx) && (hasState || (view.store.roll && view.store.roll.consumedAt == null))
+      ? buildDigest(view.entry?.state, view.modes, { sections, language: view.settings.language,
+        order: view.settings.order, userName: ctx.name1, roll: view.store.roll }) : '';
+  }
+
+  function publish() {
+    const ctx = getContext(), view = snapshot(), text = injection(view, ctx);
     ctx.setExtensionPrompt('sable_trackers', text, 1, view.settings.depth, false, Math.max(0, ROLES.indexOf(view.settings.role)));
     for (const listener of listeners) listener(view);
     return view;
@@ -90,14 +93,14 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       card: ctx.substituteParams('{{description}}\n{{personality}}\n{{scenario}}'),
       persona: ctx.substituteParams('{{persona}}'), lore,
       chat: ctx.chat.slice(0, mesId + 1).filter(m => !m.is_system), userName: ctx.name1, characterName: ctx.name2 });
-    return { settings, base, elapsed, turn, sections, counters, modes, dueSections, built };
+    return { settings, data, base, elapsed, turn, sections, counters, modes, dueSections, built };
   }
 
   function preview() {
     const ctx = getContext(), mesId = lastCharacterId(ctx);
     if (!loadSettings(ctx).enabled || isGroup(ctx) || mesId < 0) return null;
-    const { built } = prepare(mesId, true);
-    return { mesId, ...built, chars: built.messages.reduce((sum, m) => sum + m.content.length, 0) };
+    const { built, settings, data, modes } = prepare(mesId, true);
+    return { mesId, ...built, injection: injection({ settings, store: data, modes, entry: currentEntry(data, ctx.chat) }, ctx), chars: built.messages.reduce((sum, m) => sum + m.content.length, 0) };
   }
 
   async function execute(mesId, { force = false, type = 'normal' } = {}, promise) {
@@ -216,7 +219,9 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   function deleted(newChatLength) {
     cancel(); lastFingerprint = undefined;
     const ctx = getContext(), data = loadStore(ctx);
-    pruneEntries(data, Math.min(ctx.chat.length, newChatLength));
+    const length = Math.min(ctx.chat.length, newChatLength);
+    pruneEntries(data, length);
+    if (data.roll && length <= data.roll.forMesId) delete data.roll;
     restoreCounters(data, currentEntry(data, ctx.chat));
     publish();
     return saveStore(ctx);
@@ -267,6 +272,31 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     return true;
   }
 
+  function rollDice(sectionId, key, chance) {
+    const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
+    const section = getSections(settings, enabledPacks(data, settings)).find(s => s.id === sectionId);
+    const forMesId = lastCharacterId(ctx);
+    if (!section || !['stats', 'kv'].includes(section.shape) || !Number.isFinite(chance)
+      || typeof key !== 'string' || !key.trim() || forMesId < 0) return false;
+    const result = { sectionId, key, label: key.replace(/\s*%$/, '').trim() || key,
+      ...roll(Math.min(100, Math.max(0, chance)), random), forMesId, at: Date.now() };
+    data.roll = result;
+    void saveStore(ctx);
+    publish();
+    return result;
+  }
+
+  function received(id, type) {
+    const ctx = getContext(), data = loadStore(ctx);
+    if (Number.isInteger(id) && characterMessage(ctx.chat[id]) && data.roll
+      && id > data.roll.forMesId && data.roll.consumedAt == null) {
+      data.roll.consumedAt = Date.now();
+      void saveStore(ctx);
+      publish();
+    }
+    void run(id, { type });
+  }
+
   /** Manual edit: replace one section in the current state. Returns false when nothing could be saved. */
   function editState(id, value) {
     const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
@@ -313,7 +343,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     if (bindings.length) return;
     const ctx = getContext();
     const handlers = {
-      MESSAGE_RECEIVED: (id, type) => { void run(id, { type }); }, MESSAGE_SWIPED: swipe,
+      MESSAGE_RECEIVED: received, MESSAGE_SWIPED: swipe,
       MESSAGE_DELETED: deleted, MESSAGE_EDITED: edited, CHAT_CHANGED: chatChanged,
       WORLD_INFO_ACTIVATED: entries => { lore = Array.isArray(entries) ? structuredClone(entries) : []; },
     };
@@ -328,7 +358,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
     idle: () => active?.promise ?? Promise.resolve(),
     preview, clearLog() { log = []; publish(); },
-    snapshot, publish, updateSettings, setMode, setPack, seedLegacy, editState,
+    snapshot, publish, updateSettings, setMode, setPack, seedLegacy, editState, rollDice,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },
   };

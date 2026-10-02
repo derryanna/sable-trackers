@@ -3,7 +3,7 @@ import { COMMON_RULES, getPromptTexts } from '../prompt.js';
 import { t } from '../i18n.js';
 import { FX_DEFAULTS, FX_RANGES, FX_SPEEDS, GROUP_IDS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
-import { BUILTIN_PACKS } from '../packs/index.js';
+import { BUILTIN_PACKS, packScopeOf } from '../packs/index.js';
 import { copyPack, exportPack, importPack } from '../packs/io.js';
 import { applyVisual, glyphNode, inkFor, packTitle, sectionGlyph } from './drawer.js';
 
@@ -677,7 +677,7 @@ export function createSettings(runtime, { document = globalThis.document,
       const defaults = runtime.snapshot().settings.packDefaults.filter(value => value !== id);
       runtime.updateSettings({ packDefaults: on ? [...defaults, id] : defaults });
     });
-    row.scope = options(node('select', 'text_pole'), ['all', 'user'], value => `scope.${value}`, row.labels); row.scope.name = 'packScope';
+    row.scope = options(node('select', 'text_pole'), ['all', 'user', 'others'], value => `scope.${value}`, row.labels); row.scope.name = 'packScope';
     row.scope.addEventListener('change', () => runtime.updateSettings({ packScope: { [id]: row.scope.value } }));
     const scopeRow = node('label', 'st-sable-settings-inline st-sable-pack-scope');
     scopeRow.append(bindRow(node('span', 'st-sable-settings-label'), 'packs.scope'), row.scope);
@@ -781,7 +781,7 @@ export function createSettings(runtime, { document = globalThis.document,
       row.description.textContent = pack.description ?? '';
       row.defaults.checked = view.settings.packDefaults.includes(pack.id);
       row.scopeRow.hidden = !pack.scope;
-      setValue(row.scope, view.settings.packScope?.[pack.id] === 'user' ? 'user' : 'all');
+      setValue(row.scope, packScopeOf(view.settings, pack));
       const raw = pack.builtin ? null : view.settings.packs.find(item => item.id === pack.id);
       if (raw) {
         setValue(row.inputs.title, raw.title); setValue(row.inputs.icon, raw.icon ?? '');
@@ -860,7 +860,7 @@ export function createSettings(runtime, { document = globalThis.document,
   const previewDump = node('pre', 'st-sable-dump st-sable-settings-wide'); previewDump.dataset.preview = '';
   button(previewActions, 'preview.show', 'eye', () => {
     const result = runtime.preview();
-    previewDump.textContent = result ? `${formatMessages(result.messages)}\n\n${label('previewSections')}: ${result.requestedSections.join(', ')} · ${label('previewChars')}: ${result.chars} · ≈ ${Math.ceil(result.chars / 4)} ${label('previewTokens')}` : label('previewEmpty');
+    previewDump.textContent = result ? `${formatMessages(result.messages)}${result.injection ? `\n\n${label('previewInjection')}:\n${result.injection}` : ''}\n\n${label('previewSections')}: ${result.requestedSections.join(', ')} · ${label('previewChars')}: ${result.chars} · ≈ ${Math.ceil(result.chars / 4)} ${label('previewTokens')}` : label('previewEmpty');
   });
   copyButton(previewActions, previewDump); danger.append(previewActions, previewDump);
   danger.append(text('h5', 'st-sable-settings-subheading', 'sub.log'));

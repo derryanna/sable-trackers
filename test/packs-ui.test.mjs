@@ -23,7 +23,7 @@ const packState = () => ({
   ],
   combat_effects: ['bleeding', `<b>stunned</b>`],
   combat_odds: [{ key: 'crit %', value: '15 (Guard; estimate)' }, { key: 'initiative', value: 'Guard' }],
-  combat_roll: '',
+  combat_roll: 'LAST ROLL: legacy result',
 });
 const userPack = () => ({ id: 'p_0123abcd', title: 'Resources', icon: '📦', description: 'Supplies', scope: false, rules: 'Resource rules.',
   sections: [{ key: 'stock', title: 'Stock', icon: 'fa-box', instructions: 'Stock.', shape: 'stats', max: 8, mode: 'inject', period: 1 },
@@ -36,15 +36,16 @@ function setup(t, { state = packState(), random = () => 0.86, settings = {} } = 
   fake.ctx.extensionSettings.sableTrackers = { ...fake.ctx.extensionSettings.sableTrackers, ...settings };
   fake.ctx.chatMetadata.sableTrackers = { ring: [{ mesId: 0, swipeId: 0, turn: 3, state: { world: { location: 'Gate' }, ...state } }],
     lastRun: { at: 1234567890000, ok: true, ms: 250, inTok: 123, outTok: 45 } };
-  const runtime = createRuntime(fake.getContext); runtime.start();
-  const calls = { packs: [], edits: [], patches: [] };
+  const runtime = createRuntime(fake.getContext, { random }); runtime.start();
+  const calls = { packs: [], edits: [], rolls: [], patches: [] };
   const wrapped = { ...runtime,
+    rollDice(id, key, chance) { calls.rolls.push([id, key, chance]); return runtime.rollDice(id, key, chance); },
     setPack(id, on) { calls.packs.push([id, on]); return runtime.setPack(id, on); },
     editState(id, value) { calls.edits.push([id, value]); return runtime.editState(id, value); },
     updateSettings(patch) { calls.patches.push(patch); runtime.updateSettings(patch); } };
   const toasts = [], previousToastr = globalThis.toastr;
   globalThis.toastr = Object.fromEntries(['success', 'warning', 'error', 'info'].map(type => [type, message => toasts.push([type, message])]));
-  const ui = createDrawer(wrapped, { document, random });
+  const ui = createDrawer(wrapped, { document });
   const settingsUi = createSettings(wrapped, { document, getContext: fake.getContext });
   t.after(() => { ui.dispose(); settingsUi.dispose(); runtime.dispose(); dom.window.close(); globalThis.toastr = previousToastr; });
   const query = selector => document.querySelector(selector);
@@ -110,13 +111,13 @@ test('sheet: the header button opens it, switches toggle packs per chat without 
   assert.equal(toggle().getAttribute('aria-checked'), 'true');
   assert.equal(document.activeElement, toggle(), 'focus survives the re-render');
   assert.equal(sheet().hidden, false);
-  for (const id of ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds', 'combat_roll']) assert.ok(card(id), `${id} card appears`);
-  assert.equal([...query('.st-sable-cards').children].at(-1).dataset.section, 'combat_roll', 'pack cards follow the existing ones');
+  for (const id of ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']) assert.ok(card(id), `${id} card appears`);
+  assert.equal([...query('.st-sable-cards').children].at(-1).dataset.section, 'combat_odds', 'pack cards follow the existing ones');
   assert.ok(card('combat_stats').querySelector('.st-sable-card-title .fa-heart-pulse'));
   assert.equal(card('combat_stats').querySelector('.st-sable-card-label').textContent, 'Показатели боя');
   const scope = row('combat').querySelector('[role="radiogroup"]');
   assert.ok(scope);
-  assert.deepEqual([...scope.querySelectorAll('[role="radio"]')].map(item => [item.textContent, item.getAttribute('aria-checked')]), [['все', 'true'], ['только я', 'false']]);
+  assert.deepEqual([...scope.querySelectorAll('[role="radio"]')].map(item => [item.textContent, item.getAttribute('aria-checked')]), [['все', 'true'], ['только я', 'false'], ['кроме меня', 'false']]);
   for (const option of scope.querySelectorAll('[role="radio"]')) assert.ok(parseFloat(computed(option).minHeight) >= 36);
   scope.querySelector('[data-scope="user"]').focus(); scope.querySelector('[data-scope="user"]').click();
   assert.deepEqual(calls.patches.at(-1), { packScope: { combat: 'user' } });
@@ -126,6 +127,10 @@ test('sheet: the header button opens it, switches toggle packs per chat without 
   const patches = calls.patches.length;
   row('combat').querySelector('[data-scope="user"]').click();
   assert.equal(calls.patches.length, patches, 'the checked option writes nothing');
+  row('combat').querySelector('[data-scope="others"]').click();
+  assert.deepEqual(calls.patches.at(-1), { packScope: { combat: 'others' } });
+  assert.equal(row('combat').querySelector('[data-scope="others"]').getAttribute('aria-checked'), 'true');
+  assert.equal(computed(row('combat').querySelector('.st-sable-segment')).flexWrap, 'wrap');
   assert.ok(query('.st-sable-status .st-sable-pack-chip'), 'status lists the enabled pack');
   assert.equal(query('.st-sable-status .st-sable-pack-chip').textContent, 'Бой');
   key(document.activeElement, 'Escape');
@@ -200,32 +205,73 @@ test('stats and tags render safely: bars, counters, units, delta badges with not
     assert.equal(die.getAttribute('aria-label'), 'Бросить d100');
   }
   assert.ok(!digest().includes('LAST ROLL'));
+  assert.equal(card('combat_roll'), null, 'legacy roll values never render');
   card('combat_odds').querySelector('.st-sable-dice').click();
-  assert.deepEqual(calls.edits, [['combat_roll', 'LAST ROLL: 87 vs crit 15 → miss']]);
-  assert.equal(runtime.snapshot().entry.state.combat_roll, 'LAST ROLL: 87 vs crit 15 → miss');
-  assert.ok(digest().includes('ПОСЛЕДНИЙ БРОСОК: LAST ROLL: 87 vs crit 15 → miss'), 'the roll is injected like any edit');
-  assert.equal(card('combat_roll').querySelector('p').textContent, 'LAST ROLL: 87 vs crit 15 → miss');
+  assert.deepEqual(calls.edits, []);
+  assert.deepEqual(calls.rolls, [['combat_odds', 'crit %', 15]]);
+  assert.equal(runtime.snapshot().store.roll.roll, 87);
+  assert.ok(digest().endsWith('ROLL: 87 vs crit 15 → miss (resolve the next action with it)'));
+  assert.equal(card('combat_odds').querySelector('[data-st-sable-roll="pending"]').textContent, '87 → промах');
   assert.equal(query('.st-sable-roll-note').textContent, 'Бросок: 87 vs crit 15 → промах');
   assert.equal(fake.calls.requests.length, 0, 'dice never call a model');
   [...card('combat_stats').querySelectorAll('.st-sable-dice')].at(-1).click();
-  assert.equal(runtime.snapshot().entry.state.combat_roll, 'LAST ROLL: 87 vs hit 60 → miss');
+  assert.equal(runtime.snapshot().store.roll.label, 'hit');
+  assert.equal(card('combat_stats').querySelector('[data-st-sable-roll="pending"]').textContent, '87 → промах');
   runtime.updateSettings({ language: 'en' });
   [...card('combat_stats').querySelectorAll('.st-sable-dice')][0].click();
-  assert.equal(runtime.snapshot().entry.state.combat_roll, `LAST ROLL: 87 vs ${XSS} 15 → miss`);
+  assert.equal(runtime.snapshot().store.roll.label, XSS);
   assert.equal(query('.st-sable-roll-note').textContent, `Roll: 87 vs ${XSS} 15 → miss`);
   assert.equal(ui.element.querySelector('img'), null);
-  // A pack without a <pack>_roll text section gets no dice; custom blocks never do.
+  // Any stats/kv percentage row gets dice, including user packs and custom blocks.
   runtime.updateSettings({ packs: [userPack()], customSections: [{ id: 'c_00000001', title: 'Odds', shape: 'kv' }] });
   runtime.setPack('p_0123abcd', true);
   runtime.editState('p_0123abcd_odds', [{ key: 'luck %', value: '50' }]);
   runtime.editState('p_0123abcd_stock', [{ key: 'ammo %', value: 50, max: 100 }]);
   runtime.editState('c_00000001', [{ key: 'luck %', value: '50' }]);
-  assert.equal(card('p_0123abcd_odds').querySelector('.st-sable-dice'), null);
-  assert.equal(card('p_0123abcd_stock').querySelector('.st-sable-dice'), null);
-  assert.equal(card('c_00000001').querySelector('.st-sable-dice'), null);
+  assert.ok(card('p_0123abcd_odds').querySelector('.st-sable-dice'));
+  assert.ok(card('p_0123abcd_stock').querySelector('.st-sable-dice'));
+  assert.ok(card('c_00000001').querySelector('.st-sable-dice'));
   assert.ok(card('p_0123abcd_stock').querySelector('[role="meter"]'));
   runtime.updateSettings({ visual: { icons: 'emoji' } });
   assert.equal(card('combat_odds').querySelector('.st-sable-dice').textContent, '🎲');
+});
+
+test('inline kv roll becomes dimmed after a reply and stays consumed across a swipe', async t => {
+  const { runtime, fake, card, digest, styled, button, sq } = setup(t, { settings: { language: 'en' } });
+  runtime.setPack('combat', true);
+  card('combat_odds').querySelector('.st-sable-dice').click();
+  const result = () => card('combat_odds').querySelector('[data-st-sable-roll]');
+  assert.equal(result().dataset.stSableRoll, 'pending');
+  assert.equal(result().textContent, '87 → miss');
+  assert.ok(result().previousElementSibling.classList.contains('st-sable-dice'));
+  button('[data-group="danger"]', 'Show prompt').click();
+  assert.ok(sq('[data-preview]').textContent.includes('ROLL: 87 vs crit 15 → miss (resolve the next action with it)'));
+  // Keep the side-model reply unresolved to verify consumption immediately on receipt.
+  let resolve;
+  fake.respond(() => new Promise(done => { resolve = done; }));
+  const id = fake.add(); await fake.emit('MESSAGE_RECEIVED', id);
+  assert.equal(result().dataset.stSableRoll, 'done');
+  assert.equal(result().textContent, '87 → miss');
+  assert.equal(styled()(result()).opacity, '0.5');
+  assert.ok(!digest().includes('ROLL:'));
+  resolve(JSON.stringify(packState())); await runtime.idle();
+  fake.respond(JSON.stringify(packState()));
+  fake.ctx.chat[id].swipe_id = 1;
+  await fake.emit('MESSAGE_SWIPED', id); await fake.emit('MESSAGE_RECEIVED', id, 'swipe'); await runtime.idle();
+  assert.equal(result().dataset.stSableRoll, 'done');
+  assert.ok(!digest().includes('ROLL:'));
+  card('combat_odds').querySelector('.st-sable-dice').click();
+  assert.equal(result().dataset.stSableRoll, 'pending');
+  assert.equal(runtime.snapshot().store.roll.forMesId, id);
+});
+
+test('intimacy sheet starts with others checked and retains all three localized choices', t => {
+  const { runtime, row, query } = setup(t);
+  runtime.setPack('intimacy', true); query('[data-control="packs"]').click();
+  assert.equal(row('intimacy').querySelector('[data-scope="others"]').getAttribute('aria-checked'), 'true');
+  assert.deepEqual([...row('intimacy').querySelectorAll('[role="radio"]')].map(item => item.textContent), ['все', 'только я', 'кроме меня']);
+  runtime.updateSettings({ language: 'en' });
+  assert.deepEqual([...row('intimacy').querySelectorAll('[role="radio"]')].map(item => item.textContent), ['all', 'only me', 'everyone but me']);
 });
 
 test('pack cards fold, hide when off, reorder from the keyboard, take card colours and open the editor', t => {
@@ -245,9 +291,9 @@ test('pack cards fold, hide when off, reorder from the keyboard, take card colou
   key(handle, 'ArrowUp');
   const order = runtime.snapshot().settings.order;
   assert.ok(order.indexOf('combat_stats') < order.indexOf('combat_scene'), 'pack order persists in settings.order');
-  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section).slice(-5), ['combat_stats', 'combat_scene', 'combat_effects', 'combat_odds', 'combat_roll']);
+  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section).slice(-4), ['combat_stats', 'combat_scene', 'combat_effects', 'combat_odds']);
   runtime.setPack('combat', false); runtime.setPack('combat', true);
-  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section).slice(-2), ['combat_odds', 'combat_roll']);
+  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section).slice(-2), ['combat_effects', 'combat_odds']);
   assert.equal([...query('.st-sable-cards').children].map(item => item.dataset.section).indexOf('combat_stats'), 10, 'explicit positions survive a toggle');
   runtime.updateSettings({ visual: { cardColors: { combat_stats: '#abcdef' } } });
   assert.equal(card('combat_stats').style.getPropertyValue('--st-sable-accent'), '#abcdef');
@@ -286,7 +332,7 @@ test('settings: the Packs group folds, lists packs with defaults, scope and copi
   assert.equal(combat.querySelector('.st-sable-adult').hidden, true);
   assert.equal(intimacy.querySelector('.st-sable-custom-name').textContent, 'Intimacy');
   assert.equal(intimacy.querySelector('.st-sable-adult').hidden, false);
-  assert.equal(intimacy.querySelector('.st-sable-pack-desc').textContent, 'Tracks established adult scenes (18+), arousal, stamina, counters and marks; the extension rolls or decides nothing except local dice results.');
+  assert.equal(intimacy.querySelector('.st-sable-pack-desc').textContent, 'Tracks established adult scenes (18+), arousal, stamina, counters and marks.');
   assert.equal(combat.querySelector('[name="packs.default"]').parentElement.textContent, 'On in new chats');
   assert.equal(combat.querySelector('[name="packs.default"]').checked, false);
   change('[data-pack="combat"] [name="packs.default"]', true);
@@ -297,9 +343,13 @@ test('settings: the Packs group folds, lists packs with defaults, scope and copi
   assert.deepEqual(runtime.snapshot().settings.packDefaults, ['intimacy']);
   assert.equal(combat.querySelector('[name="packs.default"]').checked, false);
   assert.equal(fake.calls.requests.length, 0);
-  assert.deepEqual([...combat.querySelector('[name="packScope"]').options].map(o => o.textContent), ['all', 'only me']);
+  assert.deepEqual([...combat.querySelector('[name="packScope"]').options].map(o => o.textContent), ['all', 'only me', 'everyone but me']);
+  assert.equal(intimacy.querySelector('[name="packScope"]').value, 'others');
   change('[data-pack="combat"] [name="packScope"]', 'user');
   assert.deepEqual(calls.patches.at(-1), { packScope: { combat: 'user' } });
+  change('[data-pack="combat"] [name="packScope"]', 'others');
+  assert.deepEqual(calls.patches.at(-1), { packScope: { combat: 'others' } });
+  assert.equal(runtime.snapshot().settings.packScope.combat, 'others');
   assert.equal(combat.querySelector('[name="title"]'), null, 'built-ins have no editor');
   // Make a copy: a p_ pack with literal titles that opens for editing.
   button('[data-pack="combat"]', 'Make a copy').click();
@@ -397,7 +447,7 @@ test('settings: the user-pack editor writes the whole packs array; cards reuse t
   change(scoped('[name="rules"]'), 'Count only shown items.');
   change(scoped('[name="pack.scope"]'), true);
   const pack = runtime.snapshot().settings.packs[0];
-  assert.deepEqual({ ...pack, sections: null }, { id, title: 'Supplies <b>x</b>', icon: 'fa-box', description: 'What the party carries', rules: 'Count only shown items.', scope: true, sections: null });
+  assert.deepEqual({ ...pack, sections: null }, { id, title: 'Supplies <b>x</b>', icon: 'fa-box', description: 'What the party carries', rules: 'Count only shown items.', scope: true, scopeDefault: 'all', sections: null });
   assert.ok(calls.patches.slice(-5).every(patch => Array.isArray(patch.packs) && patch.packs.length === 1), 'the whole array on every write');
   assert.equal(row().querySelector('.st-sable-custom-name').textContent, 'Supplies <b>x</b>');
   assert.equal(row().querySelector('b'), null);
@@ -444,7 +494,7 @@ test('settings: the user-pack editor writes the whole packs array; cards reuse t
   button('[data-group="packs"]', 'Add pack').click();
   const added = runtime.snapshot().settings.packs[1];
   assert.match(added.id, /^p_[0-9a-f]{8}$/);
-  assert.deepEqual({ ...added, id: 'x' }, { id: 'x', title: 'New pack', icon: '🎒', description: '', rules: '', scope: false,
+  assert.deepEqual({ ...added, id: 'x' }, { id: 'x', title: 'New pack', icon: '🎒', description: '', rules: '', scope: false, scopeDefault: 'all',
     sections: [{ key: 'card', title: 'New block', icon: '📌', instructions: '', shape: 'list', max: 8, mode: 'show', period: 1 }] });
   assert.equal(sq(`[data-pack="${added.id}"]`).open, true);
   assert.equal(dom.window.document.activeElement, sq(`[data-pack="${added.id}"] [name="title"]`));

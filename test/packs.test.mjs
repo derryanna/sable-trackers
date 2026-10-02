@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { SECTIONS, getSections, getAllSections, isPackSectionId } from '../src/sections.js';
-import { BUILTIN_PACKS, getPacks, normalizePacks, packSections } from '../src/packs/index.js';
+import { BUILTIN_PACKS, getPacks, normalizePacks, packSections, packScopeOf } from '../src/packs/index.js';
 import { copyPack, exportPack, importPack } from '../src/packs/io.js';
 import { roll, formatRoll } from '../src/packs/dice.js';
 import { sanitizeSection, parseStateOutput } from '../src/parse.js';
@@ -42,11 +42,12 @@ test('final built-in content is bounded, localized and keeps the adult and scope
 });
 
 test('final pack prompts expand every scope and place due rules after common rules', () => {
-  for (const choice of ['all', 'user']) {
+  for (const choice of ['all', 'user', 'others']) {
     const settings = { language: 'en', packScope: { combat: choice, intimacy: choice } };
     const sections = getSections(settings, ['combat', 'intimacy']);
     const sentence = choice === 'all' ? 'Track every participant present in the scene.'
-      : "Track only the user's character, Traveller; other participants are not tracked.";
+      : choice === 'user' ? "Track only the user's character, Traveller; other participants are not tracked."
+        : "Track every participant except the user's character, Traveller; never record or imply the user's own state, feelings or responses.";
     const expand = text => text.replaceAll('{{scope}}', sentence);
     const system = buildPrompt({ settings, sections, packs: BUILTIN_PACKS, name1: 'Traveller' }).messages[0].content;
     assert.ok(system.startsWith([COMMON_RULES, ...BUILTIN_PACKS.map(p => expand(p.rules))].join('\n\n') + '\nWrite'));
@@ -77,7 +78,6 @@ COMBAT SCENE: Guard vs Traveller; paused sparring; level training yard; two pace
 COMBAT STATS: Guard · HP 88/100 (−12 described hit) · Guard · stamina 70/100 · Traveller · HP 100/100 · Traveller · stamina 85/120 (+5 rest)
 COMBAT EFFECTS: Guard · bruised arm · Traveller · winded
 COMBAT ODDS: crit %: 15 (Guard; estimate) · hit %: 60 (Guard; estimate) · initiative: Traveller first (estimate)
-LAST ROLL: LAST ROLL: 87 vs crit 15 → miss
 INTIMACY SCENE: Guard (adult, 30) and Traveller (adult, 32); seated side by side; paused; neither leads; both explicitly agree to closeness.
 AROUSAL: Guard · arousal 20/100 · Guard · stamina 70/100 · Traveller · arousal 15/100 · Traveller · stamina 85/120
 COUNTERS: Guard · climaxes 0 (explicit zero) · Traveller · minutes 5 min (+5 stated duration) · Traveller · volume 0 ml (explicit zero)
@@ -93,15 +93,15 @@ test('packs registry preserves the default list and appends enabled packs in reg
   assert.equal(normal.length, SECTIONS.length + 1);
   assert.deepEqual(getSections(settings, ['missing']), normal);
   const combat = getSections(settings, ['combat', 'combat']);
-  assert.deepEqual(combat.slice(normal.length).map(s => s.id), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds', 'combat_roll']);
+  assert.deepEqual(combat.slice(normal.length).map(s => s.id), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']);
   assert.equal(combat.at(-1).custom, true); assert.equal(combat.at(-1).pack, 'combat');
   assert.deepEqual(getSections(settings, ['intimacy', 'combat']).slice(normal.length).map(s => s.id), all.slice(SECTIONS.length).map(s => s.id));
-  assert.equal(getAllSections(settings).length, normal.length + 10);
+  assert.equal(getAllSections(settings).length, normal.length + 9);
   assert.ok(isPackSectionId('p_0123abcd_stock', settings));
   assert.ok(!isPackSectionId('p_deadbeef_stock', settings));
   assert.ok(!isPackSectionId('combat_unknown', settings));
   assert.deepEqual(all.slice(SECTIONS.length).map(s => [s.id, s.shape, s.schema.max]), [
-    ['combat_scene', 'text', 600], ['combat_stats', 'stats', 12], ['combat_effects', 'tags', 10], ['combat_odds', 'kv', 6], ['combat_roll', 'text', 600],
+    ['combat_scene', 'text', 600], ['combat_stats', 'stats', 12], ['combat_effects', 'tags', 10], ['combat_odds', 'kv', 6],
     ['intimacy_scene', 'text', 600], ['intimacy_arousal', 'stats', 8], ['intimacy_counters', 'stats', 8], ['intimacy_marks', 'tags', 10],
   ]);
   for (const p of BUILTIN_PACKS) {
@@ -109,7 +109,7 @@ test('packs registry preserves the default list and appends enabled packs in reg
     for (const lang of ['ru', 'en']) for (const key of [p.title, p.description, ...p.sections.map(s => s.title)]) assert.notEqual(t(key, lang), key);
     assert.ok(p.sections.every(s => s.mode === 'inject' && s.period === 1));
   }
-  assert.match(BUILTIN_PACKS[0].sections.at(-1).instructions, /unchanged/);
+  assert.ok(!all.some(s => s.id === 'combat_roll'));
   assert.match(BUILTIN_PACKS[1].rules, /established adult.*empty values/);
   assert.match(BUILTIN_PACKS[1].sections[2].instructions, /max: null/);
 });
@@ -311,16 +311,140 @@ test('pack IO resolves copies, round-trips and regenerates colliding ids without
 
 test('refresh preserves cached disabled pack values when replacing the current ring entry', async t => {
   const fake = createFakeST(), runtime = createRuntime(fake.getContext); t.after(() => runtime.dispose()); fake.add();
-  runtime.setPack('combat', true); runtime.editState('combat_roll', 'Stored roll'); runtime.setPack('combat', false);
+  runtime.setPack('combat', true); runtime.editState('combat_scene', 'Stored scene'); runtime.setPack('combat', false);
   await runtime.refresh();
-  assert.equal(runtime.snapshot().entry.state.combat_roll, 'Stored roll');
-  assert.ok(!fake.calls.prompts.at(-1)[1].includes('Stored roll'));
-  runtime.setPack('combat', true); assert.ok(fake.calls.prompts.at(-1)[1].includes('Stored roll'));
+  assert.equal(runtime.snapshot().entry.state.combat_scene, 'Stored scene');
+  assert.ok(!fake.calls.prompts.at(-1)[1].includes('Stored scene'));
+  runtime.setPack('combat', true); assert.ok(fake.calls.prompts.at(-1)[1].includes('Stored scene'));
 });
 
 test('local dice use injectable randomness and canonical hit/miss lines', () => {
   assert.deepEqual(roll(15, () => 0.86), { roll: 87, chance: 15, hit: false });
-  assert.equal(formatRoll(roll(15, () => 0.86), 'crit'), 'LAST ROLL: 87 vs crit 15 → miss');
-  assert.equal(formatRoll(roll(15, () => 0.14), 'crit'), 'LAST ROLL: 15 vs crit 15 → hit');
+  assert.equal(formatRoll(roll(15, () => 0.86), 'crit'), 'ROLL: 87 vs crit 15 → miss (resolve the next action with it)');
+  assert.equal(formatRoll(roll(15, () => 0.14), 'crit'), 'ROLL: 15 vs crit 15 → hit (resolve the next action with it)');
   assert.equal(roll(0, () => 0).roll, 1); assert.equal(roll(100, () => 0.99999).roll, 100);
+});
+
+test('scope defaults, overrides and normalization retain exactly the three choices', () => {
+  const [combat, intimacy] = BUILTIN_PACKS;
+  assert.equal(packScopeOf({}, combat), 'all'); assert.equal(packScopeOf({}, intimacy), 'others');
+  for (const choice of ['all', 'user', 'others']) {
+    const pack = normalizePacks([{ ...userPack(), scopeDefault: choice }])[0];
+    assert.equal(packScopeOf({}, pack), choice);
+    assert.equal(copyPack(pack).scopeDefault, choice);
+    const settings = normalizeSettings({ packs: [pack], packScope: { combat: choice, intimacy: 'bad', [pack.id]: choice, missing: choice } });
+    assert.deepEqual(settings.packScope, { combat: choice, [pack.id]: choice });
+    assert.deepEqual(normalizeSettings(settings), settings);
+    assert.equal(packScopeOf(settings, combat), choice);
+    const prompt = buildPrompt({ settings, sections: getAllSections(settings), packs: getPacks(settings), userName: '$& Player' }).messages[0].content;
+    assert.ok(prompt.includes("Track every participant except the user's character, $& Player; never record or imply the user's own state, feelings or responses."));
+    assert.ok(!prompt.includes('{{scope}}'));
+  }
+  assert.equal(normalizePacks([userPack()])[0].scopeDefault, 'all');
+  assert.equal(normalizePacks([{ ...userPack(), scopeDefault: 'bad' }])[0].scopeDefault, 'all');
+  const settings = normalizeSettings({});
+  const prompt = buildPrompt({ settings, sections: getAllSections(settings), packs: BUILTIN_PACKS, userName: 'Player' }).messages[0].content;
+  assert.match(prompt, /COMBAT_STATS: Track every participant present in the scene\./);
+  assert.match(prompt, /INTIMACY_AROUSAL: .*Track every participant except the user's character, Player;/);
+});
+
+test('rollDice validates, clamps, persists and publishes independently of section state', async t => {
+  const fake = createFakeST(), runtime = createRuntime(fake.getContext, { random: () => .86 });
+  t.after(() => runtime.dispose()); runtime.start();
+  runtime.setPack('combat', true);
+  assert.equal(Object.hasOwn(runtime.snapshot().store, 'roll'), false);
+  assert.equal(runtime.rollDice('combat_odds', 'crit %', 15), false, 'no character message');
+  fake.add(); fake.add('User turn', { is_user: true });
+  for (const [id, key, chance] of [['missing', 'crit %', 15], ['combat_scene', 'crit %', 15],
+    ['combat_roll', 'crit %', 15], ['combat_odds', '', 15], ['combat_odds', null, 15],
+    ...[NaN, Infinity, -Infinity, '15', null].map(chance => ['combat_odds', 'crit %', chance])]) {
+    assert.equal(runtime.rollDice(id, key, chance), false);
+  }
+  let published;
+  const unsubscribe = runtime.subscribe(view => { published = view.store.roll; }); t.after(unsubscribe);
+  const messages = structuredClone(fake.ctx.chat), result = runtime.rollDice('combat_odds', 'crit %', 15);
+  assert.deepEqual(result, { sectionId: 'combat_odds', key: 'crit %', label: 'crit', chance: 15, roll: 87, hit: false, forMesId: 0, at: result.at });
+  assert.ok(Number.isFinite(result.at)); assert.equal(published, result);
+  assert.equal(runtime.snapshot().entry, undefined, 'a roll creates no ring entry');
+  const line = 'ROLL: 87 vs crit 15 → miss (resolve the next action with it)';
+  assert.ok(fake.calls.prompts.at(-1)[1].endsWith(line), 'roll injects even before any section state exists');
+  const metadata = JSON.stringify(fake.ctx.chatMetadata), publishes = fake.calls.prompts.length;
+  assert.equal(runtime.preview().injection, fake.calls.prompts.at(-1)[1]);
+  assert.equal(JSON.stringify(fake.ctx.chatMetadata), metadata); assert.equal(fake.calls.prompts.length, publishes);
+  assert.ok(!JSON.stringify(runtime.preview().messages).includes('ROLL:'), 'side-model request contains no roll field');
+  assert.deepEqual(fake.ctx.chat, messages); assert.equal(fake.calls.requests.length, 0);
+  await Promise.resolve(); assert.ok(fake.calls.metadata.length > 0);
+  runtime.editState('combat_scene', 'Edited scene'); await runtime.refresh();
+  assert.deepEqual(runtime.snapshot().store.roll, result, 'edits and refreshes leave the pending roll alone');
+  assert.equal(runtime.rollDice('combat_stats', 'chance %', 200).chance, 100);
+  assert.equal(runtime.rollDice('combat_stats', 'chance %', -20).chance, 0);
+  runtime.setPack('combat', false);
+  assert.equal(runtime.rollDice('combat_stats', 'chance %', 50), false, 'disabled pack is outside the current section list');
+  runtime.updateSettings({ customSections: [{ id: 'c_00000001', title: 'Chance', shape: 'kv' }] });
+  assert.equal(runtime.rollDice('c_00000001', 'luck %', 50).sectionId, 'c_00000001');
+});
+
+test('reply consumption survives swipes, deletions and chat switches without replaying a roll', async t => {
+  const fake = createFakeST(), runtime = createRuntime(fake.getContext, { random: () => .1 });
+  t.after(() => runtime.dispose()); runtime.start();
+  runtime.updateSettings({ enabled: false }); // Consumption must not depend on a side-model run.
+  fake.add(); fake.add(); const forMesId = fake.add();
+  runtime.setPack('combat', true); runtime.rollDice('combat_odds', 'crit %', 15);
+  const pending = structuredClone(runtime.snapshot().store.roll);
+  await fake.emit('MESSAGE_RECEIVED', forMesId, 'continue');
+  await fake.emit('MESSAGE_RECEIVED', fake.add('User', { is_user: true }));
+  await fake.emit('MESSAGE_RECEIVED', fake.add('System', { is_system: true }));
+  assert.deepEqual(runtime.snapshot().store.roll, pending);
+  runtime.updateSettings({ enabled: true });
+  const reply = fake.add();
+  await fake.emit('MESSAGE_RECEIVED', reply, 'normal');
+  assert.ok(!fake.calls.prompts.at(-1)[1].includes('ROLL:'));
+  await runtime.idle();
+  const consumed = structuredClone(runtime.snapshot().store.roll);
+  assert.deepEqual(consumed, { ...pending, consumedAt: consumed.consumedAt });
+  assert.ok(Number.isFinite(consumed.consumedAt));
+  fake.ctx.chat[reply].swipe_id = 1;
+  await fake.emit('MESSAGE_SWIPED', reply); await fake.emit('MESSAGE_RECEIVED', reply, 'swipe'); await runtime.idle();
+  fake.ctx.chat[reply].swipe_id = 0;
+  await fake.emit('MESSAGE_SWIPED', reply); await fake.emit('MESSAGE_RECEIVED', reply, 'swipe'); await runtime.idle();
+  assert.deepEqual(runtime.snapshot().store.roll, consumed);
+  assert.ok(!runtime.preview().injection.includes('ROLL:'));
+  fake.ctx.chat.length = reply; await fake.emit('MESSAGE_DELETED', reply);
+  assert.deepEqual(runtime.snapshot().store.roll, consumed, 'deleting only the consuming reply does not rearm it');
+  const chatA = fake.ctx.chatMetadata;
+  fake.ctx.chatMetadata = {}; fake.ctx.chatId = 'chat-b'; await fake.emit('CHAT_CHANGED');
+  assert.equal(Object.hasOwn(runtime.snapshot().store, 'roll'), false);
+  runtime.setPack('combat', true); runtime.rollDice('combat_odds', 'hit %', 80);
+  const chatB = fake.ctx.chatMetadata;
+  fake.ctx.chatMetadata = chatA; fake.ctx.chatId = 'chat-a'; await fake.emit('CHAT_CHANGED');
+  assert.deepEqual(runtime.snapshot().store.roll, consumed);
+  fake.ctx.chat.length = forMesId - 1; await fake.emit('MESSAGE_DELETED', fake.ctx.chat.length);
+  assert.equal(Object.hasOwn(runtime.snapshot().store, 'roll'), false);
+  fake.ctx.chatMetadata = chatB; fake.ctx.chatId = 'chat-b'; await fake.emit('CHAT_CHANGED');
+  assert.equal(runtime.snapshot().store.roll.label, 'hit');
+  assert.ok(fake.calls.prompts.at(-1)[1].includes('ROLL:'));
+});
+
+test('digest ignores legacy roll sections and budgets the pending roll as its last line', () => {
+  const result = { ...roll(15, () => .86), label: 'crit' };
+  const state = { combat_scene: 'x'.repeat(6000), combat_roll: 'LEGACY ROLL MUST NOT APPEAR' };
+  const line = formatRoll(result, result.label);
+  for (const maxChars of [200, 6000]) {
+    const digest = buildDigest(state, {}, { sections: all, roll: result, maxChars });
+    assert.ok(digest.endsWith('\n' + line)); assert.ok(digest.length <= maxChars);
+    assert.ok(!digest.includes('LEGACY'));
+  }
+  assert.ok(!buildDigest(state, {}, { sections: all, roll: { ...result, consumedAt: 0 } }).includes('ROLL:'));
+});
+
+test('received replies consume rolls even when generation is disabled or no profile exists', async t => {
+  const fake = createFakeST(), runtime = createRuntime(fake.getContext, { random: () => .1 });
+  t.after(() => runtime.dispose()); runtime.start(); fake.add(); runtime.setPack('combat', true);
+  for (const settings of [{ enabled: false }, { enabled: true, profileId: '' }]) {
+    runtime.updateSettings(settings); runtime.rollDice('combat_odds', 'hit %', 60);
+    await fake.emit('MESSAGE_RECEIVED', fake.add());
+    assert.ok(Number.isFinite(runtime.snapshot().store.roll.consumedAt));
+    assert.ok(!fake.calls.prompts.at(-1)[1].includes('ROLL:'));
+  }
+  assert.equal(fake.calls.requests.length, 0);
 });

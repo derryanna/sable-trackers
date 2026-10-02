@@ -5,16 +5,15 @@ const section = (pack, key, shape, icon, instructions, max = 8) => ({ key, title
 const adult = 'Every participant must be an established adult; otherwise return empty values. Invent nothing. ';
 
 export const BUILTIN_PACKS = Object.freeze([
-  { id: 'combat', builtin: true, title: 'pack.combat.title', description: 'pack.combat.desc', icon: 'fa-hand-fist', scope: true,
+  { id: 'combat', builtin: true, title: 'pack.combat.title', description: 'pack.combat.desc', icon: 'fa-hand-fist', scope: true, scopeDefault: 'all',
     rules: '{{scope}} Record established combat facts only; unknown stays unknown. Apply no damage without a described hit. Move numbers only for shown events, never for a new reply alone. Record death only when written; zero HP does not establish death. Never resolve an attack the text has not resolved. Estimates of odds do not establish hits or outcomes; only the local dice writes a roll, and a roll does not establish damage.',
     sections: [
       section('combat', 'scene', 'text', 'fa-crosshairs', 'Record who fights whom, the current phase, terrain and range in compact text. Use only established facts; leave unknown details out. Preserve the last known situation until the text changes it. Do not invent opponents, movement or an outcome for an unresolved attack.'),
       section('combat', 'stats', 'stats', 'fa-heart-pulse', '{{scope}} Use stable keys Name · HP and Name · stamina per participant. Choose each max once from canon, or 100 when canon gives no maximum, then keep it unchanged. Use integer values from 0 to max; omit an unknown value rather than assume full health or stamina. Preserve previous values unless a shown hit, exertion, rest or healing changes them; HP loss requires a described hit. Use explicit amounts when given; otherwise estimate conservatively from the described event and identify the estimate in note. Never invent damage, recovery or death; never reset values on a new reply. Keep note short and tied to the event; do not write delta.', 12),
       section('combat', 'effects', 'tags', 'fa-bandage', '{{scope}} Keep short participant-labelled tags for wounds and conditions actually described. Preserve them until the text establishes a change or recovery. Do not infer bleeding, unconsciousness or death from HP, odds or a roll; invent no wound or condition.', 10),
       section('combat', 'odds', 'kv', 'fa-percent', '{{scope}} Record crit %, hit % and initiative for the tracked participants, identifying whose attack or turn each entry concerns. Use explicit canon values when available; otherwise give honest estimates grounded in established skill, range, terrain and current conditions, labelled as estimates in the value. Keep percentages within 0–100; omit entries without a basis. Keep estimates stable unless the established scene changes their basis. Never invent skills, roll dice or resolve an attack; initiative estimates do not make anyone act.', 6),
-      section('combat', 'roll', 'text', 'fa-dice', 'Copy the previous value unchanged; only the local dice writes this field. Return an empty string when no previous value exists. Never generate, translate, reinterpret or replace a roll, and never treat it as a described hit or damage.'),
     ] },
-  { id: 'intimacy', builtin: true, title: 'pack.intimacy.title', description: 'pack.intimacy.desc', icon: 'fa-heart', scope: true,
+  { id: 'intimacy', builtin: true, title: 'pack.intimacy.title', description: 'pack.intimacy.desc', icon: 'fa-heart', scope: true, scopeDefault: 'others',
     rules: adult + '{{scope}} Check adulthood for every participant in the scene, including those outside the tracking scope; never infer age from appearance or context. If any participant is not an established adult, return an empty string for scene and empty arrays for arousal, counters and marks, even if previous values exist. Track only established facts and move numbers only for shown events. Never infer consent from arousal, silence or prior consent; do not invent actions, feelings or outcomes.',
     sections: [
       section('intimacy', 'scene', 'text', 'fa-heart', adult + 'Return an empty string if the adult guard fails for anyone in the scene. Record only established position, pace, who leads and consent state in compact text. Leave unknown details unknown; never infer consent from arousal, silence or earlier consent. Preserve explicit changes, pauses and withdrawal of consent without continuing the scene.'),
@@ -52,9 +51,14 @@ export function normalizePacks(value) {
     if (!sections.length) continue;
     used.add(pack.id);
     packs.push({ id: pack.id, title: text(pack.title, 60), icon: icon(pack.icon), description: text(pack.description, 300),
-      rules: text(pack.rules, 2000), scope: pack.scope === true, sections });
+      rules: text(pack.rules, 2000), scope: pack.scope === true, scopeDefault: ['all', 'user', 'others'].includes(pack.scopeDefault) ? pack.scopeDefault : 'all', sections });
   }
   return packs;
+}
+
+export function packScopeOf(settings, pack) {
+  const value = settings?.packScope?.[pack?.id];
+  return ['all', 'user', 'others'].includes(value) ? value : pack?.scopeDefault ?? 'all';
 }
 
 export function getPacks(settings = {}) { return [...BUILTIN_PACKS, ...normalizePacks(settings.packs)]; }

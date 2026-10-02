@@ -12,7 +12,6 @@
     { "key": "hit %", "value": "60 (Guard; estimate)" },
     { "key": "initiative", "value": "Traveller first (estimate)" }
   ],
-  "combat_roll": "LAST ROLL: 87 vs crit 15 → miss",
   "intimacy_scene": "Guard (adult, 30) and Traveller (adult, 32); seated side by side; paused; neither leads; both explicitly agree to closeness.",
   "intimacy_arousal": [
     { "key": "Guard · arousal", "value": 20, "max": 100, "unit": "", "note": "" },

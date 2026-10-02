@@ -566,15 +566,13 @@
 .st-sable-switch[aria-checked="true"] > .st-sable-switch-knob { translate: 18px 0; background: rgb(var(--st-sable-accent-ink-rgb, 0,0,0)); }
 .st-sable-drawer[data-st-sable-chip="outline"] .st-sable-switch[aria-checked="true"]::before { background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 28%, transparent); border-color: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); }
 .st-sable-drawer[data-st-sable-chip="outline"] .st-sable-switch[aria-checked="true"] > .st-sable-switch-knob { background: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); }
-/* Scope toggle: two radio buttons in one pill, the checked one filled like the «inject» chip. */
-.st-sable-segment { display: flex; align-items: center; gap: 8px; margin: 2px 0 0 calc(1.6em + 10px); font-size: calc(var(--st-sable-fs) - 1px); }
+/* Scope toggle: wrapping radio buttons, the checked one filled like the «inject» chip. */
+.st-sable-segment { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 0 calc(1.6em + 10px); font-size: calc(var(--st-sable-fs) - 1px); }
 .st-sable-segment-label { flex: 1 1 auto; opacity: .62; }
 .st-sable-segment-option {
-  flex: none; min-width: 44px; min-height: 36px; padding: 0 12px; color: inherit; font: inherit; font-size: calc(var(--st-sable-fs) - 1.5px); font-weight: 600; cursor: pointer;
+  flex: none; max-width: 100%; min-width: 44px; min-height: 36px; padding: 0 12px; border-radius: 999px; color: inherit; font: inherit; font-size: calc(var(--st-sable-fs) - 1.5px); font-weight: 600; cursor: pointer;
   background: transparent; border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .22); -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent;
 }
-.st-sable-segment-option:first-of-type { border-radius: 999px 0 0 999px; }
-.st-sable-segment-option:last-of-type { border-radius: 0 999px 999px 0; margin-left: -1px; }
 .st-sable-segment-option[aria-checked="true"] { color: rgb(var(--st-sable-accent-ink-rgb, 0,0,0)); background: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .45); }
 .st-sable-drawer[data-st-sable-chip="outline"] .st-sable-segment-option[aria-checked="true"] { color: inherit; border-color: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 18%, transparent); }
 /* Status line: enabled packs as small chips after the run summary; the roll note replaces nothing and fades with the rest. */
@@ -592,8 +590,12 @@
 .st-sable-drawer details.st-sable-scale > .st-sable-stat-row + .st-sable-reason { margin-left: calc(4em + 6px); }
 .st-sable-dice { width: 36px; height: 36px; min-width: 36px; min-height: 36px; margin: -6px 0; padding: 0; border: 0; border-radius: 10px; background: transparent; font-size: 14px; opacity: .8; }
 .st-sable-dice:hover, .st-sable-dice:focus-visible { opacity: 1; background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 18%, transparent); }
-.st-sable-kv-dice { display: flex; align-items: center; gap: 4px; }
-.st-sable-kv-dice > .st-sable-dice { margin: -8px 0; }
+.st-sable-dice-row { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
+.st-sable-roll-result { overflow-wrap: anywhere; }
+.st-sable-roll-result[data-st-sable-roll="pending"] { color: var(--st-sable-accent, inherit); font-weight: 700; }
+.st-sable-roll-result[data-st-sable-roll="done"] { opacity: .5; }
+.st-sable-kv-dice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.st-sable-kv-dice .st-sable-dice { margin: -8px 0; }
 @media (max-width: 379px) { .st-sable-stat-row { grid-template-columns: minmax(3.5em, 6em) minmax(20px, 1fr) auto auto auto; } }
 /* Packs settings group: the list reuses the custom-block rows; the summary adds the badge and a one-line description. */
 .st-sable-pack > .st-sable-custom-summary { flex-wrap: wrap; row-gap: 0; }
@@ -694,7 +696,7 @@
 @keyframes st-sable-spin { to { transform: rotate(360deg); } }
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="dice"] .st-sable-dice.st-sable-rolling > * { animation: st-sable-spin 400ms ease-in-out var(--st-sable-roll-delay, 0ms); }
 @keyframes st-sable-rolled { 0% { opacity: .15; } 50% { opacity: 1; } 75% { opacity: .5; } 100% { opacity: 1; } }
-.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="dice"] .st-sable-line[data-st-sable-rolled] { animation: st-sable-rolled 400ms ease-out; }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="dice"] .st-sable-roll-result[data-st-sable-rolled] { animation: st-sable-rolled 400ms ease-out; }
 @keyframes st-sable-crit { 40% { box-shadow: 0 0 30px 8px rgba(var(--st-sable-glow-rgb, var(--st-sable-ink-rgb, 245,244,238)), .9); } }
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="dice"] .st-sable-card[data-st-sable-crit] { animation: st-sable-crit 700ms ease-out; }
 /* Card glow: the glow pulse replaces the accent flash on a changed card, and the reply panel's changed bars pulse too. */

@@ -5,5 +5,5 @@ export function roll(chance, random = Math.random) {
 
 // Canonical state text, not a UI label.
 export function formatRoll(result, label) {
-  return `LAST ROLL: ${result.roll} vs ${label} ${result.chance} → ${result.hit ? 'hit' : 'miss'}`;
+  return `ROLL: ${result.roll} vs ${label} ${result.chance} → ${result.hit ? 'hit' : 'miss'} (resolve the next action with it)`;
 }

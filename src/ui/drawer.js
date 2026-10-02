@@ -2,7 +2,7 @@ import { getSections, orderedSectionIds, BOND_SCALES } from '../sections.js';
 import { t } from '../i18n.js';
 import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
 import { sanitizeSection } from '../parse.js';
-import { roll, formatRoll } from '../packs/dice.js';
+import { packScopeOf } from '../packs/index.js';
 
 export function displayNode(document, view, tag, className, text) {
   const element = document.createElement(tag);
@@ -161,13 +161,9 @@ export function packTitle(title) {
   return { adult, text: (adult ? text.replace(/\s*\(?18\+\)?/, '').trim() : text) || text };
 }
 
-/** d100 randomness for the dice: crypto when available, never Math.random in the browser. */
-const cryptoRandom = (crypto = globalThis.crypto) => () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
-
 /** DOM-only view. Model text is never parsed as HTML. */
-export function createDrawer(runtime, { document = globalThis.document, onSettings, random } = {}) {
+export function createDrawer(runtime, { document = globalThis.document, onSettings } = {}) {
   const win = document.defaultView;
-  random ??= cryptoRandom(win?.crypto ?? globalThis.crypto);
   let view = runtime.snapshot(), opener, drag;
   let modeMenu, revealOff = false, rollNote = null, rollTimer;
   // Live cards (SPEC §16): cards with a change keep a title dot until unfolded or the next run; the last dice roll
@@ -327,7 +323,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     else if (!drawer.hidden) hide();
   });
 
-  // Packs sheet: one row per available pack with a per-chat switch; scope packs that are on add the all / only-me toggle.
+  // Packs sheet: one row per available pack with a per-chat switch; scope packs that are on add the three-way scope toggle.
   function packGlyph(pack) {
     return glyphNode(document, pack.icon || (view.settings.visual?.icons === 'emoji' ? '🎒' : 'fa-box-open'));
   }
@@ -360,8 +356,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         segment.setAttribute('role', 'radiogroup');
         segment.setAttribute('aria-label', `${text}: ${label('packs.scope')}`);
         segment.append(node('span', 'segment-label', label('packs.scope')));
-        const current = view.settings.packScope?.[pack.id] === 'user' ? 'user' : 'all';
-        for (const scope of ['all', 'user']) {
+        const current = packScopeOf(view.settings, pack);
+        for (const scope of ['all', 'user', 'others']) {
           const option = button(label(`scope.${scope}`), `scope.${scope}`, () => {
             if (scope !== current) runtime.updateSettings({ packScope: { [pack.id]: scope } });
           }, 'segment-option');
@@ -466,39 +462,44 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (meta) item.append(node('span', 'item-meta', meta));
     return item;
   }
-  // Dice (SPEC §15): a stats/kv row whose key ends in "%" rolls d100 locally into the pack's <pack>_roll text section.
+  // Dice (SPEC §15): any stats/kv percentage row uses the chat-local integration.
   function diceFor(section) {
-    if (!section.pack) return null;
-    const target = sections().find(item => item.id === `${section.pack}_roll` && item.shape === 'text');
-    if (!target) return null;
+    if (!['stats', 'kv'].includes(section.shape)) return null;
     return (key, chance) => {
       // kv values may carry a label after the number ("15 (estimate)"); the leading number is the chance.
       if (!/%$/.test(key) || !Number.isFinite(chance)) return null;
       chance = Math.min(100, Math.max(0, chance));
-      const die = button('', 'dice', event => { event.preventDefault(); castDice(target.id, key, chance); }, 'dice');
+      const die = button('', 'dice', event => {
+        event.preventDefault();
+        const result = runtime.rollDice(section.id, key, chance);
+        if (!result) return;
+        const at = Date.now(), crit = (result.hit && /crit/i.test(result.label)) || result.roll === 1 || result.roll === 100;
+        rolling = { id: section.id, key, at }; rolled = { id: section.id, at, crit };
+        rollNote = `${label('dice.rolled')}: ${result.roll} vs ${result.label} ${result.chance} → ${label(result.hit ? 'dice.hit' : 'dice.miss')}`;
+        render(runtime.snapshot());
+        win.clearTimeout(rollTimer);
+        rollTimer = win.setTimeout(() => { rollNote = null; renderStatus(); }, 6000);
+      }, 'dice');
       die.dataset.control = 'dice';
       die.append(view.settings.visual?.icons === 'emoji' ? node('span', 'emoji', '🎲') : icon('dice'));
       // The die is rebuilt by the render the roll triggers; a negative delay resumes the spin where it was.
-      const elapsed = rolling?.key === key ? Date.now() - rolling.at : DICE_MS;
+      const elapsed = rolling?.id === section.id && rolling.key === key ? Date.now() - rolling.at : DICE_MS;
       if (elapsed < DICE_MS) {
         die.classList.add('st-sable-rolling');
         die.style.setProperty('--st-sable-roll-delay', `-${elapsed}ms`);
         die.addEventListener('animationend', () => die.classList.remove('st-sable-rolling'), { once: true });
       }
-      return die;
+      const wrap = node('span', 'dice-row'); wrap.append(die);
+      const result = view.store.roll;
+      if (result?.sectionId === section.id && result.key === key) {
+        const text = node('span', 'roll-result');
+        text.textContent = `${result.roll} → ${label(result.hit ? 'dice.hit' : 'dice.miss')}`;
+        text.dataset.stSableRoll = result.consumedAt == null ? 'pending' : 'done';
+        if (rolled?.id === section.id && Date.now() - rolled.at < DICE_MS) text.toggleAttribute('data-st-sable-rolled', true);
+        wrap.append(text);
+      }
+      return wrap;
     };
-  }
-  function castDice(id, key, chance) {
-    const name = key.replace(/\s*%$/, '').trim() || key;
-    const result = roll(chance, random);
-    // Crit (SPEC §16 dice animation): a hit on a "crit" chance, or a natural 1 or 100.
-    const at = Date.now(), crit = (result.hit && /crit/i.test(name)) || result.roll === 1 || result.roll === 100;
-    rolling = { key, at }; rolled = { id, at, crit };
-    if (runtime.editState(id, formatRoll(result, name)) === false) { rolling = rolled = null; return; }
-    rollNote = `${label('dice.rolled')}: ${result.roll} vs ${name} ${result.chance} → ${label(result.hit ? 'dice.hit' : 'dice.miss')}`;
-    renderStatus();
-    win.clearTimeout(rollTimer);
-    rollTimer = win.setTimeout(() => { rollNote = null; renderStatus(); }, 6000);
   }
   // Live cards (SPEC §16): bond scales and pack stats are keyed rows that keep their node across renders, so the bar
   // fill slides to its new value (a transform transition in style.css) and a changed value is flagged for exactly one
@@ -582,7 +583,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const delta = Number.isFinite(spec.delta) && spec.delta !== 0 ? spec.delta : 0;
     badge.hidden = !delta;
     if (delta) { badge.textContent = `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`; badge.className = `st-sable-badge ${delta > 0 ? 'st-sable-up' : 'st-sable-down'}`; }
-    row.querySelector('.st-sable-dice')?.remove();
+    row.querySelector('.st-sable-dice-row')?.remove();
     const die = spec.die?.();
     if (die) row.append(die);
     const openable = !!delta || !!spec.openable;
@@ -655,8 +656,6 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (section.custom) {
       if (section.shape === 'text') {
         const line = node('p', 'line', value);
-        // The dice result row flashes in the renders right after a roll (CSS, full level + dice effect).
-        if (rolled?.id === id && Date.now() - rolled.at < DICE_MS) line.toggleAttribute('data-st-sable-rolled', true);
         body.append(line); return;
       }
       if (!Array.isArray(value) || !value.length) return;
