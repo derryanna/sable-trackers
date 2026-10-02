@@ -10,7 +10,7 @@ Scene-state tracking for SillyTavern 1.19.x, with Russian output by default and 
 2. In SillyTavern, open **Extensions → Install extension**, paste the repository URL, and install. Reload SillyTavern.
 3. Create a **chat-completion** connection profile for an inexpensive model in SillyTavern's Connection Manager.
 4. Open **Extensions → Sable Trackers**, enable the extension, and select that profile. Text-completion profiles appear disabled.
-5. Choose the output language. Turn off any other tracker that writes tracking blocks into the reply.
+5. Choose the output language. **Model reasoning** (default "low") keeps thinking models such as GLM, Gemini or Kimi from spending the whole output limit on reasoning; "as the model decides" sends nothing. Turn off any other tracker that writes tracking blocks into the reply.
 6. Open a character chat and generate a reply, or press **Run now** to update from the latest character reply.
 
 Open the scene drawer from the edge tab, the extensions wand menu, or the panel under the latest character reply. The gear opens settings. Settings groups fold and remember their open or closed state. The drawer supports folding, reordering and pinning. The pen button on a card opens an editor for that section: fix a field, add or remove rows, then Save (the change is injected into the next reply) or Cancel. Settings can hide the reply panel or edge tab. After editing the latest reply, its old state is no longer injected; enable **Context → Recompute after editing a reply** (off by default) to recompute it immediately.
@@ -73,7 +73,7 @@ Only `inject` sections enter the main prompt, at depth 2 by default, with a dige
 
 - **No profile:** create a Connection Manager profile and select it in Sable settings. Reopen the settings block if the list is outdated. A deleted selection is shown as missing.
 - **Not chat-completion:** use a profile whose completion mode is chat-completion. Text-completion profiles cannot be selected.
-- **Empty or invalid output:** check that the profile works, increase the output token limit if the response was cut off, then try **Run now**. The model should return a JSON object inside `<sable_state>` tags. Invalid sections retain their previous values; inspect the drawer status and browser console for errors.
+- **Empty or invalid output:** check that the profile works, increase the output token limit if the response was cut off, then try **Run now**. A thinking model that returns nothing usually spent the limit on reasoning: keep **Model reasoning** at "low" or "minimal". The model should return a JSON object inside `<sable_state>` tags. Invalid sections retain their previous values; inspect the drawer status and browser console for errors.
 - **Nothing updates:** check Enabled, the selected profile, section modes and periods, and that the chat has a character reply. Group chats are unsupported. After editing the latest reply, refresh manually or enable **Recompute after editing a reply**.
 
 <a id="ru"></a>
@@ -88,7 +88,7 @@ Only `inject` sections enter the main prompt, at depth 2 by default, with a dige
 
 Sable Trackers хранит состояние сцены отдельно от сообщений. Недорогая вспомогательная модель обновляет трекеры, а основная получает только краткую выжимку выбранных разделов.
 
-Установка: скопируйте URL этого репозитория, откройте **Extensions → Install extension**, вставьте URL и перезагрузите SillyTavern. В **Extensions → Sable Trackers** включите расширение и выберите профиль **chat-completion** для недорогой модели. Отключите другие трекеры, записывающие блоки в ответ. Русский язык выбран по умолчанию. Группы настроек сворачиваются и запоминают своё открытое или закрытое состояние.
+Установка: скопируйте URL этого репозитория, откройте **Extensions → Install extension**, вставьте URL и перезагрузите SillyTavern. В **Extensions → Sable Trackers** включите расширение и выберите профиль **chat-completion** для недорогой модели. Отключите другие трекеры, записывающие блоки в ответ. Русский язык выбран по умолчанию. «Размышления модели» (по умолчанию «мало») не дают думающим моделям вроде GLM, Gemini или Kimi потратить весь лимит ответа на размышления; «как у модели» ничего не отправляет. Группы настроек сворачиваются и запоминают своё открытое или закрытое состояние.
 
 Режимы: **в промпт** — обновлять, показывать и передавать основной модели; **показ** — только обновлять и показывать; **выкл** — не запрашивать раздел, сохранив старое значение. Период задаётся в ответах персонажа. Переключатель «только для этого чата» сохраняет локальные режимы, кнопка сброса возвращает общие. «Обновить сейчас» запускает обновление вручную. Импорт старого Sable доступен при наличии совместимых данных и пустой истории трекера.
 
@@ -100,7 +100,7 @@ Sable Trackers хранит состояние сцены отдельно от 
 
 «Роль вставки» (по умолчанию «система») — роль блока состояния в промпте: если блок состояния начал появляться в ответах, попробуйте «пользователь».
 
-Если нет обновлений, проверьте профиль, режим chat-completion и включённые разделы. При пустом ответе проверьте модель, увеличьте лимит токенов и повторите обновление. Групповые чаты не поддерживаются.
+Если нет обновлений, проверьте профиль, режим chat-completion и включённые разделы. При пустом ответе проверьте модель, увеличьте лимит токенов и повторите обновление; думающая модель, которая ничего не вернула, обычно потратила лимит на размышления — держите «Размышления модели» на «мало» или «минимум». Групповые чаты не поддерживаются.
 
 ## Credits
 

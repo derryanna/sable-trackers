@@ -175,7 +175,7 @@ test('settings render all fields with safe profile names and only cc profiles en
   assert.equal(query('[data-group="context"] .st-sable-settings-grid').querySelectorAll('input[type="number"]').length, 6);
   assert.equal(query('[name="depth"]').parentElement.title, 'Chat depth of the injected summary (0 = at the very end).');
   for (const key of ['perChatOverrides', 'showPanel', 'showFloatingButton']) assert.ok(query(`[data-group="actions"] [name="${key}"]`));
-  for (const key of ['enabled', 'profileId', 'language']) assert.ok(query(`[data-group="connection"] [name="${key}"]`));
+  for (const key of ['enabled', 'profileId', 'language', 'reasoning']) assert.ok(query(`[data-group="connection"] [name="${key}"]`));
   for (const key of ['enabled', 'profileId', 'language', 'messages', 'cardChars', 'loreChars', 'maxTokens', 'depth', 'keep', 'perChatOverrides', 'showPanel', 'showFloatingButton']) assert.ok(query(`[name="${key}"]`));
   const options = [...query('[name="profileId"]').options];
   assert.deepEqual(options.filter(o => o.value && !o.disabled).map(o => o.value), ['side']);
@@ -503,4 +503,19 @@ test('injection role select sits after depth, lists the three roles and writes t
   assert.deepEqual([...role.options].map(o => o.textContent), ['система', 'пользователь', 'ассистент']);
   assert.equal(role.parentElement.title, 'Если блок состояния начал появляться в ответах, попробуйте «пользователь».');
   assert.equal(role.value, 'user');
+});
+
+test('model reasoning select sits after the language, lists auto/low/min and writes through runtime.updateSettings', t => {
+  const { query, change, calls, runtime } = setup(t);
+  const reasoning = query('[data-group="connection"] select[name="reasoning"]');
+  assert.ok(reasoning.classList.contains('text_pole'));
+  assert.equal(query('[name="language"]').parentElement.nextElementSibling, reasoning.parentElement);
+  assert.deepEqual([...reasoning.options].map(o => [o.value, o.textContent]), [['auto', 'as the model decides'], ['low', 'low'], ['min', 'minimal']]);
+  assert.equal(reasoning.value, 'low');
+  assert.match(reasoning.parentElement.title, /spend the whole output limit on reasoning/);
+  change('[name="reasoning"]', 'min');
+  assert.deepEqual(calls.patches.at(-1), { reasoning: 'min' }); assert.equal(runtime.snapshot().settings.reasoning, 'min');
+  runtime.updateSettings({ language: 'ru' });
+  assert.equal(reasoning.parentElement.querySelector('.st-sable-settings-label').textContent, 'Размышления модели');
+  assert.equal(reasoning.options[0].textContent, 'как у модели');
 });

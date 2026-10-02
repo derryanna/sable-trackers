@@ -7,7 +7,7 @@ import { parseStateOutput, sanitizeSection } from './parse.js';
 import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
-import { ROLES, loadSettings, saveSettings, effectiveModes } from './settings.js';
+import { ROLES, loadSettings, saveSettings, effectiveModes, reasoningPayload } from './settings.js';
 import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries } from './store.js';
 
 export const LOG_LIMIT = 5;
@@ -166,7 +166,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       active = request;
       publish();
       const result = await ctx.ConnectionManagerRequestService.sendRequest(settings.profileId, built.messages, settings.maxTokens,
-        { stream: false, extractData: true, includePreset: false, signal: request.controller.signal });
+        { stream: false, extractData: true, includePreset: false, signal: request.controller.signal }, reasoningPayload(settings));
       entry.response = typeof result === 'string' ? result : result?.content ?? '';
       entry.outChars = entry.response.length;
       if (!ownsRequest()) { record('dropped'); publish(); return; }

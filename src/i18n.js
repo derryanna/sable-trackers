@@ -104,6 +104,8 @@ Object.assign(STRINGS.en, {
   mode: 'Mode', period: 'Update period (replies)', resetOverrides: 'Reset overrides for this chat', runNow: 'Run now',
   chooseProfile: 'Select a connection profile', notCC: 'not chat-completion', missingProfile: 'Selected profile is missing',
   'language.ru': 'Russian', 'language.en': 'English',
+  reasoning: 'Model reasoning', 'reasoning.auto': 'as the model decides', 'reasoning.low': 'low', 'reasoning.min': 'minimal',
+  'hint.reasoning': 'Thinking models (GLM, Gemini, Kimi) can spend the whole output limit on reasoning and return no state. "low" keeps it short; "as the model decides" sends nothing.',
   periodHint: 'Periods are global. 1 = every reply; dossiers always check for new NPCs (default 0). Mode selectors show the effective chat mode; reset overrides to use global modes.',
 });
 Object.assign(STRINGS.ru, {
@@ -117,6 +119,8 @@ Object.assign(STRINGS.ru, {
   mode: 'Режим', period: 'Период обновления (ответов)', resetOverrides: 'Сбросить режимы этого чата', runNow: 'Обновить сейчас',
   chooseProfile: 'Выберите профиль подключения', notCC: 'не chat-completion', missingProfile: 'Выбранный профиль отсутствует',
   'language.ru': 'Русский', 'language.en': 'Английский',
+  reasoning: 'Размышления модели', 'reasoning.auto': 'как у модели', 'reasoning.low': 'мало', 'reasoning.min': 'минимум',
+  'hint.reasoning': 'Думающие модели (GLM, Gemini, Kimi) могут потратить весь лимит ответа на размышления и не вернуть состояние. «Мало» их укорачивает; «как у модели» ничего не отправляет.',
   periodHint: 'Периоды общие. 1 = каждый ответ; досье всегда проверяют новых NPC (по умолчанию 0). Показаны действующие режимы чата; сброс вернёт общие режимы.',
 });
 

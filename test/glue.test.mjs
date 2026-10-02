@@ -237,10 +237,12 @@ test('reply builds bounded cleaned request, stores parsed state and injects with
   await fake.emit('WORLD_INFO_ACTIVATED', [{ content: 'The dome is brass.', comment: 'Dome', key: ['dome'] }]);
   fake.respond({ content: answer('Dome') });
   await fake.emit('MESSAGE_RECEIVED', id, 'normal'); await fake.runtime.idle();
-  const [profile, messages, maxTokens, custom] = fake.calls.requests[0];
+  const [profile, messages, maxTokens, custom, override] = fake.calls.requests[0];
   assert.equal(profile, 'side'); assert.equal(maxTokens, 3000);
   assert.deepEqual({ ...custom, signal: undefined }, { stream: false, extractData: true, includePreset: false, signal: undefined });
   assert.ok(custom.signal instanceof AbortSignal);
+  // Reasoning cap (SPEC §8): low by default, as ST's reasoning_effort plus the OpenRouter-style body for custom endpoints.
+  assert.deepEqual(override, { reasoning_effort: 'low', custom_include_body: 'reasoning:\n  effort: low' });
   assert.match(messages[0].content, /string values in Russian/);
   assert.match(messages[1].content, /The dome is brass/);
   assert.match(messages[1].content, /A curious visitor/);
@@ -726,4 +728,20 @@ test('injection role normalizes to system, user or assistant, idempotently, and 
   assert.equal(loadSettings(fake.ctx).role, 'system'); assert.equal(fake.calls.settings, 1);
   assert.equal(loadSettings(fake.ctx).role, 'system'); assert.equal(fake.calls.settings, 1);
   assert.equal(saveSettings(fake.ctx, { role: 'user' }).role, 'user');
+});
+
+test('reasoning setting: min sends minimal effort, auto sends nothing, unknown values fall back to low', async t => {
+  const fake = setup(t);
+  const id = fake.add('A reply.');
+  fake.respond({ content: answer('Dome') });
+  fake.runtime.updateSettings({ reasoning: 'min' });
+  await fake.emit('MESSAGE_RECEIVED', id, 'normal'); await fake.runtime.idle();
+  assert.deepEqual(fake.calls.requests.at(-1)[4], { reasoning_effort: 'min', custom_include_body: 'reasoning:\n  effort: minimal' });
+  fake.runtime.updateSettings({ reasoning: 'auto' });
+  await fake.runtime.run(id, { force: true }); await fake.runtime.idle();
+  assert.deepEqual(fake.calls.requests.at(-1)[4], {});
+  fake.runtime.updateSettings({ reasoning: 'bogus' });
+  assert.equal(fake.runtime.snapshot().settings.reasoning, 'low');
+  await fake.runtime.run(id, { force: true }); await fake.runtime.idle();
+  assert.deepEqual(fake.calls.requests.at(-1)[4], { reasoning_effort: 'low', custom_include_body: 'reasoning:\n  effort: low' });
 });

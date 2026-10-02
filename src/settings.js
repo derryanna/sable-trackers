@@ -33,9 +33,13 @@ export const VISUAL_CHOICES = Object.freeze({ icons: ['fa', 'emoji'], bgFit: ['c
   titleFont: ['theme', 'serif', 'mono', 'rounded'], chipStyle: ['filled', 'outline'], spacing: ['cozy', 'compact'], effects: EFFECTS_LEVELS });
 // About 900 KB of text; the settings UI refuses to store more than about 600 KB.
 export const BG_IMAGE_MAX_LENGTH = 900 * 1024;
+// Reasoning sent with the side request: thinking models (GLM, Gemini, Kimi) otherwise spend the whole output limit on
+// reasoning and return no state. `low`/`min` go out as OpenRouter-style `reasoning.effort` (via custom_include_body for
+// custom endpoints) plus SillyTavern's own `reasoning_effort`; `auto` sends nothing and leaves the model's default.
+export const REASONING_LEVELS = Object.freeze(['auto', 'low', 'min']);
 export const DEFAULTS = {
   enabled: true, profileId: '', language: 'ru', messages: 4,
-  cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3, role: 'system',
+  cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3, role: 'system', reasoning: 'low',
   recomputeOnEdit: false, perChatOverrides: false, showPanel: true, showFloatingButton: true,
   hideOff: true,
   prompts: { rules: null, sections: {}, packs: {} },
@@ -63,6 +67,7 @@ export function normalizeSettings(value = {}) {
   }
   result.profileId = typeof result.profileId === 'string' ? result.profileId : '';
   result.role = ROLES.includes(result.role) ? result.role : DEFAULTS.role;
+  result.reasoning = REASONING_LEVELS.includes(result.reasoning) ? result.reasoning : DEFAULTS.reasoning;
   result.language = ['ru', 'en'].includes(result.language) ? result.language : 'ru';
   result.customSections = normalizeCustomSections(value.customSections);
   result.packs = normalizePacks(value.packs);
@@ -203,6 +208,15 @@ export function saveSettings(ctx, patch) {
   ctx.extensionSettings[SETTINGS_KEY] = normalizeSettings({ ...previous, ...patch, sections, customSections, prompts, packScope, groups });
   ctx.saveSettingsDebounced();
   return ctx.extensionSettings[SETTINGS_KEY];
+}
+
+/** Extra payload for ConnectionManagerRequestService.sendRequest (its fifth argument) that caps model reasoning. */
+export function reasoningPayload(settings) {
+  const level = REASONING_LEVELS.includes(settings?.reasoning) ? settings.reasoning : DEFAULTS.reasoning;
+  if (level === 'auto') return {};
+  const effort = level === 'min' ? 'minimal' : level;
+  return { reasoning_effort: level, custom_include_body: `reasoning:
+  effort: ${effort}` };
 }
 
 export function effectiveModes(settings, store) {

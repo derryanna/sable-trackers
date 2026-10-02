@@ -1,7 +1,7 @@
 import { getAllSections, getSections, orderedSectionIds } from '../sections.js';
 import { COMMON_RULES, getPromptTexts } from '../prompt.js';
 import { t } from '../i18n.js';
-import { FX_DEFAULTS, FX_RANGES, FX_SPEEDS, GROUP_IDS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
+import { FX_DEFAULTS, FX_RANGES, FX_SPEEDS, GROUP_IDS, REASONING_LEVELS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
 import { BUILTIN_PACKS, packScopeOf } from '../packs/index.js';
 import { copyPack, exportPack, importPack } from '../packs/io.js';
@@ -136,6 +136,9 @@ export function createSettings(runtime, { document = globalThis.document,
   checkbox(connection, 'enabled');
   select(connection, 'profileId');
   options(select(connection, 'language'), ['ru', 'en'], value => `language.${value}`);
+  // Reasoning cap for thinking side models (SPEC §8): a select like the others, hint in the row title.
+  const reasoning = options(select(connection, 'reasoning'), REASONING_LEVELS, value => `reasoning.${value}`);
+  bind(labels, reasoning.parentElement, 'hint.reasoning', 'title');
 
   // Context: a two-column grid of label + narrow number.
   const context = group('context', 'group.context');

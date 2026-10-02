@@ -113,8 +113,11 @@ Due sections: `period === 1`, or `turnsSince(section) >= period`, or for
 in LAST MESSAGES and are not in the existing names list; return [] if none".
 It costs a few tokens, and the body is produced once per NPC.
 
-Call: `SillyTavern.getContext().ConnectionManagerRequestService.sendRequest(profileId, messages, settings.maxTokens)`
+Call: `SillyTavern.getContext().ConnectionManagerRequestService.sendRequest(profileId, messages, settings.maxTokens, custom, override)`
 (default maxTokens 3000, `custom = { stream: false, extractData: true, includePreset: false }`).
+`override` caps the model's reasoning (setting `reasoning`, default `low`): `{ reasoning_effort, custom_include_body }`
+with the OpenRouter-style `reasoning: { effort }` in the body for custom endpoints; `auto` sends `{}`. Thinking models
+(GLM, Gemini, Kimi) otherwise spend the whole output limit on reasoning and return no state (`finish_reason: length`).
 `profileId` comes from the connection profile picked in settings
 (`extensionSettings.connectionManager.profiles`). Result content = string; also
 handle `{content}` objects.
@@ -240,6 +243,7 @@ the message. Hide it with a setting.
 ## 8. Settings (Extensions tab, `settings.html` or built in JS)
 
 enabled · connection profile (select) · output language (default Russian) ·
+model reasoning (`auto` / `low` / `min`, default `low`) ·
 messages (4) · cardChars (6000) · loreChars (4000) · maxTokens (3000) · depth (2)
 · keep (3) · per-section mode + period · per-chat overrides toggle · show bottom
 panel · floating button on/off · "Seed from legacy Sable" button.
