@@ -1,0 +1,29 @@
+{
+  "combat_scene": "Guard vs Traveller; paused sparring; level training yard; two paces apart.",
+  "combat_stats": [
+    { "key": "Guard · HP", "value": 88, "max": 100, "unit": "", "note": "described hit", "delta": -12 },
+    { "key": "Guard · stamina", "value": 70, "max": 100, "unit": "", "note": "", "delta": 0 },
+    { "key": "Traveller · HP", "value": 100, "max": 100, "unit": "", "note": "" },
+    { "key": "Traveller · stamina", "value": 85, "max": 120, "unit": "", "note": "rest", "delta": 5 }
+  ],
+  "combat_effects": ["Guard · bruised arm", "Traveller · winded"],
+  "combat_odds": [
+    { "key": "crit %", "value": "15 (Guard; estimate)" },
+    { "key": "hit %", "value": "60 (Guard; estimate)" },
+    { "key": "initiative", "value": "Traveller first (estimate)" }
+  ],
+  "combat_roll": "LAST ROLL: 87 vs crit 15 → miss",
+  "intimacy_scene": "Guard (adult, 30) and Traveller (adult, 32); seated side by side; paused; neither leads; both explicitly agree to closeness.",
+  "intimacy_arousal": [
+    { "key": "Guard · arousal", "value": 20, "max": 100, "unit": "", "note": "" },
+    { "key": "Guard · stamina", "value": 70, "max": 100, "unit": "", "note": "" },
+    { "key": "Traveller · arousal", "value": 15, "max": 100, "unit": "", "note": "" },
+    { "key": "Traveller · stamina", "value": 85, "max": 120, "unit": "", "note": "" }
+  ],
+  "intimacy_counters": [
+    { "key": "Guard · climaxes", "value": 0, "max": null, "unit": "", "note": "explicit zero" },
+    { "key": "Traveller · minutes", "value": 5, "max": null, "unit": "min", "note": "stated duration", "delta": 5 },
+    { "key": "Traveller · volume", "value": 0, "max": null, "unit": "ml", "note": "explicit zero" }
+  ],
+  "intimacy_marks": ["Guard · flushed cheeks", "Traveller · relaxed posture"]
+}

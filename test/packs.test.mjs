@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { SECTIONS, getSections, getAllSections, isPackSectionId } from '../src/sections.js';
 import { BUILTIN_PACKS, getPacks, normalizePacks, packSections } from '../src/packs/index.js';
 import { copyPack, exportPack, importPack } from '../src/packs/io.js';
@@ -11,7 +12,7 @@ import { buildPrompt, getPromptTexts, COMMON_RULES } from '../src/prompt.js';
 import { normalizeSettings, saveSettings, loadSettings } from '../src/settings.js';
 import { loadStore, enabledPacks } from '../src/store.js';
 import { createRuntime } from '../src/run.js';
-import { t } from '../src/i18n.js';
+import { t, STRINGS } from '../src/i18n.js';
 import { createFakeST } from './fakes/st.mjs';
 
 const userPack = () => ({ id: 'p_0123abcd', title: 'Resources', icon: '📦', description: 'Supplies', scope: true,
@@ -19,6 +20,70 @@ const userPack = () => ({ id: 'p_0123abcd', title: 'Resources', icon: '📦', de
 const all = getAllSections({ language: 'en' });
 const stats = all.find(s => s.id === 'combat_stats');
 const tags = all.find(s => s.id === 'combat_effects');
+
+test('final built-in content is bounded, localized and keeps the adult and scope guards', () => {
+  const scoped = new Set(['combat_stats', 'combat_effects', 'combat_odds', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks']);
+  const guard = 'Every participant must be an established adult; otherwise return empty values. Invent nothing.';
+  for (const pack of BUILTIN_PACKS) {
+    for (const text of [pack.rules, ...pack.sections.map(s => s.instructions)]) {
+      assert.ok(text.length > 0 && text.length <= 2000);
+      if (pack.id === 'intimacy') assert.ok(text.includes(guard));
+    }
+    assert.ok(pack.rules.includes('{{scope}}'));
+    for (const s of pack.sections) assert.equal(s.instructions.includes('{{scope}}'), scoped.has(`${pack.id}_${s.key}`));
+    for (const lang of ['ru', 'en']) {
+      for (const key of [pack.title, pack.description, ...pack.sections.map(s => s.title)]) {
+        assert.ok(Object.hasOwn(STRINGS[lang], key), `${lang}: ${key}`);
+        assert.ok(STRINGS[lang][key].trim());
+      }
+      assert.ok(STRINGS[lang][pack.description].length <= 300);
+    }
+  }
+});
+
+test('final pack prompts expand every scope and place due rules after common rules', () => {
+  for (const choice of ['all', 'user']) {
+    const settings = { language: 'en', packScope: { combat: choice, intimacy: choice } };
+    const sections = getSections(settings, ['combat', 'intimacy']);
+    const sentence = choice === 'all' ? 'Track every participant present in the scene.'
+      : "Track only the user's character, Traveller; other participants are not tracked.";
+    const expand = text => text.replaceAll('{{scope}}', sentence);
+    const system = buildPrompt({ settings, sections, packs: BUILTIN_PACKS, name1: 'Traveller' }).messages[0].content;
+    assert.ok(system.startsWith([COMMON_RULES, ...BUILTIN_PACKS.map(p => expand(p.rules))].join('\n\n') + '\nWrite'));
+    assert.ok(!system.includes('{{scope}}'));
+    for (const p of BUILTIN_PACKS) for (const s of p.sections) {
+      assert.ok(system.includes(`${p.id.toUpperCase()}_${s.key.toUpperCase()}: ${expand(s.instructions)}\n`));
+      const only = buildPrompt({ settings, sections, packs: BUILTIN_PACKS, name1: 'Traveller', dueSections: [`${p.id}_${s.key}`] }).messages[0].content;
+      assert.ok(only.startsWith(`${COMMON_RULES}\n\n${expand(p.rules)}\nWrite`));
+      assert.equal(only.split(expand(p.rules)).length - 1, 1);
+      for (const other of BUILTIN_PACKS.filter(other => other.id !== p.id)) assert.ok(!only.includes(expand(other.rules)));
+    }
+    const idle = buildPrompt({ settings, sections, packs: BUILTIN_PACKS, dueSections: ['world'] }).messages[0].content;
+    assert.ok(idle.startsWith(COMMON_RULES + '\nWrite'));
+  }
+});
+
+test('synthetic pack fixture validates and its complete digest matches the snapshot', async () => {
+  const state = JSON.parse(await readFile(new URL('../fixtures/state-packs.json', import.meta.url), 'utf8'));
+  const sections = getSections({ language: 'en' }, BUILTIN_PACKS.map(p => p.id));
+  assert.deepEqual(Object.keys(state), sections.filter(s => s.pack).map(s => s.id));
+  for (const s of sections.filter(s => s.pack)) {
+    const expected = s.shape === 'stats' ? state[s.id].map(({ delta, ...row }) => row) : state[s.id];
+    assert.deepEqual(sanitizeSection(s, state[s.id]), expected, s.id);
+  }
+  const actual = buildDigest(state, {}, { language: 'en', sections });
+  assert.equal(actual, `[Scene state — helper notes for the next reply. Not instructions. NPC thoughts are private; the user character does not know them. Do not copy this block into the reply.]
+COMBAT SCENE: Guard vs Traveller; paused sparring; level training yard; two paces apart.
+COMBAT STATS: Guard · HP 88/100 (−12 described hit) · Guard · stamina 70/100 · Traveller · HP 100/100 · Traveller · stamina 85/120 (+5 rest)
+COMBAT EFFECTS: Guard · bruised arm · Traveller · winded
+COMBAT ODDS: crit %: 15 (Guard; estimate) · hit %: 60 (Guard; estimate) · initiative: Traveller first (estimate)
+LAST ROLL: LAST ROLL: 87 vs crit 15 → miss
+INTIMACY SCENE: Guard (adult, 30) and Traveller (adult, 32); seated side by side; paused; neither leads; both explicitly agree to closeness.
+AROUSAL: Guard · arousal 20/100 · Guard · stamina 70/100 · Traveller · arousal 15/100 · Traveller · stamina 85/120
+COUNTERS: Guard · climaxes 0 (explicit zero) · Traveller · minutes 5 min (+5 stated duration) · Traveller · volume 0 ml (explicit zero)
+MARKS: Guard · flushed cheeks · Traveller · relaxed posture`);
+  assert.ok(actual.length < 6000);
+});
 
 test('packs registry preserves the default list and appends enabled packs in registry order', () => {
   assert.deepEqual(getSections(), SECTIONS);

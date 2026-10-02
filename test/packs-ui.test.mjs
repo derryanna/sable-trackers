@@ -286,7 +286,7 @@ test('settings: the Packs group folds, lists packs with defaults, scope and copi
   assert.equal(combat.querySelector('.st-sable-adult').hidden, true);
   assert.equal(intimacy.querySelector('.st-sable-custom-name').textContent, 'Intimacy');
   assert.equal(intimacy.querySelector('.st-sable-adult').hidden, false);
-  assert.equal(intimacy.querySelector('.st-sable-pack-desc').textContent, 'Established state for adult participants only.');
+  assert.equal(intimacy.querySelector('.st-sable-pack-desc').textContent, 'Tracks established adult scenes (18+), arousal, stamina, counters and marks; the extension rolls or decides nothing except local dice results.');
   assert.equal(combat.querySelector('[name="packs.default"]').parentElement.textContent, 'On in new chats');
   assert.equal(combat.querySelector('[name="packs.default"]').checked, false);
   change('[data-pack="combat"] [name="packs.default"]', true);

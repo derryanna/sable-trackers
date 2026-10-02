@@ -2,10 +2,10 @@ export const DEFAULT_LANGUAGE = 'ru';
 
 const STRINGS = {
   en: {
-    'pack.combat.title': 'Combat', 'pack.combat.desc': 'Established combat state, conditions and local dice results.',
+    'pack.combat.title': 'Combat', 'pack.combat.desc': 'Tracks the fight, HP, stamina, wounds and odds; the extension rolls or decides nothing except local dice results.',
     'pack.combat.scene': 'Combat scene', 'pack.combat.stats': 'Combat stats', 'pack.combat.effects': 'Combat effects',
     'pack.combat.odds': 'Combat odds', 'pack.combat.roll': 'Last roll',
-    'pack.intimacy.title': 'Intimacy (18+)', 'pack.intimacy.desc': 'Established state for adult participants only.',
+    'pack.intimacy.title': 'Intimacy (18+)', 'pack.intimacy.desc': 'Tracks established adult scenes (18+), arousal, stamina, counters and marks; the extension rolls or decides nothing except local dice results.',
     'pack.intimacy.scene': 'Intimacy scene', 'pack.intimacy.arousal': 'Arousal', 'pack.intimacy.counters': 'Counters', 'pack.intimacy.marks': 'Marks',
     'shape.stats': 'Stats', 'shape.tags': 'Tags',
     'group.danger': 'Danger zone', dangerHint: 'Advanced instructions and request diagnostics. The log stays in memory only and is lost on reload.',
@@ -30,10 +30,10 @@ const STRINGS = {
     here: 'here', away: 'away', unknown: 'unknown', turns: 'turns', remember: "don't forget",
   },
   ru: {
-    'pack.combat.title': 'Бой', 'pack.combat.desc': 'Установленные факты боя, состояния и результаты местного броска.',
+    'pack.combat.title': 'Бой', 'pack.combat.desc': 'Отслеживает ход боя, здоровье, силы, раны и шансы; расширение ничего не разыгрывает и не решает, кроме локальных бросков кубика.',
     'pack.combat.scene': 'Боевая сцена', 'pack.combat.stats': 'Показатели боя', 'pack.combat.effects': 'Состояния в бою',
     'pack.combat.odds': 'Шансы в бою', 'pack.combat.roll': 'Последний бросок',
-    'pack.intimacy.title': 'Интим (18+)', 'pack.intimacy.desc': 'Установленное состояние только совершеннолетних участников.',
+    'pack.intimacy.title': 'Интим (18+)', 'pack.intimacy.desc': 'Отслеживает сцену взрослых участников (18+), возбуждение, силы, счётчики и следы; расширение ничего не разыгрывает и не решает, кроме локальных бросков кубика.',
     'pack.intimacy.scene': 'Интимная сцена', 'pack.intimacy.arousal': 'Возбуждение', 'pack.intimacy.counters': 'Счётчики', 'pack.intimacy.marks': 'Следы',
     'shape.stats': 'Показатели', 'shape.tags': 'Метки',
     'group.danger': 'Опасная зона', dangerHint: 'Расширенные инструкции и диагностика запросов. Журнал хранится только в памяти и исчезает при перезагрузке.',
