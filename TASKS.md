@@ -101,7 +101,7 @@ shows the same bar node surviving a re-render with a new value and `data-st-sabl
 only on changed rows; CSS test confirms the off selectors cover every new transition and that
 `full`-only rules are scoped to `data-st-sable-effects="full"`.
 
-## T10 — Ring survives swipes; injection role  [ ]
+## T10 — Ring survives swipes; injection role  [x]
 Bug (verified with `store.js`): `putEntry` caps the ring at `keep` entries in total, so three new
 swipes of one reply evict the state before it (ring `5/1 5/2 5/3`, base NONE). The fourth swipe
 then generates with **no injection at all** and its side-model run starts from an empty previous
@@ -112,6 +112,8 @@ Tests: four swipes keep the base and the injection; swiping back restores the ca
 default system) next to depth and pass it to `setExtensionPrompt`, for models that copy a
 system note into the reply; label it in i18n and README as the knob to try when the state block
 shows up in replies.
+Done: `putEntry` keeps the newest `keep` distinct `mesId`s with up to `SWIPES_PER_MESSAGE` (6) swipes each; `settings.role`
+(system | user | assistant) is normalized, passed to `setExtensionPrompt` on every call and editable in Context next to depth; hint, README and SPEC §4/§5 updated; store, glue and settings-UI tests added.
 
 ## Notes from previous tasks
 (append here)
@@ -130,3 +132,4 @@ shows up in replies.
 - Settings UI round (branch `settings-ui`): grouped settings block (Connection / Context / Sections / Custom blocks / Appearance / Actions) on ST classes, stacks under 500px. Custom-block editor writes the full `customSections` array via `runtime.updateSettings` (ids `c_` + 8 hex, two-tap delete); its mode/period are the item's global values, per-chat overrides for custom ids are left to the §11 logic. `settings.visual` defaults + clamping live in `src/settings.js` (`VISUAL_DEFAULTS`, `normalizeVisual`); the drawer applies them as `--st-sable-*` variables on the drawer and the edge tab and switches title icons; sliders preview on `input`, persist on `change`. Send full `visual` objects: `saveSettings` does not deep-merge a partial `visual` patch. Exported helpers in `src/ui/drawer.js`: `applyVisual`, `glyphNode` (emoji or FA class, safe), `sectionGlyph`, `SECTION_ICONS`. The drawer still renders built-in cards only.
 - Visual base colour (branch `visual-base`): `visual.base` / `visual.text` (null = automatic) with `normalizeHex` in `src/settings.js`. `src/ui/drawer.js` exports `luminance`, `inkFor` (black/white by higher WCAG contrast, crossover L ≈ 0.179, not 0.5, so pastel light bases get black ink) and `visualColors`. `applyVisual` sets base/ink/accent-ink/text variables and `data-st-sable-tone` on the drawer and the tab, and removes them when automatic. The default accent is no longer set inline (the CSS fallback follows the ink). The `inject` chip is now a solid accent fill with accent-ink text and a 1px ink border. Only the drawer and tab use ink; the reply panel and the settings block still follow the theme.
 - Manual editing + FA markers (branch `edit-state`): `sanitizeSection` exported from `parse.js`. `runtime.editState(id, value)` sanitizes, replaces the section in the current entry (or creates one for the last character reply), sets `meta.editedAt`, clears `stale`, cancels an in-flight run, re-injects and saves. The drawer has a schema-driven editor behind the pen button in each card header (SPEC §13). Cards are now built per section (`buildCard`/`buildHeader`), and render() reconciles instead of `replaceChildren`, so an open editor keeps its node, draft and focus. The drag grip is 28px wide to give titles room. Story seeds/timers and world meta markers follow `visual.icons`; `panel.js` has no emoji markers.
+- T10: ring entries are now capped per message (`keep` messages × ≤ 6 swipes), so `ring.length` can exceed `keep`; use `SWIPES_PER_MESSAGE` from `src/store.js` in size estimates. `settings.role` maps through `ROLES` (`src/settings.js`) to 0/1/2 in `publish()`; the clearing call carries the same role. Whether `user` actually stops a given main model from echoing the block is unverified live (hand-off §6 question 1 is still open).

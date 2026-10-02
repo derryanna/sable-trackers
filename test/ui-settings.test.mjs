@@ -409,3 +409,22 @@ test('card colour rows follow sections, write colours, reset and refresh custom 
   assert.equal(rows().length, 12);
   runtime.updateSettings({ customSections: [] }); assert.equal(rows().length, 10);
 });
+
+test('injection role select sits after depth, lists the three roles and writes through runtime.updateSettings', t => {
+  const { query, change, calls, runtime } = setup(t);
+  const role = query('[data-group="context"] .st-sable-settings-grid select[name="role"]');
+  assert.ok(role.classList.contains('text_pole'));
+  assert.equal(query('[name="depth"]').parentElement.nextElementSibling, role.parentElement);
+  assert.equal(role.parentElement.nextElementSibling, query('[name="keep"]').parentElement);
+  assert.deepEqual([...role.options].map(o => [o.value, o.textContent]), [['system', 'system'], ['user', 'user'], ['assistant', 'assistant']]);
+  assert.equal(role.value, 'system');
+  assert.equal(role.parentElement.title, 'If the state block starts showing up in replies, try "user".');
+  assert.equal(query('[name="keep"]').parentElement.title, 'How many recent messages keep their state (all swipes included).');
+  change('[name="role"]', 'user');
+  assert.deepEqual(calls.patches.at(-1), { role: 'user' }); assert.equal(runtime.snapshot().settings.role, 'user');
+  runtime.updateSettings({ language: 'ru' });
+  assert.equal(role.parentElement.querySelector('.st-sable-settings-label').textContent, 'Роль вставки');
+  assert.deepEqual([...role.options].map(o => o.textContent), ['система', 'пользователь', 'ассистент']);
+  assert.equal(role.parentElement.title, 'Если блок состояния начал появляться в ответах, попробуйте «пользователь».');
+  assert.equal(role.value, 'user');
+});

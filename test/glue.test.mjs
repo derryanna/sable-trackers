@@ -5,7 +5,7 @@ import { createRuntime } from '../src/run.js';
 import { loadSettings, saveSettings, effectiveModes, normalizeSettings } from '../src/settings.js';
 import { COMMON_RULES } from '../src/prompt.js';
 import { SECTIONS } from '../src/sections.js';
-import { loadStore, saveStore, putEntry, currentEntry, pruneEntries } from '../src/store.js';
+import { SWIPES_PER_MESSAGE, loadStore, saveStore, putEntry, findEntry, currentEntry, pruneEntries } from '../src/store.js';
 import { SECTION_ORDER } from '../src/sections.js';
 
 function setup(t) {
@@ -138,8 +138,11 @@ test('store caps and clones entries, restores active swipe, prunes, and coalesce
   fake.ctx.chat[1].swipe_id = 1;
   assert.equal(currentEntry(store, fake.ctx.chat).swipeId, 1);
   putEntry(store, { mesId: 1, swipeId: 2, turn: 2, state }, 3);
-  assert.equal(store.ring.length, 3);
+  // Two messages with saved state stay under keep = 3, every swipe included.
+  assert.equal(store.ring.length, 4);
   pruneEntries(store, 1);
+  assert.deepEqual(store.ring.map(e => e.mesId), [0]);
+  pruneEntries(store, 0);
   assert.equal(store.ring.length, 0);
   await Promise.all([saveStore(fake.ctx), saveStore(fake.ctx)]);
   assert.equal(fake.calls.metadata.length, 1);
@@ -555,4 +558,92 @@ test('prompt, persistence and warning failures never reject runs', async t => {
   fake.ctx.saveMetadata = () => { throw new Error('save failure'); };
   await assert.doesNotReject(fake.runtime.refresh());
   assert.equal(fake.runtime.snapshot().running, null);
+});
+
+test('ring caps by message: four swipes keep the base state and swiping back restores the cached swipe', () => {
+  const fake = createFakeST(), store = loadStore(fake.ctx);
+  for (let i = 0; i < 6; i++) fake.add('', { is_user: i % 2 === 0 });
+  putEntry(store, { mesId: 1, swipeId: 0, turn: 1, state: {} }, 3);
+  putEntry(store, { mesId: 3, swipeId: 0, turn: 2, state: {} }, 3);
+  for (let swipeId = 0; swipeId <= 3; swipeId++) {
+    fake.ctx.chat[5].swipe_id = swipeId;
+    assert.equal(currentEntry(store, fake.ctx.chat, 5).mesId, 3);
+    putEntry(store, { mesId: 5, swipeId, turn: 3, state: {} }, 3);
+    assert.deepEqual([currentEntry(store, fake.ctx.chat).mesId, currentEntry(store, fake.ctx.chat).swipeId], [5, swipeId]);
+  }
+  assert.deepEqual(store.ring.map(e => `${e.mesId}/${e.swipeId}`), ['1/0', '3/0', '5/0', '5/1', '5/2', '5/3']);
+  fake.ctx.chat[5].swipe_id = 0;
+  assert.equal(findEntry(store, 5, 0), currentEntry(store, fake.ctx.chat));
+  assert.equal(currentEntry(store, fake.ctx.chat, 5).mesId, 3);
+});
+
+test('ring keeps six swipes per message and the newest three messages; a rewrite still drops later states', () => {
+  const fake = createFakeST(), store = loadStore(fake.ctx);
+  for (let i = 0; i < 8; i++) fake.add('', { is_user: i % 2 === 0 });
+  for (const mesId of [1, 3]) putEntry(store, { mesId, swipeId: 0, turn: 1, state: {} }, 3);
+  for (let swipeId = 0; swipeId < 7; swipeId++) putEntry(store, { mesId: 5, swipeId, turn: 3, state: {} }, 3);
+  assert.equal(SWIPES_PER_MESSAGE, 6);
+  assert.deepEqual(store.ring.filter(e => e.mesId === 5).map(e => e.swipeId), [1, 2, 3, 4, 5, 6]);
+  assert.equal(findEntry(store, 5, 0), undefined);
+  assert.ok(findEntry(store, 1, 0));
+  putEntry(store, { mesId: 7, swipeId: 0, turn: 4, state: {} }, 3);
+  assert.deepEqual(store.ring.map(e => `${e.mesId}/${e.swipeId}`), ['3/0', '5/1', '5/2', '5/3', '5/4', '5/5', '5/6', '7/0']);
+  pruneEntries(store, 7);
+  assert.deepEqual(store.ring.map(e => e.mesId), [3, 5, 5, 5, 5, 5, 5]);
+  putEntry(store, { mesId: 3, swipeId: 0, turn: 2, state: { world: { location: 'Rewritten' } } }, 3);
+  assert.deepEqual(store.ring.map(e => `${e.mesId}/${e.swipeId}`), ['3/0']);
+  assert.equal(store.ring[0].state.world.location, 'Rewritten');
+});
+
+test('four swipes of one reply keep the base state injected and cache every swipe', async t => {
+  const fake = setup(t);
+  fake.respond(answer('Base')); await fake.emit('MESSAGE_RECEIVED', fake.add(), 'normal'); await fake.runtime.idle();
+  const id = fake.add();
+  for (let swipeId = 0; swipeId <= 3; swipeId++) {
+    fake.ctx.chat[id].swipe_id = swipeId; fake.ctx.chat[id].mes = `Swipe ${swipeId}`;
+    if (swipeId) await fake.emit('MESSAGE_SWIPED', id);
+    assert.match(injection(fake), /Base/);
+    fake.respond(answer(`Variant ${swipeId}`));
+    await fake.emit('MESSAGE_RECEIVED', id, swipeId ? 'swipe' : 'normal'); await fake.runtime.idle();
+    assert.match(fake.calls.requests.at(-1)[1][2].content, /Base/);
+    assert.doesNotMatch(fake.calls.requests.at(-1)[1][2].content, /Variant/);
+    assert.match(injection(fake), new RegExp(`Variant ${swipeId}`));
+  }
+  assert.deepEqual(data(fake).ring.map(e => `${e.mesId}/${e.swipeId}`), ['0/0', '1/0', '1/1', '1/2', '1/3']);
+  fake.ctx.chat[id].swipe_id = 0; fake.ctx.chat[id].mes = 'Swipe 0';
+  await fake.emit('MESSAGE_SWIPED', id); await fake.emit('MESSAGE_RECEIVED', id, 'swipe'); await fake.runtime.idle();
+  assert.equal(fake.calls.requests.length, 5);
+  assert.match(injection(fake), /Variant 0/);
+  fake.ctx.chat.length = 1; await fake.emit('MESSAGE_DELETED', 1);
+  assert.deepEqual(data(fake).ring.map(e => e.mesId), [0]);
+  assert.match(injection(fake), /Base/);
+});
+
+test('injection role follows settings.role on state and clearing calls, system by default', async t => {
+  const fake = setup(t);
+  assert.deepEqual(fake.calls.prompts.at(-1).slice(1), ['', 1, 2, false, 0]);
+  const id = fake.add(); await fake.emit('MESSAGE_RECEIVED', id, 'normal'); await fake.runtime.idle();
+  assert.deepEqual(fake.calls.prompts.at(-1).slice(2), [1, 2, false, 0]);
+  fake.runtime.updateSettings({ role: 'user' });
+  assert.notEqual(injection(fake), ''); assert.deepEqual(fake.calls.prompts.at(-1).slice(2), [1, 2, false, 1]);
+  fake.runtime.updateSettings({ role: 'assistant' }); assert.equal(fake.calls.prompts.at(-1)[5], 2);
+  fake.runtime.updateSettings({ role: 'user', enabled: false });
+  assert.deepEqual(fake.calls.prompts.at(-1).slice(1), ['', 1, 2, false, 1]);
+  fake.ctx.chat.length = 0; await fake.emit('CHAT_CHANGED');
+  assert.deepEqual(fake.calls.prompts.at(-1).slice(1), ['', 1, 2, false, 1]);
+  fake.runtime.updateSettings({ role: 'bogus' }); assert.equal(fake.calls.prompts.at(-1)[5], 0);
+});
+
+test('injection role normalizes to system, user or assistant, idempotently, and loadSettings saves only a changed form', () => {
+  assert.equal(normalizeSettings({}).role, 'system');
+  assert.equal(normalizeSettings({ role: 'bogus' }).role, 'system');
+  assert.equal(normalizeSettings({ role: 1 }).role, 'system');
+  assert.equal(normalizeSettings({ role: 'assistant' }).role, 'assistant');
+  const once = normalizeSettings({ role: 'user', keep: '2' });
+  assert.equal(JSON.stringify(normalizeSettings(once)), JSON.stringify(once));
+  const fake = createFakeST();
+  fake.ctx.extensionSettings.sableTrackers.role = 'bogus';
+  assert.equal(loadSettings(fake.ctx).role, 'system'); assert.equal(fake.calls.settings, 1);
+  assert.equal(loadSettings(fake.ctx).role, 'system'); assert.equal(fake.calls.settings, 1);
+  assert.equal(saveSettings(fake.ctx, { role: 'user' }).role, 'user');
 });

@@ -139,14 +139,17 @@ name. Banlist keeps the newest 8. Keep `meta: {turn, updatedAt, forMesId, forSwi
 ```
 chat_metadata.sableTrackers = {
   v: 1,
-  ring: [ { mesId, swipeId, turn, state } ],   // last settings.keep states (default 3), newest last
+  ring: [ { mesId, swipeId, turn, state } ],   // states of the last settings.keep messages (default 3), all swipes, newest last
   lastRun: { mesId, ok, error?, ms, inTok?, outTok? },
   modeOverride: { [sectionId]: 'inject'|'show'|'off' },
   turnsSince: { [sectionId]: number }
 }
 ```
 
-Save with `saveMetadata()` (debounced). A state is about 5–10 KB; ring of 3 → ~30 KB max per chat.
+Save with `saveMetadata()` (debounced). The ring is capped by message, not by entry: the newest
+`settings.keep` distinct `mesId`s stay with all their swipes, at most 6 per message (oldest dropped),
+so swiping one reply never evicts the state before it. A state is about 5–10 KB; ring of 3 messages →
+~30 KB typical, ~180 KB worst case (every message swiped six times) per chat.
 
 Swipes and edits:
 - `MESSAGE_SWIPED` on the last character message: if a ring entry exists for
@@ -178,7 +181,8 @@ AVOID: "the silence stretched" (closing aphorism) · …
 Header line and labels come from i18n. The header language follows the output
 language setting. Keep it under ~1.5K tokens: truncate per section with "…".
 
-Inject with `setExtensionPrompt('sable_trackers', text, IN_CHAT(1), settings.depth (default 2), false, SYSTEM role (0))`.
+Inject with `setExtensionPrompt('sable_trackers', text, IN_CHAT(1), settings.depth (default 2), false, settings.role (default system))`;
+the role maps to 0 system, 1 user, 2 assistant. Models that copy a system note into the reply usually stop with `user`.
 Clear it (empty string) when the extension is disabled or there is no state.
 Re-inject on CHAT_CHANGED and after every merge.
 

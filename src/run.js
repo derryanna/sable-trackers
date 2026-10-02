@@ -5,7 +5,7 @@ import { parseStateOutput, sanitizeSection } from './parse.js';
 import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
-import { loadSettings, saveSettings, effectiveModes } from './settings.js';
+import { ROLES, loadSettings, saveSettings, effectiveModes } from './settings.js';
 import { STORE_KEY, loadStore, saveStore, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries } from './store.js';
 
 export const LOG_LIMIT = 5;
@@ -39,7 +39,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const text = view.settings.enabled && !isGroup(ctx) && hasState
       ? buildDigest(view.entry.state, view.modes, { sections, language: view.settings.language,
         order: view.settings.order, userName: ctx.name1 }) : '';
-    ctx.setExtensionPrompt('sable_trackers', text, 1, view.settings.depth, false, 0);
+    ctx.setExtensionPrompt('sable_trackers', text, 1, view.settings.depth, false, Math.max(0, ROLES.indexOf(view.settings.role)));
     for (const listener of listeners) listener(view);
     return view;
   }

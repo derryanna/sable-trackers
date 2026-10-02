@@ -1,7 +1,7 @@
 import { getSections, orderedSectionIds } from '../sections.js';
 import { COMMON_RULES, getPromptTexts } from '../prompt.js';
 import { t } from '../i18n.js';
-import { VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
+import { ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
 import { applyVisual, glyphNode, sectionGlyph } from './drawer.js';
 
@@ -134,6 +134,10 @@ export function createSettings(runtime, { document = globalThis.document,
     const row = bind(labels, node('label', 'st-sable-settings-num'), `hint.${key}`, 'title');
     const input = numberInput(key, ZERO_ALLOWED.has(key) ? 0 : 1, undefined, value => runtime.updateSettings({ [key]: value }));
     row.append(text('span', 'st-sable-settings-label', key), input); contextGrid.append(row); controls.set(key, input);
+    if (key !== 'depth') continue;
+    // Injection role (SPEC §5) sits next to depth: a select like the ones in Connection.
+    const role = options(select(contextGrid, 'role'), ROLES, value => `role.${value}`);
+    bind(labels, role.parentElement, 'hint.role', 'title');
   }
 
   // All sections follow drawer order; custom shape editing stays in Custom blocks.
