@@ -201,6 +201,9 @@ Re-inject on CHAT_CHANGED and after every merge.
   (`inject` / `show` / `off`; tap cycles), ✎ edit (§13), chevron to fold (fold state saved).
   Empty card body shows "—". Title icons and list/meta markers (🌱 ⏳ 🕒 📍 🌦️) follow
   `visual.icons`: Font Awesome by default, emoji on request.
+- Enabled packs (§15) are one **group** each: a container with the same header row (handle,
+  pack glyph + title, an aggregate mode chip, fold) and the pack's cards nested inside; built-in
+  and custom cards stay flat.
 - Status line at the bottom: last run time, ok/error, token estimate
   (chars/4 if the API gives no usage).
 - Renders with plain DOM + template strings. No framework. Escape all
@@ -396,9 +399,31 @@ handled like themes (`src/packs/io.js`, pure): unknown keys dropped, ids of
 user packs regenerated on import when they collide, built-in ids refused.
 
 Drawer: a 🎒 button in the header opens a sheet listing packs with a switch each
-(tap targets ≥ 36 px). Switching on appends the pack's cards after the existing
-ones (order editable as usual) and triggers no run by itself; the next reply or
-↻ requests them. Switching off hides the cards and clears their injection.
+(tap targets ≥ 36 px). Switching on adds the pack to the cards list as **one
+group** (`section.st-sable-group[data-pack]`, after the existing cards unless
+`settings.order` says otherwise) and triggers no run by itself; the next reply or
+↻ requests them. Switching off removes the group and clears their injection.
+The group header has the same look and height as a card header and at most four
+controls: the drag handle, the pack glyph and title (`packTitle()`: the "18+"
+mark becomes a badge), a **group mode chip** and a fold chevron; the pack switch
+stays in the sheet. The pack's cards are nested inside as ordinary cards (own
+mode chip, fold, editor, colours, keyed rows, change dots), visually lighter:
+no own glass fill, hairlines between them, a small indent. The group chip shows
+the members' common mode, or «смешано» / "mixed" when they differ; its menu is
+the card menu and writes every member at once through
+`runtime.setPackMode(packId, mode)` (the same per-chat override semantics as
+`setMode`, one settings or store write, one render). The group fold is
+`settings.folded['pack:<packId>']`; a folded group hides its members, a member's
+own fold works inside an open group. With `hideOff` an off member hides inside
+its group and counts in «Скрыто: N»; a group whose members are all off hides
+entirely until the reveal row shows it. `settings.order` stays a flat list of
+section ids; the drawer reads it through `groupedOrder(order, sections, packs)`
+(`src/sections.js`, pure): a pack's ids form one contiguous block placed where
+the first of them appears, in their existing relative order, or at the end for
+a pack with no entry. The group handle (drag or ↑/↓) moves the block among the
+flat cards; a member handle moves it inside its group only. The digest and the
+Sections settings table keep the raw order. Group and member containers persist
+across renders like cards (§16).
 Settings: a "Packs" group with the same list, "default for new chats" ticks,
 export/import and a user-pack editor that reuses the custom-block editor plus
 title/icon/description/rules fields.

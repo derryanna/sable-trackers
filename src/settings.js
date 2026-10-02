@@ -71,7 +71,9 @@ export function normalizeSettings(value = {}) {
   result.packScope = Object.fromEntries(packIds.filter(id => ['all', 'user', 'others'].includes(value.packScope?.[id])).map(id => [id, value.packScope[id]]));
   const all = getAllSections({ ...result, prompts: {} });
   const ids = all.map(section => section.id);
-  result.folded = Object.fromEntries(ids.filter(id => typeof value.folded?.[id] === 'boolean').map(id => [id, value.folded[id]]));
+  // Fold keys are section ids plus `pack:<id>` for the drawer's pack groups (SPEC §15).
+  const foldKeys = [...ids, ...packIds.map(id => `pack:${id}`)];
+  result.folded = Object.fromEntries(foldKeys.filter(id => typeof value.folded?.[id] === 'boolean').map(id => [id, value.folded[id]]));
   result.groups = { ...DEFAULTS.groups, ...Object.fromEntries(GROUP_IDS
     .filter(id => typeof value.groups?.[id] === 'boolean').map(id => [id, value.groups[id]])) };
   const position = value.floatingPosition;

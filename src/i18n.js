@@ -276,6 +276,8 @@ Object.assign(STRINGS.en, {
   'pack.keyHint': 'Latin letters and digits, starts with a letter, up to 16 characters; it names the JSON field.',
   'pack.lastSection': 'A pack keeps at least one card', 'prompts.packRules': 'pack rules',
   dice: 'Roll d100', 'dice.hit': 'hit', 'dice.miss': 'miss', 'dice.rolled': 'Roll',
+  // Pack groups in the drawer (SPEC §15): the group aria label, the mixed mode chip and the group fold.
+  'packs.group': 'Pack', 'packs.fold': 'Fold / unfold the pack', mixed: 'mixed',
 });
 Object.assign(STRINGS.ru, {
   packs: 'Наборы', 'packs.open': 'Наборы', 'packs.close': 'Закрыть наборы', 'packs.sheetHint': 'Переключатели действуют в этом чате; новые карточки заполнит следующий ответ или ↻.',
@@ -292,6 +294,7 @@ Object.assign(STRINGS.ru, {
   'pack.keyHint': 'Латинские буквы и цифры, начинается с буквы, до 16 знаков; это имя поля в JSON.',
   'pack.lastSection': 'В наборе остаётся хотя бы одна карточка', 'prompts.packRules': 'правила набора',
   dice: 'Бросить d100', 'dice.hit': 'попадание', 'dice.miss': 'промах', 'dice.rolled': 'Бросок',
+  'packs.group': 'Набор', 'packs.fold': 'Свернуть / развернуть набор', mixed: 'смешано',
 });
 
 // Live cards (SPEC §16): the effects level, the composable fx rows and the change dot.

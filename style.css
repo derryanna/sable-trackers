@@ -618,6 +618,38 @@
   .st-sable-pack > .st-sable-custom-summary > .st-sable-pack-desc { flex-basis: 100%; white-space: normal; }
 }
 
+/* Pack groups (SPEC §15): one container per enabled pack among the flat cards, a card-like border a touch stronger
+   than a card's, the same header row (handle, glyph + title, aggregate mode chip, fold) and the member cards nested
+   inside: no own glass fill, a hairline between them and a small indent. The group's accent bar spans its header only;
+   the members keep their own bars, dots, editors and colours. Every visual knob applies through the same variables.
+   The settings panel uses .st-sable-group for its collapsible <details> too, so every rule here is scoped to the drawer. */
+.st-sable-drawer .st-sable-group {
+  position: relative; overflow: hidden; border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), calc(var(--st-sable-border, .13) * 1.6)); border-radius: var(--st-sable-radius, 18px);
+  background: linear-gradient(180deg, rgba(var(--st-sable-ink-rgb, 255,255,255), calc(var(--st-sable-card-fill, .05) * .8)), rgba(var(--st-sable-ink-rgb, 255,255,255), calc(var(--st-sable-card-fill, .05) * .3)));
+  box-shadow: 0 6px 18px rgba(0,0,0,.16), inset 0 1px 0 rgba(var(--st-sable-ink-rgb, 255,255,255), .04);
+}
+.st-sable-drawer .st-sable-card + .st-sable-group, .st-sable-drawer .st-sable-group + .st-sable-card, .st-sable-drawer .st-sable-group + .st-sable-group { margin-top: 10px; }
+.st-sable-drawer[data-st-sable-spacing="compact"] :is(.st-sable-card + .st-sable-group, .st-sable-group + .st-sable-card, .st-sable-group + .st-sable-group) { margin-top: 6px; }
+.st-sable-drawer .st-sable-group::before { content: ''; position: absolute; left: 0; top: 14px; height: 16px; width: 3px; border-radius: 0 3px 3px 0; background: var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))); pointer-events: none; }
+.st-sable-drawer .st-sable-group[data-mode="show"]::before { background: rgba(var(--st-sable-ink-rgb, 245,244,238), .38); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 38%, transparent); }
+.st-sable-drawer .st-sable-group[data-mode="mixed"]::before { background: linear-gradient(180deg, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 50%, rgba(var(--st-sable-ink-rgb, 245,244,238), .3) 50%); }
+.st-sable-drawer .st-sable-group[data-mode="off"]::before, .st-sable-drawer[data-st-sable-accent-bar="off"] .st-sable-group::before { display: none; }
+.st-sable-drawer .st-sable-group.st-sable-dragging { border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .42); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.st-sable-drawer .st-sable-group.st-sable-menu-open { overflow: visible; z-index: 2; }
+.st-sable-drawer .st-sable-group.st-sable-menu-open:last-child { margin-bottom: 126px; }
+.st-sable-drawer .st-sable-group-title .st-sable-adult { flex: none; }
+/* The mixed chip: half filled, so it reads as "some in the prompt, some not" next to the solid inject chip. */
+.st-sable-drawer .st-sable-mode[data-mode="mixed"] { border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .4); background: linear-gradient(135deg, rgba(var(--st-sable-ink-rgb, 255,255,255), .2) 0 50%, transparent 50%); }
+.st-sable-drawer .st-sable-group-body { padding: 0 0 2px 8px; }
+.st-sable-drawer .st-sable-group-body[hidden] { display: none; }
+.st-sable-drawer .st-sable-group .st-sable-card { margin: 0; border-width: 1px 0 0; border-radius: 0; background: none; box-shadow: none; border-top-color: rgba(var(--st-sable-ink-rgb, 255,255,255), calc(var(--st-sable-border, .13) * .5)); }
+.st-sable-drawer .st-sable-group .st-sable-card[data-st-sable-tinted="1"] { border-top-color: color-mix(in srgb, var(--st-sable-accent) 40%, transparent); }
+.st-sable-drawer .st-sable-group .st-sable-card.st-sable-dragging { border-top-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .42); box-shadow: 0 12px 30px rgba(0,0,0,.45); background: rgba(var(--st-sable-base-rgb, 14,14,18), .6); }
+.st-sable-drawer .st-sable-group .st-sable-card .st-sable-card-header { min-height: 40px; }
+.st-sable-drawer .st-sable-group .st-sable-card-body { padding-left: 10px; }
+.st-sable-drawer .st-sable-group .st-sable-card::before, .st-sable-drawer .st-sable-group .st-sable-card::after { top: 12px; bottom: 12px; }
+@media (max-width: 379px) { .st-sable-group-body { padding-left: 6px; } .st-sable-group .st-sable-card-body { padding-inline: 8px; } }
+
 /* Live cards (SPEC §16). The level arrives as data-st-sable-effects="off | subtle | full" on the drawer, the tab and the
    reply panel (the system reduced-motion setting forces "off"); the effects that are on arrive as data-st-sable-fx="glow
    shimmer …" only at "full", with their knobs as variables: --st-sable-glow-rgb and --st-sable-glow (intensity 0–1),
@@ -703,3 +735,6 @@
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="cardGlow"] .st-sable-card[data-st-sable-changed]::after { animation: none; }
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="cardGlow"] .st-sable-card[data-st-sable-changed] { animation: st-sable-glow-pulse 600ms ease-out; }
 .st-sable-panel[data-st-sable-effects="full"][data-st-sable-fx~="cardGlow"] .st-sable-panel-stat[data-st-sable-changed] > .st-sable-panel-bar { animation: st-sable-glow-pulse 600ms ease-out; }
+/* Pack groups: the glow stays on the group container; its nested members carry no shadow of their own. */
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="glow"] .st-sable-group { box-shadow: 0 6px 18px rgba(0,0,0,.16), 0 0 calc(6px + 16px * var(--st-sable-glow, .5)) rgba(var(--st-sable-glow-rgb, var(--st-sable-ink-rgb, 245,244,238)), calc(.15 + .45 * var(--st-sable-glow, .5))); }
+.st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="glow"] .st-sable-group .st-sable-card { box-shadow: none; }

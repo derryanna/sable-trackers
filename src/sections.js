@@ -66,3 +66,21 @@ export function orderedSectionIds(order, sections = SECTIONS) {
   const ids = sections.map(section => section.id);
   return [...new Set([...(Array.isArray(order) ? order : []), ...ids])].filter(id => ids.includes(id));
 }
+
+/** Drawer order with packs as groups (SPEC §15): `order` stays a flat list, but the sections of every pack in `packs`
+ *  (ids or pack objects; default: every pack present in `sections`) read as one contiguous block, placed where the first
+ *  of them appears, in their existing relative order. A pack with no entry in `order` ends up at the end, in registry order. */
+export function groupedOrder(order, sections = SECTIONS, packs = sections.map(section => section.pack).filter(Boolean)) {
+  const ids = orderedSectionIds(order, sections);
+  const grouped = new Set(packs.map(pack => pack?.id ?? pack));
+  const packOf = Object.fromEntries(sections.map(section => [section.id, grouped.has(section.pack) ? section.pack : null]));
+  const blocks = new Map();
+  for (const id of ids) if (packOf[id]) blocks.set(packOf[id], [...(blocks.get(packOf[id]) ?? []), id]);
+  return ids.flatMap(id => {
+    const pack = packOf[id];
+    if (!pack) return [id];
+    const block = blocks.get(pack) ?? [];
+    blocks.set(pack, []);
+    return block;
+  });
+}
