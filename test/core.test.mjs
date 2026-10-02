@@ -104,7 +104,7 @@ test('requested NPC and bond rules preserve legacy canon semantics', () => {
   for (const rule of [
     'Desire is not action', 'agenda is a concrete intention now', 'only already-established hidden knowledge',
     'affection = emotional attachment, not necessarily romance', 'trust = confidence and willingness to rely',
-    'desire = attraction toward toward, not love or general arousal', 'reputation = how this NPC rates toward, not global fame',
+    'desire = attraction toward toward, not love or general arousal', 'love = romantic feelings toward toward (being in love), distinct from affection and from desire', 'reputation = how this NPC rates toward, not global fame',
     'suspicion = suspicion toward toward', 'respect = respect for toward', 'fear = fear of toward',
     'grudge = resentment toward toward, not general anger', 'can drop independently of affection',
     '0 means known absence, null means unknown', 'Do not fill everything with 50',

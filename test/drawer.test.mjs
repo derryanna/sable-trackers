@@ -528,7 +528,7 @@ test('editor: scores clamp, empty score is unknown, changes are read-only; a fol
   editor.querySelector('.st-sable-editor-save').click();
   const [bond] = runtime.snapshot().entry.state.bonds;
   assert.equal(bond.id, 'maren');
-  assert.deepEqual(bond.stats, { affection: 22, trust: 100, desire: null, reputation: 40, suspicion: 45, respect: 38, fear: 0, grudge: 0, tension: 60 });
+  assert.deepEqual(bond.stats, { affection: 22, trust: 100, desire: null, love: null, reputation: 40, suspicion: 45, respect: 38, fear: 0, grudge: 0, tension: 60 });
   assert.deepEqual(bond.changes, { trust: { delta: 5, reason: 'you gave her the key' } }, 'changes pass through untouched');
 });
 

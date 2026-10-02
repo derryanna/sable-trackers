@@ -76,7 +76,7 @@ Object.assign(STRINGS.en, {
   'section.bonds': 'Bonds', 'section.dossiers': 'New NPC Dossiers', 'section.planner': 'Story Planner', 'section.banlist': 'Ban List',
   outfit: 'Outfit', position: 'Position', visible_condition: 'Condition', carrying: 'Carrying',
   agenda: 'Agenda', action: 'Action', wants_toward: 'Target', secret: 'Secret', role: 'Role', look: 'Look', voice: 'Voice', hook: 'Hook',
-  arc_phase: 'Arc', scene_phase: 'Scene', affection: 'Affection', trust: 'Trust', desire: 'Desire', reputation: 'Reputation',
+  arc_phase: 'Arc', scene_phase: 'Scene', affection: 'Affection', trust: 'Trust', desire: 'Desire', love: 'Love', reputation: 'Reputation',
   suspicion: 'Suspicion', respect: 'Respect', fear: 'Fear', grudge: 'Grudge', tension: 'Tension',
 });
 Object.assign(STRINGS.ru, {
@@ -89,7 +89,7 @@ Object.assign(STRINGS.ru, {
   'section.bonds': 'Отношения', 'section.dossiers': 'Новые досье NPC', 'section.planner': 'Планировщик сюжета', 'section.banlist': 'Список запретов',
   outfit: 'Одежда', position: 'Положение', visible_condition: 'Состояние', carrying: 'При себе',
   agenda: 'Намерение', action: 'Действие', wants_toward: 'Цель', secret: 'Секрет', role: 'Роль', look: 'Внешность', voice: 'Голос', hook: 'Зацепка',
-  arc_phase: 'Арка', scene_phase: 'Сцена', affection: 'Привязанность', trust: 'Доверие', desire: 'Влечение', reputation: 'Репутация',
+  arc_phase: 'Арка', scene_phase: 'Сцена', affection: 'Привязанность', trust: 'Доверие', desire: 'Влечение', love: 'Влюблённость', reputation: 'Репутация',
   suspicion: 'Подозрение', respect: 'Уважение', fear: 'Страх', grudge: 'Обида', tension: 'Напряжение',
 });
 
