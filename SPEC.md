@@ -439,6 +439,11 @@ Built-in packs for v1 (content is a task; shapes are fixed here):
 - Candidates for later: `investigation` (clues, suspects, leads),
   `survival` (hunger, cold, supplies), `travel` (route, days, provisions).
 
+Decisions (2 Oct 2026): the pack switch lives in the drawer header (🎒 sheet) and
+in the Packs settings group, there is no chip row above the cards; the intimacy
+pack is listed with the others, marked "18+" in its title and description, with no
+separate gate; the dice button appears only on rows whose key ends in "%".
+
 ## 16. Live cards (draft)
 
 Taste differs, and the repository is public, so motion is a **level the user
@@ -463,7 +468,16 @@ stops when the drawer is hidden.
   `note` do the same. Tag chips and the dice button are the only other
   controls inside a card body, so taps on text keep folding the row.
 
-`full` (everything above, plus):
+`full` (everything above, plus a set of **effects the user composes**; shipped as
+`visual.fx`, every effect with its own switch and knobs, all of them off until the
+user turns them on):
+- **Glow** (`fx.glow`): cards and bars glow in a chosen colour (default = accent)
+  with an intensity slider; a card that changed pulses its glow once.
+- **Shimmer** (`fx.shimmer`): a slow highlight runs across bars and the drawer
+  edge; knobs: speed (slow / medium / fast) and colour (default = accent).
+- **Rain** (`fx.rain`): a translucent rain overlay behind the cards; knobs:
+  density, colour, angle. CSS only (layered animated gradients or at most three
+  absolutely positioned layers), no canvas.
 - **Numbers tick** from the old value to the new one over 250 ms.
 - **Stat colour follows the value**: a bar with `max` shades from the accent
   towards the friction tint as it drops, and pulses slowly under 20 %.
@@ -471,8 +485,15 @@ stops when the drawer is hidden.
   a crit gets a brief glow on the whole card.
 - **Card glow** instead of the plain accent flash when a card changed, and the
   reply panel (§7) animates its bars too.
-- Room for more later (shake on a hit, a wash of colour across the drawer on a
-  scene change) as long as each one is a transition or a one-shot animation.
+- Every effect is individually switchable, previews live while its slider
+  moves, is persisted in `visual.fx` (settings.json, shared between devices),
+  travels with theme export/import, and is killed by the `off` level and by
+  `prefers-reduced-motion`. Knob ranges are clamped in `normalizeVisual`, so no
+  value a user can enter breaks the drawer.
+
+T9 is built as a comparison round: two independent implementations of this
+section on two branches, reviewed side by side; the better one, or a merge of
+both, lands.
 
 The panel under the reply (§7) shows one compact line per enabled pack:
 `HP 40/100 · stamina 70/100` or `arousal 65/100`, bars included, at every level.
@@ -481,3 +502,17 @@ Engineering limits that stay regardless of taste: no continuous animation
 except the busy pulse and the under-20 % pulse, no layout animation (height,
 width), nothing that reads the DOM on a timer, and everything gated by the
 level and by reduced-motion.
+
+## 17. Settings layout: collapsible groups
+
+Every settings group (Connection, Context, Sections, Custom blocks, Appearance,
+Actions, Packs, Danger zone) is a `<details class="st-sable-group" data-group="id">`
+whose `<summary>` holds the group heading (icon + text, full width, tap target
+≥ 36 px, a chevron that turns when open). Open/closed state is remembered per
+group in `settings.groups` (`{ [id]: boolean }`, shared through settings.json like
+`folded`); defaults: Connection open, everything else closed. The Danger zone
+keeps its warning styling and its closed default. Toggling a group saves that
+flag and nothing else, never starts a run, and a re-render caused by anything
+else leaves open groups open. The container rules of §12 apply inside each
+group unchanged. The drawer's gear (⚙) still opens the Extensions tab and
+expands our block.
