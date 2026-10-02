@@ -339,3 +339,141 @@ Settings contain `prompts: { rules: null, sections: {} }`. Rules replace `COMMON
 Statuses are `ok`, `invalid`, `failed`, `dropped` (including cancellation) and `skipped` (nothing due; request and response are null). Request is the exact messages array sent; response is the raw service text, even when invalid. Errors use `String(error?.message ?? error)` and parse warnings are retained. Entries are recorded before the completion publish; timestamps uniquely identify rows. `runtime.clearLog()` empties the log and publishes. Chat switches retain it.
 
 No log is persisted to chat metadata or extension settings: requests contain card and chat text, while settings may be shared between devices. Reload loses the log. The closed Danger zone settings group offers instruction resets, text-only preview/copy, and expandable request/response entries with copy, explicit JSON download and clear. Expanded log rows survive publishes. All diagnostic content is untrusted text and rendered with `textContent`.
+
+## 15. Packs (draft)
+
+A pack is a named bundle of sections plus extra side-model rules for one kind
+of scene: a fight, an intimate scene, an investigation. Packs are **off by
+default** and switched **per chat** from the drawer, so a quiet chat costs
+nothing and a fight chat gets its own cards for as long as the fight lasts.
+
+```
+{ id: 'combat',                 // built-in: [a-z][a-z0-9]{1,15}; user pack: 'p_' + 8 hex
+  title: 'Бой', icon: 'fa-hand-fist' | '⚔️', description: '…' (≤ 300),
+  rules: '…',                   // ≤ 2000 chars, appended to the common rules while the pack is on
+  sections: [ { key: 'stats', title, icon, instructions, shape, max, mode, period } ] }  // ≤ 8
+```
+
+A pack section is a custom section (§11) whose id is `${packId}_${key}`
+(`key` = `[a-z][a-z0-9]{0,15}`), so `combat_stats` is a JSON key the side model
+returns, a card in the drawer, an entry in `settings.order`, `settings.folded`,
+`settings.cardColors` and `chat_metadata.sableTrackers.modeOverride`. Two new
+shapes exist for packs and for custom sections alike:
+
+- `stats`: up to `max` items `{ key ≤ 40, value: integer 0–9999, max: integer 1–9999 | null,
+  unit ≤ 8, note ≤ 120 }`. With `max` the item is a bar (like a bond scale);
+  with `null` it is a plain counter. Merge writes `delta` = new value − the
+  previous value with the same key (missing before → no delta); the model never
+  sees `delta` and the sanitizer drops it from model output. Digest:
+  `TITLE: HP 40/100 (−12 blade cut) · stamina 70/100 · climaxes 2`.
+- `tags`: up to `max` strings ≤ 40, rendered as chips (like the ban list),
+  digested `TITLE: bleeding · stunned`.
+
+Storage: built-in packs are pure data in `src/packs/<id>.js` (titles and
+descriptions through i18n, instructions in English like the built-in sections).
+User packs live in `extension_settings.sableTrackers.packs` (array, normalised
+like `customSections`). Per chat: `chat_metadata.sableTrackers.packs` = array of
+enabled pack ids; a chat without the key uses `settings.packDefaults` (array,
+default `[]`). `getSections(settings, enabledPacks)` = built-ins + custom + the
+sections of enabled packs; every pure function keeps its optional `sections`
+argument. Pack section modes and periods default to the pack's values and are
+overridden in `settings.sections[id]` exactly like built-ins (the normaliser
+keeps ids of known packs only). A section of a pack that is off is not
+requested, not shown and not injected; its last values stay in the ring.
+
+Prompt: while any section of a pack is due, `pack.rules` is appended after the
+common rules (once per pack, in pack order). The language line, envelope and
+schema stay as in §3.
+
+Export/import: `sable-pack.json` = `{ format: 'sable-pack', version: 1, pack }`,
+handled like themes (`src/packs/io.js`, pure): unknown keys dropped, ids of
+user packs regenerated on import when they collide, built-in ids refused.
+
+Drawer: a 🎒 button in the header opens a sheet listing packs with a switch each
+(tap targets ≥ 36 px). Switching on appends the pack's cards after the existing
+ones (order editable as usual) and triggers no run by itself; the next reply or
+↻ requests them. Switching off hides the cards and clears their injection.
+Settings: a "Packs" group with the same list, "default for new chats" ticks,
+export/import and a user-pack editor that reuses the custom-block editor plus
+title/icon/description/rules fields.
+
+Editing: built-in packs are data, so a "Make a copy" button turns one into a
+user pack (`p_` id, same sections, titles copied into literal strings) that the
+editor changes freely. Built-in packs themselves are tuned without copying:
+their section instructions are overridden through `prompts.sections[id]` and
+their rules through `prompts.packs[packId]` (≤ 2000 chars), both in the Danger
+zone with the same reset buttons as §14. Section modes, periods, order and
+card colours of a built-in pack are ordinary settings.
+
+Scope: a pack may declare `scope: true`; the user then picks per pack
+(`settings.packScope[packId]`: `all` | `user`, default `all`) whether
+per-participant sections track everyone present or only `{{user}}`. The prompt
+builder replaces `{{scope}}` in the pack's instructions with the matching
+sentence. Combat and intimacy both declare it.
+
+Dice (optional, part of the combat pack): a `stats`/`kv` item whose key ends in
+"%" (e.g. `crit %`) gets a 🎲 button on its row. The tap rolls d100 locally
+(`roll(chance, random)` pure, `crypto.getRandomValues` in the UI), never calls
+a model, and writes `LAST ROLL: 87 vs crit 15 → miss` into the pack's `text`
+section `<pack>_roll` through `runtime.editState`, so it is injected into the
+next reply like any edit. Nothing else in the extension rolls or decides.
+
+Built-in packs for v1 (content is a task; shapes are fixed here):
+- `combat`: `combat_scene` (text: who fights whom, phase, terrain, range),
+  `combat_stats` (stats per participant: `Name · HP`, `Name · stamina`, max 12),
+  `combat_effects` (tags: wounds and conditions, max 10), `combat_odds`
+  (kv: `crit %`, `hit %`, initiative, max 6), `combat_roll` (text, written by
+  the dice only; instructions tell the model to copy it unchanged). Rules: no
+  damage without a described hit, numbers move only for shown events, death
+  only when written.
+- `intimacy` (18+): `intimacy_scene` (text: position, pace, who leads, consent
+  state), `intimacy_arousal` (stats per participant: arousal 0–100, stamina),
+  `intimacy_counters` (stats with `max: null`: climaxes, minutes, volume in ml,
+  max 8), `intimacy_marks` (tags: visible marks and state, max 10). Rules keep
+  the canon guard from §2 unchanged: every participant must be an established
+  adult, otherwise the pack returns empty values; nothing is invented.
+- Candidates for later: `investigation` (clues, suspects, leads),
+  `survival` (hunger, cold, supplies), `travel` (route, days, provisions).
+
+## 16. Live cards (draft)
+
+Taste differs, and the repository is public, so motion is a **level the user
+picks**, not a rule. `visual.motion` becomes `visual.effects`: `off` | `subtle`
+(default) | `full`; the old boolean maps `false → off`, `true → subtle` on load.
+`prefers-reduced-motion` forces `off`. Whatever the level: plain DOM, no
+canvas, no libraries, nothing renders on a timer while the user types, and
+every effect is a CSS transition or a short `requestAnimationFrame` run that
+stops when the drawer is hidden.
+
+`subtle` (cheap, on by default):
+- **Bars move.** The bar fill is `transform: scaleX(value)` with a 180 ms
+  transition, so a bond or pack stat slides to its new value instead of
+  jumping. Rows are reconciled by key (NPC id + scale, or stat key) so the
+  node survives the render; a brand-new row appears at its value without
+  motion.
+- **Changes flash.** A row whose value changed since the previous ring entry
+  gets `data-st-sable-changed` for one render: the delta badge fades in and
+  the accent bar of the card brightens for 300 ms. A card with any change gets
+  a dot after its title until it is unfolded or the next run.
+- **Tap for the why.** Delta badges already open the reason; stat rows with a
+  `note` do the same. Tag chips and the dice button are the only other
+  controls inside a card body, so taps on text keep folding the row.
+
+`full` (everything above, plus):
+- **Numbers tick** from the old value to the new one over 250 ms.
+- **Stat colour follows the value**: a bar with `max` shades from the accent
+  towards the friction tint as it drops, and pulses slowly under 20 %.
+- **Dice animation**: the 🎲 button spins for 400 ms and the result row flashes;
+  a crit gets a brief glow on the whole card.
+- **Card glow** instead of the plain accent flash when a card changed, and the
+  reply panel (§7) animates its bars too.
+- Room for more later (shake on a hit, a wash of colour across the drawer on a
+  scene change) as long as each one is a transition or a one-shot animation.
+
+The panel under the reply (§7) shows one compact line per enabled pack:
+`HP 40/100 · stamina 70/100` or `arousal 65/100`, bars included, at every level.
+
+Engineering limits that stay regardless of taste: no continuous animation
+except the busy pulse and the under-20 % pulse, no layout animation (height,
+width), nothing that reads the DOM on a timer, and everything gated by the
+level and by reduced-motion.

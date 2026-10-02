@@ -68,8 +68,54 @@ Normalized per-card colours, preset preservation and theme round-trips; ordered 
 ## Round 5 — danger zone [x]
 Editable built-in prompt instructions with normalized partial overrides and resets; shared request preparation for exact Run now previews; runtime-only five-entry request log retaining raw invalid and dropped responses. Closed settings group includes safe text dumps, copy/select fallback, JSON download and clear, with English/Russian labels and documentation. Validation: 115 tests pass, all changed JavaScript syntax checks and diff whitespace checks pass. Live SillyTavern/Android layout and native clipboard permissions remain unverified. Working-tree delivery only; no commit.
 
+## T8a — Packs core (pure)  [ ]
+SPEC §15 without UI. `src/packs/` with the pack registry (`getPacks(settings)` =
+built-ins + user packs), `normalizePacks`, `src/packs/io.js` (export/import of
+`sable-pack.json`), `getSections(settings, enabledPacks)`, the `stats` and `tags`
+shapes in sanitize/merge/digest (stats `delta` computed on merge), pack `rules` in
+the prompt builder, `chat_metadata.sableTrackers.packs` and `settings.packDefaults`
+in store/settings, `runtime.setPack(id, on)` and `snapshot().packs`. `roll(chance, random)`.
+Built-in packs may be stubs here (one section each) if the content task comes later.
+Done when: tests cover shapes, delta, digest lines, pack rules appended once, pack off →
+nothing requested/injected, import of a colliding user id, refusal of built-in ids.
+
+## T8b — Packs UI  [ ]
+Drawer: 🎒 header button + packs sheet with ≥ 36 px switches; `stats` renderer (bars via the
+bond bar markup, counters as numbers, delta badges with `note`), `tags` renderer (chips),
+dice button on `%` rows writing `<pack>_roll` through `runtime.editState`. Settings: "Packs"
+group (list, default-for-new-chats, export/import, user-pack editor reusing the custom-block
+editor). i18n ru/en. Done when: jsdom test toggles a pack on → cards appear, XSS in a stat key
+stays text, a roll writes the roll line and the digest contains it.
+
+## T8c — Built-in pack content  [ ]
+`combat` and `intimacy` per SPEC §15 (sections, instructions, rules, i18n titles), fixtures
+with synthetic states, digest snapshot tests, README section (en + ru). Instructions reuse the
+canon-safe rules; the intimacy pack keeps the adults-only guard. No real RP content in fixtures.
+
+## T9 — Live cards  [ ]
+SPEC §16: `visual.effects` level (off/subtle/full) replacing the `motion` boolean with migration,
+keyed reconcile of bond/stat rows, `scaleX` bar transition, change flash and title dot, note tap
+on stat rows, pack line in the reply panel; `full` adds number ticks, value-coloured bars, dice
+animation and card glow. Everything gated by the level and reduced-motion. Done when: jsdom test
+shows the same bar node surviving a re-render with a new value and `data-st-sable-changed` set
+only on changed rows; CSS test confirms the off selectors cover every new transition and that
+`full`-only rules are scoped to `data-st-sable-effects="full"`.
+
+## T10 — Ring survives swipes; injection role  [ ]
+Bug (verified with `store.js`): `putEntry` caps the ring at `keep` entries in total, so three new
+swipes of one reply evict the state before it (ring `5/1 5/2 5/3`, base NONE). The fourth swipe
+then generates with **no injection at all** and its side-model run starts from an empty previous
+state, which reads as the trackers forgetting the scene. Fix: keep the newest `keep` distinct
+`mesId`s and at most 6 swipes per message (oldest dropped); `currentEntry`/`findEntry` unchanged.
+Tests: four swipes keep the base and the injection; swiping back restores the cached swipe;
+`MESSAGE_DELETED` pruning still works. Separately add `settings.role` (system | user | assistant,
+default system) next to depth and pass it to `setExtensionPrompt`, for models that copy a
+system note into the reply; label it in i18n and README as the knob to try when the state block
+shows up in replies.
+
 ## Notes from previous tasks
 (append here)
+- 2026-10-02 design round (docs only): packs, live cards and the swipe ring bug are written up in `docs/HANDOFF-2026-10-02.md` with the decisions, a repro and open questions. Start there before T8a–T10.
 - T5 complete: Extensions settings with localized fields, cc-only profile selection and refresh, per-chat override reset, legacy import and manual run; English README with Russian quick start. jsdom coverage and syntax checks pass. No commit created (requested).
 - T2 complete: settings, ring persistence, abortable event runtime, injection and fake-driven tests. T1 core reused; i18n only gained runtime warnings/errors. No commit (working-tree delivery requested).
 - T3: use the exported `runtime` in `index.js`: `snapshot()`, `subscribe(listener)` (returns unsubscribe), `refresh()`, `setMode(id, mode, chatOnly?)`, and `updateSettings(patch)`. Changes re-inject and notify subscribers; `entry.stale` drives the outdated hint. Ring entries carry `turnsSince` snapshots for swipe restoration; `lastRun` token counts are estimates. Connection profiles use `mode === 'cc'` (not `api`) for completion type. No UI added in T2.
