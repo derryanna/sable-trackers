@@ -344,7 +344,7 @@ editor, same inline colour row as cards, «auto» removes the field. Files: `src
 `style.css`, i18n, tests, README (groups paragraph).
 Done when: `npm test` green with normaliser + footer + tint tests; `node --check`; no change to run/store/prompt.
 
-## T28 — Intimacy+ additions: wetness and cum  [ ]
+## T28 — Intimacy+ additions: wetness and cum  [x]
 SPEC §23a (3 Oct 2026, from her screenshot list that §23 left out). Two new sections in `intimacy_plus`: `wetness`
 (stats 0–100, inject, «Влажность») and `cum` (kv, inject, «Семя»), both behind the adult guard, explicit facts only,
 ordered climax · wetness · contact · zones · kinks · limits · experience · cum · after. Content only:
@@ -431,6 +431,13 @@ Done when: `npm test` green; no `[data-control="color"]` in any footer; the edit
   current value («Maren: +5 Trust → −40»), since the panel shows only deltas; the bond score column is 2.6em (was 2.1em)
   with `white-space: nowrap` so «−100» fits. The custom scale row's empty space came from `flex: 1 1 12em` on the hint
   field inside a column flex container (a 12em height); only the title grows now, inside the key/title line, gaps 8 px.
+- T28: `wetness` (stats) and `cum` (kv) sit in `intimacy_plus` as climax · wetness · contact · zones · kinks · limits ·
+  experience · cum · after; both carry `{{scope}}`, the adult guard and "Return [] until …" like `climax`. The pack
+  rules' empty-arrays list and the ru/en pack descriptions name the two new cards; the new title keys live at the end
+  of `src/i18n.js` under `// T28`. Decisions: `cum` keys are the bare participant name (SPEC §23a), not `Name · …`;
+  its value format is "where · N times · amount", with the amount only when stated or clearly implied. The fixture
+  adds Maren (wetness) and Tomas (cum) beside the Guard and the Traveller; the digest snapshot gains WETNESS and CUM.
+  The Intimacy pack is unchanged (asserted in the new §23a test).
 - T21: `intimacy_plus` follows `intimacy` in `BUILTIN_PACKS`; content only, no drawer or settings code changed (the
   machinery groups by `section.pack`, so the underscore in the id is harmless). Decisions: the pack rules name the empty
   value per section like the base pack does; `contact` may write `none` for an entry only when the text establishes there
