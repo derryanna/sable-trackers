@@ -496,6 +496,8 @@ Built-in packs for v1 (content is a task; shapes are fixed here):
   sports commentator or a nature documentary). Rules keep
   the canon guard from §2 unchanged: every participant must be an established
   adult, otherwise the pack returns empty values; nothing is invented.
+- `intimacy_plus` (18+): a deeper, explicit companion to `intimacy`, enabled alone or on top of it;
+  seven sections (`climax`, `contact`, `zones`, `kinks`, `limits`, `experience`, `after`), see §23.
 - Candidates for later: `investigation` (clues, suspects, leads),
   `survival` (hunger, cold, supplies), `travel` (route, days, provisions).
 

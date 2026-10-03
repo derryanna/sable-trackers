@@ -269,7 +269,7 @@ replace on the same mesId, cap 12, prune), the sparkline (hidden under 2 points,
 visual toggle), signed parsing and clamping, the centred bar and signed labels, the settings checkbox; every
 existing test green; README ru + en mention both; SPEC §12 lists `visual.sparklines`.
 
-## T21 — Intimacy+ pack (18+)  [ ]
+## T21 — Intimacy+ pack (18+)  [x]
 SPEC §23 (3 Oct 2026, a reader's list of a thorough adult block; maintainer: «идея для второго пака… пиши»).
 Built-in pack `intimacy_plus` («Интим+ (18+)», `fa-fire`, scope default `others`, the adult guard + explicit-facts
 rules) with seven sections: `climax` (stats, inject), `contact` (kv, inject), `zones` (kv, show), `kinks` (tags,
@@ -281,6 +281,13 @@ for every new section, the digest snapshot includes the four inject sections, th
 
 ## Notes from previous tasks
 (append here)
+- T21: `intimacy_plus` follows `intimacy` in `BUILTIN_PACKS`; content only, no drawer or settings code changed (the
+  machinery groups by `section.pack`, so the underscore in the id is harmless). Decisions: the pack rules name the empty
+  value per section like the base pack does; `contact` may write `none` for an entry only when the text establishes there
+  was none (so a paused scene can show an explicit zero, as the fixture does); `climax` points at the base pack for climax
+  counts and resets to 0 after an explicit orgasm; `after` has no `{{scope}}` and describes everyone present, as §23 says;
+  the ru/en descriptions end with "works alone or with Intimacy". The fixture keeps the Guard and the Traveller in a
+  paused, tame scene; its four inject sections add CLIMAX / CONTACT / KINKS / DISLIKES lines to the digest snapshot.
 - T19: `settings.layout` (`LAYOUTS` in `src/settings.js`), the select «Раскладка панели» first in Settings → Sections,
   `runtime.setSectionsMode(ids, mode, chatOnly)` (`setFolderMode` now delegates to it). In the drawer the people layout is
   a container descriptor `{ kind: 'people', key: 'people' }` plus `drawerFolders()`: `groupedOrder` gets a leading pseudo

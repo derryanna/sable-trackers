@@ -26,5 +26,21 @@
   ],
   "intimacy_marks": ["Guard · flushed cheeks", "Traveller · relaxed posture"],
   "intimacy_achievements": ["Bench warmers: a whole scene seated", "Guard · said the quiet part out loud"],
-  "intimacy_commentary": "And the Traveller settles in for the long game, folks; the Guard has not blinked in forty seconds."
+  "intimacy_commentary": "And the Traveller settles in for the long game, folks; the Guard has not blinked in forty seconds.",
+  "intimacy_plus_climax": [
+    { "key": "Guard · climax", "value": 10, "max": 100, "unit": "", "note": "estimate" },
+    { "key": "Traveller · climax", "value": 5, "max": 100, "unit": "", "note": "estimate" }
+  ],
+  "intimacy_plus_contact": [
+    { "key": "Guard · penetration", "value": "none · paused" },
+    { "key": "Traveller · release", "value": "none · paused" }
+  ],
+  "intimacy_plus_zones": [
+    { "key": "Guard · neck", "value": "light redness" },
+    { "key": "Traveller · hands", "value": "sensitive to touch" }
+  ],
+  "intimacy_plus_kinks": ["Guard · hair stroking", "Traveller · slow pace"],
+  "intimacy_plus_limits": ["Guard · being rushed", "Traveller · loud noise"],
+  "intimacy_plus_experience": ["Traveller: first slow dance, positive (felt safe)", "Guard: after a rushed evening avoids haste"],
+  "intimacy_plus_after": "Guard: close, calm, leaning on the Traveller's shoulder. Traveller: relaxed, quiet."
 }
