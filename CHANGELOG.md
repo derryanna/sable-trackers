@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.1 — 4 October 2026
+
+### Какое состояние уходит в промпт; устойчивость запросов
+
+**Свайп, реген, продолжение.** При свайпе, регенерации или продолжении последнего ответа в промпт уходит состояние **до** этого ответа, а не пересказ того, что вы переписываете. Инжект ставится в момент старта генерации, а не только по событиям сообщений.
+
+**Отставание.** Если состояние отстаёт от чата на один ответ (запуск ещё идёт или упал один раз), оно уходит с пометкой «на момент ответа #N, новые сообщения главнее». Если отстаёт на два и больше, в промпт не уходит ничего, а в статусе и на карточках видно «Состояние отстаёт на M ответов» с кнопкой ⟳.
+
+**Запрос к вспомогательной модели.** Если провайдер отвергает параметры «Размышления модели» (HTTP 400 «unsupported parameters», так ведёт себя лейн Gemini на некоторых прокси), запрос один раз повторяется без них, и профиль запоминается до перезагрузки. Обрезанный ответ даёт сообщение «Ответ обрезан: модель не дописала JSON. Увеличьте «Макс. токенов» (сейчас N) или уменьшите размышления», пустой — «Модель вернула пустой ответ (фильтр содержимого?)». Лимит токенов по умолчанию для новых установок 8000; токены размышлений считаются в него.
+
+**Запрос подписан по именам.** Блоки карточки и персоны в запросе названы: кто персонаж ИИ, кто персонаж пользователя.
+
+### Which state is injected; request resilience
+
+**Swipe, regenerate, continue.** When the last reply is swiped, regenerated or continued, the prompt carries the state **before** that reply, not a retelling of what you are rewriting. The injection is set when generation starts, not only on message events.
+
+**Lag.** When the state is one reply behind the chat (a run still going, or one failure), it is injected with a note "as of reply #N; newer messages take precedence". Two or more replies behind: nothing is injected, and the status and the cards show "State is M replies behind" with the ⟳ control.
+
+**Side-model request.** If the provider rejects the "Model reasoning" parameters (HTTP 400 "unsupported parameters", the behaviour of Gemini lanes on some proxies), the request is retried once without them and the profile is remembered until reload. A cut reply reports "The reply was cut: the model did not finish the JSON. Raise Max tokens (now N) or reduce reasoning"; an empty one "The model returned nothing (content filter?)". The default token limit for new installs is 8000; reasoning tokens count against it.
+
+**Request labelled by name.** The card and persona blocks say who is the AI's character and who is the user's.
+
 ## 0.4.0 — 3 October 2026
 
 ### Перенос пальцем, карандаш у персонажа, история статов, подсказки, настройки в один этаж
