@@ -1,6 +1,6 @@
 # Visual design round — Sable Trackers side panel
 
-You are one of two contestants (the other is a different AI). Same brief, same starting code. The user will compare screenshots taken in a real SillyTavern on a 412×915 phone viewport and pick the one she likes. Make it beautiful and usable; keep it honest to the constraints below.
+You are one of two contestants (the other is a different AI). Same brief, same starting code. The user will compare screenshots taken in a real SillyTavern on a 412×915 phone viewport and pick the one they like. Make it beautiful and usable; keep it honest to the constraints below.
 
 Read AGENTS.md and SPEC.md §6 first. Scope: `style.css`, `src/ui/drawer.js` (and its test, `test/drawer.test.mjs`), i18n labels if needed. No behaviour changes in run/store/prompt/parse/merge/digest. `npm test` must stay green (48 tests now); update tests that describe the old look; add tests for what you add.
 
@@ -15,7 +15,7 @@ Read AGENTS.md and SPEC.md §6 first. Scope: `style.css`, `src/ui/drawer.js` (an
 8. Keep all class names prefixed `st-sable-`; keep `data-section` attributes and existing element roles (the tests and the bottom panel rely on them). Use the theme's `--SmartThemeBodyColor` for text so it stays readable on any ST theme; the panel itself is dark glass regardless of theme.
 
 ## What "better" means to the user
-- The reference look is Megumin Suite's side panel (`docs/drawer-reference.jpg`): dark translucent glass, large rounded cards, thin light border, white accent bar on the left of each card, compact bold titles, a "—" empty state. She likes it; she wants ours at least as clean.
+- The reference look is Megumin Suite's side panel (`docs/drawer-reference.jpg`): dark translucent glass, large rounded cards, thin light border, white accent bar on the left of each card, compact bold titles, a "—" empty state. They like it; they want ours at least as clean.
 - Fewer visual layers: every card should read at a glance — title row, then content. Present NPCs first and prominent; absent ones folded and dim.
 - Bond scales: readable bars with the number, delta badges (+5 / −3) coloured, reason on tap.
 - Threads with priority dots (red/amber/grey). Seeds 🌱 and timers ⏳ as a tidy list; phase chips small.
