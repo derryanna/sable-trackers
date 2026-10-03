@@ -960,3 +960,8 @@
 .st-sable-people-add { display: flex; flex-direction: column; gap: 6px; margin: 0; }
 .st-sable-people-add[hidden], .st-sable-people-footer > [hidden] { display: none; }
 .st-sable-people-add .st-sable-input[aria-invalid="true"] { border-color: #f29d9d; }
+/* T29 */
+/* The card colour row in the section editor (SPEC §30): the swatch and «auto» sit at the start, under their label. */
+.st-sable-drawer .st-sable-editor-color > .st-sable-color-row { flex: none; justify-content: flex-start; }
+/* Person cards have nothing left in their footer. */
+.st-sable-drawer .st-sable-card-footer:empty { display: none; }

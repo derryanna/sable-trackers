@@ -1209,43 +1209,36 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     heading.append(handle, title, wrap, fold);
     return heading;
   }
-  // Card colour from the card (SPEC §28): «Цвет…» opens an inline row with the swatch and «auto» of Appearance → Cards →
-  // Card colours. `key` is the card (a section id or person:<id>), `colorId` the cardColors entry it writes.
-  const colorRows = new Set();
-  let colorRowId = 0;
-  function colorControls(key, colorId, name) {
-    const open = colorRows.has(key), result = [];
-    const toggle = button('', 'card.color', () => {
-      if (colorRows.has(key)) colorRows.delete(key); else colorRows.add(key);
-      render(view);
-    }, 'edit');
-    toggle.append(icon('palette'), document.createTextNode(` ${label('card.color')}`));
-    toggle.setAttribute('aria-label', `${label('card.colorLabel')}: ${name}`);
-    toggle.setAttribute('aria-expanded', String(open));
-    toggle.dataset.control = 'color';
-    result.push(toggle);
-    if (!open) return result;
-    const visual = normalizeVisual(view.settings.visual), current = visual.cardColors[colorId];
-    const row = node('div', 'color-row'); row.id = `st-sable-color-row-${++colorRowId}`; row.dataset.cardColor = colorId;
-    toggle.setAttribute('aria-controls', row.id);
-    const write = color => {
+  // Card colour in the section editor (SPEC §30): the swatch and «auto» of Appearance → Cards → Card colours, written at
+  // once and independent of the form's Save. `colorId` is the cardColors entry it writes.
+  function colorRow(colorId, name) {
+    const stored = () => normalizeVisual(runtime.snapshot().settings.visual).cardColors[colorId];
+    const row = node('div', 'editor-field'); row.classList.add('st-sable-editor-color'); row.dataset.cardColor = colorId;
+    const controls = node('div', 'color-row');
+    const input = node('input', 'color-input'); input.type = 'color'; input.name = `cardColors.${colorId}`;
+    input.dataset.control = 'color-input';
+    input.setAttribute('aria-label', `${name}: ${label('card.colorLabel')}`);
+    const auto = button(label('visual.auto'), 'visual.auto', () => { if (stored()) write(null); }, 'color-auto');
+    auto.dataset.control = 'color-auto';
+    auto.setAttribute('aria-label', `${name}: ${label('visual.auto')}`);
+    const sync = () => {
+      const current = stored();
+      input.value = current ?? normalizeVisual(runtime.snapshot().settings.visual).accent;
+      auto.setAttribute('aria-pressed', String(!current));
+    };
+    function write(color) {
       const now = normalizeVisual(runtime.snapshot().settings.visual), colors = { ...now.cardColors };
       if (color) colors[colorId] = color; else delete colors[colorId];
       // saveSettings does not deep-merge visual: the whole object goes back.
       runtime.updateSettings({ visual: normalizeVisual({ ...now, cardColors: colors }) });
-    };
-    const input = node('input', 'color-input'); input.type = 'color'; input.name = `cardColors.${colorId}`;
-    input.value = current ?? visual.accent; input.dataset.control = 'color-input';
-    input.setAttribute('aria-label', `${name}: ${label('card.colorLabel')}`);
+      sync();
+    }
     input.addEventListener('input', () => { const card = row.closest('.st-sable-card'); if (card) applyCardColor(card, input.value); });
     input.addEventListener('change', () => write(input.value));
-    const auto = button(label('visual.auto'), 'visual.auto', () => { if (current) write(null); }, 'color-auto');
-    auto.dataset.control = 'color-auto';
-    auto.setAttribute('aria-label', `${name}: ${label('visual.auto')}`);
-    auto.setAttribute('aria-pressed', String(!current));
-    row.append(input, auto);
-    result.push(row);
-    return result;
+    sync();
+    controls.append(input, auto);
+    row.append(node('span', 'editor-label', label('card.colorLabel')), controls);
+    return row;
   }
   // The pencil lives under the card, not in the header: a fifth header control made long titles wrap on phones.
   function buildFooter(section) {
@@ -1264,7 +1257,6 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       move.addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); openFolderMenu(id, move, wrap); } });
       wrap.append(move); footer.append(wrap);
     }
-    footer.append(...colorControls(id, id, name));
     return footer;
   }
   function buildCard(section) {
@@ -1400,8 +1392,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     heading.append(fold);
     card.firstElementChild.replaceWith(heading);
     body.hidden = footer.hidden = folded;
-    const npcs = sections().find(section => section.id === 'npcs');
-    footer.replaceChildren(...colorControls(key, 'npcs', npcs ? sectionTitle(npcs) : person.name));
+    footer.replaceChildren();
     // An open edit form (SPEC §25) owns the body: it keeps its node, draft and focus; only the «data changed» bar follows.
     const form = personForms.get(person.id);
     if (form) {
@@ -1928,7 +1919,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const actions = node('div', 'editor-actions');
     actions.append(button(label('edit.save'), 'edit.save', () => saveEditor(section.id), 'editor-save'),
       button(label('edit.cancel'), 'edit.cancel', () => { editors.delete(section.id); rebuildCard(section.id); }, 'editor-cancel'));
-    element.append(warning, root.element ?? node('span'), error, actions);
+    element.append(warning, root.element ?? node('span'), error, colorRow(section.id, sectionTitle(section)), actions);
     const empty = { string: '', array: [] }[section.schema.type] ?? {};
     return { element, warning, error, base: JSON.stringify(original ?? null), read: () => root.read() ?? empty };
   }
