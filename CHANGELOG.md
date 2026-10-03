@@ -1,5 +1,60 @@
 # Changelog
 
+## 0.4.0 — 3 October 2026
+
+### Перенос пальцем, карандаш у персонажа, история статов, подсказки, настройки в один этаж
+
+**Перенос карточек между группами.** Карточку можно взять за ручку и унести в другую группу, вытащить из группы или положить в пустую: там, где она ляжет, появляется пунктирный слот «сюда». Паки и группа «Люди» карточки не принимают и приглушаются. Внизу панели на пять секунд всплывает пилюля **«Вернуть»**; она же откатывает удаление группы (теперь в один тап) и «Разложить по группам». Меню «В группу…» осталось.
+
+<p>
+<img src="docs/screenshots/drag-slot.png" width="260" alt="Карточка в полёте и слот «сюда» в группе «Мир»">
+<img src="docs/screenshots/undo-pill.png" width="260" alt="Пилюля «Вернуть» после переноса">
+</p>
+
+**Карандаш на карточке человека.** В раскладке «по персонажам» у каждой карточки человека карандаш в шапке: **«Редактировать»** открывает форму прямо в карточке (персонаж, тайна и «на самом деле», мысль, отношения, досье; недостающие части добавляются кнопками «+»), **«Удалить»** убирает человека из всех четырёх секций с пилюлей «Удалено: … · Вернуть». В подвале группы «Люди» — **«+ Человек»**. Всё пишется одним сохранением: либо целиком, либо ничего. Модель может вернуть удалённого персонажа, пока он есть в тексте.
+
+<p>
+<img src="docs/screenshots/person-menu.png" width="260" alt="Меню карандаша на карточке человека">
+<img src="docs/screenshots/person-form.png" width="260" alt="Форма человека внутри карточки">
+</p>
+
+**История статов паков.** Полоски паков (HP, выносливость, возбуждение, оргазм) получили те же мини-графики, что шкалы отношений. Тап по столбику любого мини-графика показывает «ответ #N · значение» и прокручивает чат к этому сообщению, если оно загружено. Счётчики без максимума истории не ведут. Галочка теперь называется «Мини-графики под полосками».
+
+**Подсказки и статус.** При первом открытии панели четыре короткие подсказки: «Проверь соединение» с выбором профиля прямо в ней, «Выбери, что нравится», «Всё меняется в карточках», «Наслаждайся»; у каждой галочка «Больше не показывать», в настройках кнопка «Показать подсказки снова». Пока профиль не выбран, в статусе кнопка «Нет профиля модели → настроить». Галочка «Пересчитать после правки ответа» убрана: после правки статус показывает «Состояние устарело · ⟳ Пересчитать». Каждое меню режима заканчивается легендой: в промпт — модель это видит, показ — только тебе, выкл — не обновляется.
+
+<p>
+<img src="docs/screenshots/hints.png" width="260" alt="Третья подсказка «Всё меняется в карточках»">
+<img src="docs/screenshots/spark-tap.png" width="260" alt="Тап по мини-графику: ответ и значение">
+<img src="docs/screenshots/menu-period.png" width="260" alt="Меню режима с периодом и легендой">
+</p>
+
+**Настройки в один этаж.** У свёрнутой группы настроек под названием перечислено, что внутри; наверху одна строка: что меняется в карточках, а что здесь. Период — в меню чипа режима («Раз в N ответов»). Цвет карточки — последней строкой в её редакторе, цвет группы — в «Редактировать группу»; оба применяются сразу. Импорт из старого Sable стал плашкой в панели, которая появляется только когда в чате есть старые данные.
+
+<p>
+<img src="docs/screenshots/editor-colour.png" width="260" alt="Строка «Цвет карточки» в редакторе">
+<img src="docs/screenshots/folder-editor.png" width="260" alt="Редактор группы с цветом">
+</p>
+
+**Интим+.** Две новые карточки, обе в промпт: **«Влажность»** (шкала 0–100 по описанным признакам) и **«Семя»** (куда, сколько раз и объём, накопительно в пределах сцены). Взрослый гард тот же.
+
+**Запрос к вспомогательной модели.** Блоки карточки и персоны подписаны по именам: кто персонаж ИИ, кто персонаж пользователя. Дешёвая модель больше не путает, чьи глаза какого цвета.
+
+### Finger drag, a pencil on the person card, stat history, hints, settings on one level
+
+**Drag between groups.** Take a card by its handle and carry it into another group, out of a group, or into an empty one: a dashed "here" slot shows where it lands. Packs and the People group do not accept cards and dim. An **Undo** pill appears at the bottom of the panel for five seconds; it also reverts a group delete (now one tap) and Suggested groups. The Group… menu stays.
+
+**A pencil on the person card.** In the people layout every person card has a pencil in its header: **Edit** opens a form inside the card (character, secret and deep down, thought, bonds, dossier; missing parts are added with "+" buttons), **Delete** removes the person from all four sections with a "Deleted: … · Undo" pill. The People group footer gains **+ Person**. Everything is written in one save: all or nothing. The side model may add a deleted character back while the text still mentions them.
+
+**Stat history.** Pack bars (HP, stamina, arousal, climax) get the same sparklines as bond scales. Tapping a bar on any sparkline shows "reply #N · value" and scrolls the chat to that message when it is loaded. Counters without a maximum keep no history. The checkbox is now "History sparklines under bars".
+
+**Hints and status.** On the first opening of the panel, four short hints: "Check the connection" with the profile select inside, "Pick what you like", "Everything changes in the cards", "Enjoy"; each has "Don't show again", and Settings → Actions has "Show the hints again". While no profile is selected the status shows "No model profile → set up". The "Recompute after editing a reply" checkbox is gone: after an edit the status shows "State is stale · ⟳ Recompute". Every mode menu ends with a legend: inject — the model sees it, show — only you, off — not updated.
+
+**Settings on one level.** A folded settings group lists what it holds under its title; one line at the top says what is changed in the cards and what is here. The period lives in the mode chip menu ("Every N replies"). The card colour is the last row of the card editor, the group colour is in "Edit group"; both apply immediately. The legacy import became a banner in the drawer that appears only when the chat has old Sable data.
+
+**Intimacy+.** Two new cards, both injected: **Wetness** (a 0–100 scale from described signs) and **Cum** (where, how many times and how much, cumulative within the scene). The same adult guard.
+
+**Side-model request.** The card and persona blocks are labelled by name: who is the AI's character and who is the user's. A cheap model no longer mixes up whose eyes are which colour.
+
 ## 0.3.0 — 3 October 2026
 
 ### Шкалы по выбору, раскладка по персонажам, визуал отношений, «Интим+»
