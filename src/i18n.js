@@ -429,3 +429,34 @@ Object.assign(STRINGS.ru, {
   'legend.inject': 'в промпт — модель это видит', 'legend.show': 'показ — только тебе', 'legend.off': 'выкл — не обновляется',
   noProfile: 'Нет профиля модели → настроить', staleState: 'Состояние устарело', recompute: '⟳ Пересчитать',
 });
+// T26: settings in one tier (SPEC §28): folded group summaries, the period row in the mode menu, the card colour row
+// and the legacy import banner.
+Object.assign(STRINGS.en, {
+  'group.connection.summary': 'on/off, model profile, language, reasoning',
+  'group.context.summary': 'messages, card, lore, tokens, depth, role',
+  'group.sections.summary': 'layout, modes, periods, order, folders',
+  'group.scales.summary': 'built-in scales, custom scales, −100…+100',
+  'group.custom.summary': 'your own cards and their instructions',
+  'group.visual.summary': 'panel, cards, background, card colours, effects',
+  'group.actions.summary': 'run now, chat overrides, reply panel, floating button',
+  'group.packs.summary': 'packs, defaults for new chats, import and export',
+  'group.danger.summary': 'instructions, request preview, log',
+  'menu.period': 'Every N replies', 'menu.periodDossiers': 'Dossiers check for new NPCs on every reply.',
+  'card.color': 'Colour…', 'card.colorLabel': 'Card colour',
+  'legacy.banner': 'This chat has old Sable data', 'legacy.import': 'Import', 'legacy.hide': 'Hide',
+});
+// T26
+Object.assign(STRINGS.ru, {
+  'group.connection.summary': 'включение, профиль модели, язык, рассуждения',
+  'group.context.summary': 'сообщения, карточка, лор, токены, глубина, роль',
+  'group.sections.summary': 'раскладка, режимы, периоды, порядок, группы',
+  'group.scales.summary': 'встроенные шкалы, свои шкалы, −100…+100',
+  'group.custom.summary': 'свои карточки и их инструкции',
+  'group.visual.summary': 'панель, карточки, фон, цвета карточек, эффекты',
+  'group.actions.summary': 'обновить, режимы чата, панель под ответом, кнопка',
+  'group.packs.summary': 'наборы, включение в новых чатах, импорт и экспорт',
+  'group.danger.summary': 'инструкции, предпросмотр запроса, журнал',
+  'menu.period': 'Раз в N ответов', 'menu.periodDossiers': 'Досье проверяют новых NPC каждый ответ.',
+  'card.color': 'Цвет…', 'card.colorLabel': 'Цвет карточки',
+  'legacy.banner': 'В этом чате есть данные старого Sable', 'legacy.import': 'Импортировать', 'legacy.hide': 'Скрыть',
+});

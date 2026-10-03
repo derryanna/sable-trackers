@@ -108,9 +108,12 @@ export function createSettings(runtime, { document = globalThis.document,
     const summary = node('summary', 'st-sable-group-summary'), heading = node('h4', 'st-sable-settings-heading');
     const glyphs = { connection: 'plug', context: 'align-left', sections: 'list', scales: 'sliders', custom: 'puzzle-piece', visual: 'palette', actions: 'bolt', packs: 'box-open', danger: 'triangle-exclamation' };
     heading.append(icon(glyphs[id]), text('span', '', key));
-    summary.append(heading, icon('chevron-right')); section.append(summary);
+    // What the group holds (SPEC §28), shown under the heading while the group is folded.
+    const note = text('span', 'st-sable-group-note', `group.${id}.summary`); note.dataset.groupSummary = id;
+    summary.append(heading, icon('chevron-right'), note); section.append(summary);
     if (id === 'danger') section.classList.add('st-sable-danger');
     section.addEventListener('toggle', () => {
+      note.hidden = section.open;
       if (section.open !== !!runtime.snapshot().settings.groups?.[id]) runtime.updateSettings({ groups: { [id]: section.open } });
     });
     groups.set(id, section); content.append(section);
@@ -761,7 +764,6 @@ export function createSettings(runtime, { document = globalThis.document,
   // First-run hints (SPEC §27): the drawer shows them again on its next opening.
   const hintsAgain = button(actionButtons, 'hints.again', 'circle-question', () => runtime.updateSettings({ hints: { done: false } }));
   hintsAgain.dataset.control = 'hints-again';
-  const seed = button(actionButtons, 'seedLegacy', 'file-import', () => { void runtime.seedLegacy(); });
   const reset = button(actionButtons, 'resetOverrides', 'arrow-rotate-left', () => {
     for (const id of Object.keys(runtime.snapshot().store.modeOverride)) runtime.setMode(id, null, true);
   });
@@ -1080,6 +1082,7 @@ export function createSettings(runtime, { document = globalThis.document,
     for (const id of GROUP_IDS) {
       const section = groups.get(id), open = !!view.settings.groups?.[id];
       if (section && section.open !== open) section.open = open;
+      if (section) section.querySelector('.st-sable-group-note').hidden = section.open;
     }
     for (const [key, input] of controls) {
       if (input.type === 'checkbox') input.checked = !!view.settings[key];
@@ -1099,7 +1102,6 @@ export function createSettings(runtime, { document = globalThis.document,
       setValue(input, visual[key] ?? fallback);
       auto.setAttribute('aria-pressed', String(!visual[key]));
     }
-    seed.disabled = !view.canSeedLegacy;
     // Without a usable chat-completion profile Run now cannot work (SPEC §27); the title says why.
     runNow.disabled = !!view.profileIssue;
     if (view.profileIssue) runNow.title = label('noProfile'); else runNow.removeAttribute('title');

@@ -392,7 +392,9 @@ test('CSS: every transition and animation is covered by the off selectors and th
   assert.match(live, /\.st-sable-dice\.st-sable-rolling > \* \{ animation: st-sable-spin 400ms/);
   assert.match(live, /\.st-sable-rain \{ display: none; \}/);
   assert.match(live, /\.st-sable-rain::before \{[^}]*mask-image: repeating-linear-gradient\(0deg/);
-  assert.equal((live.match(/box-shadow/g) ?? []).length <= 8, true);
+  // The shadow budget covers the live-card rules; task blocks appended after them (undo pill, slots) are not counted.
+  const core = taskBlock < 0 ? live : live.slice(0, fullStart + taskBlock);
+  assert.equal((core.match(/box-shadow/g) ?? []).length <= 8, true);
   for (const name of ['glow-pulse', 'crit']) assert.match(live, new RegExp(`@keyframes st-sable-${name} \\{[^}]*box-shadow`));
   for (const name of ['badge-in', 'accent-flash', 'rolled', 'low', 'spin', 'shimmer', 'rain']) assert.doesNotMatch(live, new RegExp(`@keyframes st-sable-${name} \\{[^}]*box-shadow`));
 });

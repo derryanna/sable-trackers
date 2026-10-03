@@ -212,7 +212,7 @@ test('settings changes use runtime patches and modes; reset restores global mode
   assert.deepEqual(calls.modes[1], ['world', null, true]);
   assert.deepEqual(runtime.snapshot().store.modeOverride, {});
   assert.equal(query('[data-section="world"] [name="mode"]').value, 'inject');
-  assert.ok(buttons.find(b => b.textContent.startsWith('Import')).disabled);
+  assert.equal(buttons.find(b => b.textContent.startsWith('Import')), undefined, 'the legacy import moved to the drawer banner (SPEC §28)');
   buttons.find(b => b.textContent === 'Run now').click(); assert.equal(calls.refresh, 1);
   change('[name="language"]', 'ru');
   assert.equal(query('[name="enabled"]').parentElement.textContent, 'Включено');
@@ -240,16 +240,15 @@ test('drawer gear opens Extensions and expands the settings block', t => {
   assert.deepEqual([opened, expanded, scrolled], [1, 1, 1]);
 });
 
-test('legacy button follows eligibility and invokes runtime import', async t => {
+test('the legacy import is no longer in Settings → Actions (SPEC §28: a drawer banner instead)', async t => {
   const { fake, runtime, query, calls } = setup(t);
   fake.ctx.chat.push(JSON.parse(await readFile(new URL('../fixtures/legacy-message.json', import.meta.url), 'utf8')));
   runtime.publish();
-  const button = [...query('.inline-drawer-content').querySelectorAll('button')].find(b => b.textContent.startsWith('Import'));
-  assert.equal(button.disabled, false);
-  button.click();
-  assert.equal(calls.seed, 1);
-  await runtime.seedLegacy();
-  assert.equal(button.disabled, true);
+  assert.equal(runtime.snapshot().canSeedLegacy, true);
+  const buttons = [...query('.inline-drawer-content').querySelectorAll('button')];
+  assert.equal(buttons.find(b => b.textContent.startsWith('Import from')), undefined);
+  assert.equal(query('[data-group="actions"] .fa-file-import'), null);
+  assert.equal(calls.seed, 0);
 });
 
 test('custom blocks: add writes the full array with a new c_ id, edits patch it, two taps delete', t => {
