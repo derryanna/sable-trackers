@@ -1229,3 +1229,51 @@ what they hold; the settings people touch during play live where they play.
   «Скрыть» / "Hide" (per chat: `chat_metadata.sableTrackers.legacyBannerHidden
   = true`). Never automatic.
 - i18n ru + en; README.
+
+## 29. Folder colours
+
+Why (3 Oct 2026, her first try of 0.4): «Цвет…» on cards is fun, but a group
+cannot be coloured, which looks odd next to coloured cards.
+
+- `settings.folders[i].color`: a hex colour (`#rrggbb`, normalised like a
+  `visual.cardColors` entry; absent or invalid = automatic). `normalizeFolders`
+  keeps it; `moveToFolder`, `planDrop` and the folder editor preserve it.
+- A folder with a colour tints its group the way `applyCardColor` tints a
+  card: the header glyph and title, the left accent bar of the group
+  container, its border and the aggregate chip take the colour; member cards
+  keep their own colours (a member without one stays on the shared accent,
+  not the folder's). The People group and packs are unchanged (packs keep
+  their section colours).
+- The folder footer gets «Цвет…» / "Colour…" before «Редактировать группу»,
+  opening the same inline colour row as cards (`input[type=color]`, «auto»),
+  writing `updateSettings({ folders })` with the whole array. The folder
+  editor form also shows the colour input next to the icon field.
+- Tests: normaliser keeps/drops `color`; the footer control writes the array;
+  the group gets the tint attributes; «auto» removes the field.
+
+## 23a. Intimacy+ additions (3 Oct 2026)
+
+Her screenshot list for the thorough adult block asked for two things §23
+left out: how much semen, and how wet she is. Both go into `intimacy_plus`:
+
+- `wetness` — shape `stats`, glyph `fa-droplet`, cap 8, mode `inject`,
+  period 1, title «Влажность» / "Wetness". Instruction (adult guard first,
+  `[]` until arousal is shown in the text): stable key `Name · wetness` per
+  tracked participant whose arousal the text shows as wetness, integer 0–100
+  with `max: 100`, cautious estimates from described signs labelled estimate
+  in `note`, preserved without new evidence, moved only for shown events,
+  never equated with consent, never invented.
+- `cum` — shape `kv`, glyph `fa-vial`, cap 8, mode `inject`, period 1, title
+  «Семя» / "Cum". Instruction (adult guard first, `[]` until an explicit
+  release has happened): one entry per participant who released, key = the
+  name, value = where it went, how many times, and the amount when the text
+  states or clearly implies it (ml or a plain word), cumulative within the
+  scene, reset only when the text establishes a new scene or clean-up;
+  count only explicit events; invent nothing. The Intimacy pack's counters
+  (climaxes, minutes, ml) stay as they are; this card is the explicit
+  where-and-how-much view.
+- Order inside the pack: climax, wetness, contact, zones, kinks, limits,
+  experience, cum, after. i18n ru + en, fixtures (synthetic), tests (shape
+  and cap list, digest snapshot with the new inject sections, fixture
+  validates through `sanitizeSection`), README pack paragraph, SPEC §23
+  section list.

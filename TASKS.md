@@ -336,6 +336,22 @@ Done when: `npm test` green with tests for the summary lines, the period row (wr
 colour row (writes the full `visual`), the banner (shown / hidden / imported); `node --check`; no change to prompt or
 storage beyond the banner flag.
 
+## T27 — Folder colours  [ ]
+SPEC §29 (3 Oct 2026, her feedback on 0.4: «нельзя менять цвет групп, что странно»). `settings.folders[i].color`
+(hex, normalised, preserved by every folder write), the group tinted like a coloured card (glyph, title, accent bar,
+border, aggregate chip; members keep their own colours), «Цвет…» in the folder footer and a colour input in the folder
+editor, same inline colour row as cards, «auto» removes the field. Files: `src/folders.js`, `src/ui/drawer.js`,
+`style.css`, i18n, tests, README (groups paragraph).
+Done when: `npm test` green with normaliser + footer + tint tests; `node --check`; no change to run/store/prompt.
+
+## T28 — Intimacy+ additions: wetness and cum  [ ]
+SPEC §23a (3 Oct 2026, from her screenshot list that §23 left out). Two new sections in `intimacy_plus`: `wetness`
+(stats 0–100, inject, «Влажность») and `cum` (kv, inject, «Семя»), both behind the adult guard, explicit facts only,
+ordered climax · wetness · contact · zones · kinks · limits · experience · cum · after. Content only:
+`src/packs/index.js`, i18n ru + en, fixtures, tests (shape/cap list, digest snapshot, fixture through
+`sanitizeSection`), README pack paragraph, SPEC §23 list.
+Done when: `npm test` green with the pack tests updated for nine sections; `node --check`.
+
 ## Notes from previous tasks
 (append here)
 - T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and
