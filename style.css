@@ -817,3 +817,13 @@
 .st-sable-drawer .st-sable-card-header.st-sable-full { opacity: .6; }
 @keyframes st-sable-return { from { transform: translateY(-4px) scale(1.01); } to { transform: none; } }
 .st-sable-drawer .st-sable-card.st-sable-return, .st-sable-drawer .st-sable-group.st-sable-return { animation: st-sable-return 150ms ease-out; }
+
+/* T24 */
+/* Tap-to-jump (SPEC §26): the sparkline is a button with a 36 px hit area (16 px of bars plus padding; the top padding
+   reaches into the empty space under the bar, so the bars stay 3 px below it). The picked bar is outlined and named in
+   a label row under the line. Nothing here moves, so the effects level `off` needs no override. */
+.st-sable-spark[role="button"] { height: 36px; padding: 10px 0; margin-top: -7px; margin-bottom: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.st-sable-spark[role="button"]:focus-visible { outline: 2px solid rgba(var(--st-sable-ink-rgb, 245,244,238), .55); outline-offset: 1px; border-radius: 4px; }
+.st-sable-spark > span.st-sable-spark-active { opacity: 1; outline: 1px solid rgba(var(--st-sable-ink-rgb, 245,244,238), .95); outline-offset: 1px; }
+.st-sable-spark-label { grid-column: 2 / -1; margin: -4px 0 6px; font-size: .85em; line-height: 1.3; opacity: .8; overflow-wrap: anywhere; cursor: default; }
+.st-sable-settings-grid > .st-sable-settings-hint[data-hint="sparklines"] { grid-column: 1 / -1; margin-top: 0; }

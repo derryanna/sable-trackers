@@ -399,3 +399,15 @@ Object.assign(STRINGS.ru, {
   'undo.restore': 'Вернуть', 'undo.deleted': 'Группа «{name}» удалена', 'undo.suggested': 'Карточки разложены по группам',
   'drag.here': 'сюда', 'drag.full': 'полная',
 });
+// T24
+// Stat history and tap-to-jump (SPEC §26); the sparkline checkbox is renamed here.
+Object.assign(STRINGS.en, {
+  'visual.sparklines': 'History sparklines under bars',
+  'visual.sparklinesHint': 'Up to 12 recent values under bond scales and pack stats. Tap a bar to see its reply and jump to it in the chat.',
+  'spark.history': 'History', 'spark.reply': 'reply', 'spark.notLoaded': '(not loaded)',
+});
+Object.assign(STRINGS.ru, {
+  'visual.sparklines': 'Мини-графики под полосками',
+  'visual.sparklinesHint': 'До 12 последних значений под шкалами отношений и статами паков. Нажмите на столбик — покажет ответ и прокрутит к нему чат.',
+  'spark.history': 'История', 'spark.reply': 'ответ', 'spark.notLoaded': '(не загружено)',
+});

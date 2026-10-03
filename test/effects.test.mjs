@@ -366,8 +366,9 @@ test('CSS: every transition and animation is covered by the off selectors and th
   for (const [, body] of live.matchAll(/\{([^{}]*)\}/g)) assert.doesNotMatch(body, /(?:^|;)\s*(?:width|height|margin[a-z-]*|padding[a-z-]*|top|left|font-size)\s*:\s*[^;]*\b(?:ms|s)\b/);
   assert.doesNotMatch(live, /transition:\s*(?:width|height|margin|padding|all)\b/);
   // Full-only rules are scoped to the level; every data-st-sable-fx rule is too; subtle rules carry no level selector.
-  const fullEnd = live.indexOf('/* End of full-only rules. */', fullStart);
-  const fullPart = strip(live.slice(fullStart, fullEnd > 0 ? fullEnd : undefined));
+  // The Full block ends where task blocks appended at the end of the file begin (`/* T24 */` and later).
+  const taskBlocks = live.slice(fullStart).search(/\/\* T\d+ \*\//);
+  const fullPart = strip(live.slice(fullStart, taskBlocks < 0 ? undefined : fullStart + taskBlocks));
   for (const [, selectors] of fullPart.matchAll(/([^{}@;]+)\{[^{}]*\}/g)) {
     for (const selector of selectors.split(',').map(item => item.trim()).filter(Boolean)) {
       if (/^(?:from|to|\d+%)$/.test(selector)) continue;

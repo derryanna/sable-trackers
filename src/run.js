@@ -8,11 +8,13 @@ import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
 import { ROLES, loadSettings, saveSettings, effectiveModes, reasoningPayload } from './settings.js';
-import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries, recordHistory, pruneHistory } from './store.js';
+import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries, recordHistory, recordStatHistory, pruneHistory } from './store.js';
 
 export const LOG_LIMIT = 5;
 const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue', 'edit']);
 const characterMessage = message => message && !message.is_user && !message.is_system;
+// Stats sections with history (SPEC §26): built-in pack sections and custom blocks of shape `stats`.
+const isStats = section => !!section?.custom && section.shape === 'stats';
 const isGroup = ctx => ctx.groupId !== undefined && ctx.groupId !== null && ctx.groupId !== '';
 
 /** Runtime shared by event wiring and future UI. No browser globals at import time. */
@@ -187,6 +189,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       for (const id of parsed.validSections) counters[id] = 0;
       putEntry(current, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
       recordHistory(current, state.bonds, mesId, bondScales(settings).map(scale => scale.key));
+      for (const section of sections) if (isStats(section)) recordStatHistory(current, section.id, state[section.id], mesId);
       const content = typeof result === 'string' ? result : result.content;
       current.lastRun = { mesId, ok: true, at: Date.now(), ms: Date.now() - started,
         inTok: Math.ceil(built.messages.reduce((sum, m) => sum + m.content.length, 0) / 4), outTok: Math.ceil(content.length / 4) };
@@ -364,6 +367,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     entry.state.meta = { ...entry.state.meta, editedAt: Date.now() };
     delete entry.stale;
     if (id === 'bonds') recordHistory(data, cleaned, entry.mesId, bondScales(settings).map(scale => scale.key));
+    else if (isStats(section)) recordStatHistory(data, id, cleaned, entry.mesId);
     publish();
     void saveStore(ctx);
     return true;

@@ -594,6 +594,10 @@ export function createSettings(runtime, { document = globalThis.document,
   choice('icons', 'icons');
   visualCheck('accentBar');
   visualCheck('sparklines');
+  // SPEC §26: the same line under pack stats; a tap on it jumps to the reply.
+  bind(labels, visualChecks.get('sparklines').parentElement, 'visual.sparklinesHint', 'title');
+  const sparkHint = text('p', 'st-sable-settings-hint', 'visual.sparklinesHint'); sparkHint.dataset.hint = 'sparklines';
+  visualGrid.append(sparkHint);
 
   // Effects (SPEC §16): the level select, then one row per composable effect, shown only at «full». Knobs preview on
   // input and persist on change through the same visual path; a null colour means automatic.
