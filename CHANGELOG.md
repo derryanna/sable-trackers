@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.3.0 — 3 October 2026
+
+### Шкалы по выбору, раскладка по персонажам, визуал отношений, «Интим+»
+
+**Шкалы отношений** (Настройки → «Шкалы отношений»). Десять встроенных шкал включаются и выключаются по одной, с подписью, что каждая меряет; до шести своих шкал с ключом, названием, фразой для вспомогательной модели и флажком «Высокое значение = трение». Выключенная шкала исчезает из панели, промпта и схемы; инструкция по умолчанию пересобирается из включённых, а своя инструкция в «Опасной зоне» заменяет её целиком.
+
+<p>
+<img src="docs/screenshots/bond-scales.png" width="260" alt="Группа «Шкалы отношений» в настройках">
+<img src="docs/screenshots/bond-visuals.png" width="260" alt="Карточка отношений с мини-графиками и знаковой шкалой">
+</p>
+
+**Визуал отношений.** Под каждой шкалой мини-график за последние двенадцать ответов (Внешний вид → Карточки → «Мини-графики под шкалами»). У любой шкалы, встроенной или своей, галочка «−100…+100»: полоска идёт от центра, влево тёплым, вправо акцентом, число со знаком; модели дописывается, что минус означает противоположное чувство. Сохранённые значения при переключении не меняются.
+
+**Раскладка «по персонажам»** (Настройки → Секции → «Раскладка панели»). Вместо карточек «Персонажи», «Мысли», «Отношения» и «Досье» одна группа «Люди», а внутри по карточке на каждого NPC: присутствие, настроение, «Собирается» и поля, «Тайна» за спойлером, мысль, полоски отношений, досье. Остальные карточки, паки и папки как были. Редактирование пока в раскладке по темам.
+
+<p>
+<img src="docs/screenshots/layout-people.png" width="260" alt="Раскладка по персонажам: группа «Люди»">
+<img src="docs/screenshots/intimacy-plus.png" width="260" alt="Карточки пака «Интим+»">
+<img src="docs/screenshots/packs-sheet.png" width="260" alt="Лист паков с тремя паками">
+</p>
+
+**Пак «Интим+ (18+)».** Второй, более откровенный пак, включается отдельно или вместе с «Интимом»: «Оргазм» шкалой накопления, «Контакт» (проникновение, финал), «Зоны» по отдельности, «Кинки» и «Антикинки» только из показанного опыта, «Опыт» как журнал, «После» как состояние после акта. Взрослый гард и охват «кроме меня» те же.
+
+### Scales by choice, layout by people, bond visuals, Intimacy+
+
+**Bond scales** (Settings → Bond scales). The ten built-in scales switch on and off one by one, each with a one-line description; up to six custom scales with a key, a title, a sentence for the side model and a "High value = friction" flag. A switched-off scale leaves the drawer, the prompt and the schema; the default instruction is rebuilt from the enabled scales, while an override in the Danger zone replaces it whole.
+
+**Bond visuals.** A small history line under each scale for the last twelve replies (Appearance → Cards → "History sparklines under scales"). Any scale, built-in or custom, can be signed with a "−100…+100" checkbox: the bar grows from the centre, warm to the left and accent to the right, the number signed; the side model is told that negative means the opposite feeling. Stored values are not rewritten.
+
+**Layout by people** (Settings → Sections → "Drawer layout"). Instead of the NPCs, NPC Inner Chatter, Bonds and New NPC Dossiers cards, one "People" group with a card per NPC: presence, mood, About to and the fields, the Secret spoiler, the thought, the bond bars, the dossier. Everything else renders as before. Editing stays in the topics layout for now.
+
+**Intimacy+ pack (18+).** A second, more explicit pack that works alone or with Intimacy: Climax as a build-up scale, Contact (penetration, release), Zones one by one, Kinks and Dislikes only from shown experience, Experience as a log, Afterglow as the state after the act. The same adult guard and "everyone but me" scope.
+
 ## 0.2.0 — 3 October 2026
 
 ### Группы, тайны и инструкции по пакам
