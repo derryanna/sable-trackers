@@ -1,5 +1,6 @@
 import { icon } from './packs/index.js';
 import { getAllSections, groupedOrder } from './sections.js';
+import { normalizeHex } from './settings.js';
 
 export function normalizeFolders(value, sections) {
   const ids = new Set(sections.filter(s => !s.pack).map(s => s.id)), used = new Set(), claimed = new Set(), result = [];
@@ -13,7 +14,9 @@ export function normalizeFolders(value, sections) {
       members.push(id); claimed.add(id);
       if (members.length === 20) break;
     }
-    used.add(item.id); result.push({ id: item.id, title, icon: icon(item.icon), members });
+    // SPEC §29: a colour like a visual.cardColors entry; absent or invalid = automatic (no key).
+    const color = normalizeHex(item.color);
+    used.add(item.id); result.push({ id: item.id, title, icon: icon(item.icon), members, ...(color ? { color } : {}) });
     if (result.length === 12) break;
   }
   return result;

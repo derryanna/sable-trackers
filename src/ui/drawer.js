@@ -92,6 +92,15 @@ function applyCardColor(card, color) {
   }
   if (color) card.dataset.stSableTinted = '1'; else delete card.dataset.stSableTinted;
 }
+/** SPEC §29: a folder colour lives in its own properties, so member cards keep the shared accent unless they have their
+ *  own; style.css maps it onto the group's header, accent bar and border. */
+function applyGroupColor(group, color) {
+  for (const [key, value] of [['folder-accent', color], ['folder-accent-ink-rgb', color ? inkFor(color) : null]]) {
+    if (value) group.style.setProperty(`--st-sable-${key}`, value);
+    else group.style.removeProperty(`--st-sable-${key}`);
+  }
+  if (color) group.dataset.stSableTinted = '1'; else delete group.dataset.stSableTinted;
+}
 
 // Last background value per element: a data URL can be ~600 KB, so unchanged images are not re-set on every render.
 const appliedImages = new WeakMap();
@@ -1333,6 +1342,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     group.setAttribute('aria-label', `${label(pack.kind === 'pack' ? 'packs.group' : 'folders.group')}: ${pack.title}`);
     group.firstElementChild.replaceWith(buildGroupHeader(pack));
     group.lastElementChild.hidden = folded;
+    applyGroupColor(group, pack.kind === 'folder' ? pack.color : undefined);
   }
   // People layout (SPEC §21): one person card per NPC, present first, then bonds and dossiers that match no NPC.
   function people(state) {
@@ -1786,13 +1796,35 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     for (const [input, key] of [[title, 'custom.title'], [glyph, 'custom.icon']]) {
       const row = node('label', 'editor-field'); row.append(node('span', 'editor-label', label(key)), input); form.append(row);
     }
+    // SPEC §29: the colour sits next to the icon field and is written with the form; «auto» saves no colour. The group
+    // previews the choice; Cancel re-renders it from the settings.
+    let auto = !folder.color;
+    const colorField = node('div', 'editor-field'), colorRow = node('div', 'color-row');
+    const swatch = node('input', 'color-input'); swatch.type = 'color'; swatch.name = 'color';
+    swatch.value = folder.color ?? normalizeVisual(view.settings.visual).accent; swatch.dataset.control = 'folder-color';
+    swatch.setAttribute('aria-label', `${folder.title}: ${label('folders.colorLabel')}`);
+    const autoButton = button(label('visual.auto'), 'visual.auto', () => {
+      auto = true; autoButton.setAttribute('aria-pressed', 'true');
+      const group = form.closest('.st-sable-group'); if (group) applyGroupColor(group, null);
+    }, 'color-auto');
+    autoButton.dataset.control = 'folder-color-auto'; autoButton.setAttribute('aria-pressed', String(auto));
+    swatch.addEventListener('input', () => {
+      auto = false; autoButton.setAttribute('aria-pressed', 'false');
+      const group = form.closest('.st-sable-group'); if (group) applyGroupColor(group, swatch.value);
+    });
+    colorRow.append(swatch, autoButton);
+    colorField.append(node('span', 'editor-label', label('folders.color')), colorRow);
+    glyph.closest('.st-sable-editor-field').after(colorField);
     form.append(node('p', 'editor-note', label('custom.iconHint')));
     const actions = node('div', 'editor-actions');
     const save = button(label('edit.save'), 'edit.save', () => {
       if (!title.value.trim()) { title.focus(); return; }
       folderEditors.delete(folder.id);
-      runtime.updateSettings({ folders: view.settings.folders.map(item => item.id === folder.id
-        ? { ...item, title: title.value, icon: glyph.value } : item) });
+      runtime.updateSettings({ folders: view.settings.folders.map(item => {
+        if (item.id !== folder.id) return item;
+        const { color: _old, ...rest } = item;
+        return { ...rest, title: title.value, icon: glyph.value, ...(auto ? {} : { color: swatch.value }) };
+      }) });
     }, 'editor-save');
     form.addEventListener('submit', event => { event.preventDefault(); save.click(); });
     const cancel = button(label('edit.cancel'), 'edit.cancel', () => { folderEditors.delete(folder.id); render(view); }, 'editor-cancel');

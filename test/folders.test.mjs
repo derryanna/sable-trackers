@@ -113,3 +113,19 @@ test('dropIndex maps an anchor card to the planDrop index; slotFor picks the gap
   assert.equal(slotFor(rects, 119), 1); assert.equal(slotFor(rects, 121), 2); assert.equal(slotFor(rects, 189), 2);
   assert.equal(slotFor(rects, 191), 3); assert.equal(slotFor([], 10), 0);
 });
+
+// T27: folder colours (SPEC §29).
+test('folder colour: the normaliser keeps a valid hex (normalised) and drops an invalid one; moves and drops keep it', () => {
+  const settings = normalizeSettings({ order: ['world', 'npcs', 'threads', 'story'], folders: [
+    { ...folder(a, ['world', 'threads']), color: ' #A1B2C3 ' }, { ...folder(b, ['npcs']), color: '#abc' },
+    { ...folder('f_00000003', ['story']), color: 'red' }, { ...folder('f_00000004'), color: 'url(x)' },
+  ] });
+  assert.equal(settings.folders[0].color, '#a1b2c3'); assert.equal(settings.folders[1].color, '#aabbcc');
+  assert.equal('color' in settings.folders[2], false); assert.equal('color' in settings.folders[3], false);
+  assert.deepEqual(normalizeSettings(settings), settings);
+  const moved = moveToFolder(settings, 'story', a);
+  assert.deepEqual(moved.folders.map(item => item.color), ['#a1b2c3', '#aabbcc', undefined, undefined]);
+  const dropped = planDrop(settings, 'world', { folderId: b, index: 0 });
+  assert.deepEqual(dropped.folders.map(item => item.color), ['#a1b2c3', '#aabbcc', undefined, undefined]);
+  assert.equal(normalizeSettings({ ...settings, ...dropped }).folders[1].color, '#aabbcc');
+});

@@ -486,3 +486,11 @@ Object.assign(STRINGS.en, {
 Object.assign(STRINGS.ru, {
   'pack.intimacy_plus.wetness': 'Влажность', 'pack.intimacy_plus.cum': 'Семя',
 });
+// T27
+// Folder colours (SPEC §29): the colour field of the folder editor.
+Object.assign(STRINGS.en, {
+  'folders.color': 'Colour', 'folders.colorLabel': 'Group colour',
+});
+Object.assign(STRINGS.ru, {
+  'folders.color': 'Цвет', 'folders.colorLabel': 'Цвет группы',
+});

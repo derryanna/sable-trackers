@@ -172,3 +172,58 @@ test('preview module and phone iframe fixture load with two folders', async () =
     for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; }
   }
 });
+
+// T27: folder colours (SPEC §29).
+test('the folder footer has no colour control; member cards have none in their footer either (SPEC §30)', t => {
+  const { group } = setup(t);
+  const footer = group().querySelector('.st-sable-group-body > .st-sable-card-footer');
+  assert.deepEqual([...footer.querySelectorAll('button')].map(item => item.dataset.control), ['folder-edit']);
+  assert.equal(footer.querySelector('input[type="color"]'), null);
+  assert.equal(group().querySelector('.st-sable-card[data-section="world"] .st-sable-card-footer [data-control="color"]'), null);
+});
+
+test('a coloured folder tints its group, not its members; packs and the People group stay untinted', t => {
+  const { group, card, runtime, query } = setup(t, { folders: [{ ...folder(a, ['world', 'threads']), color: '#cc3366' }],
+    visual: { cardColors: { threads: '#11aa22' } } });
+  assert.equal(group().dataset.stSableTinted, '1');
+  assert.equal(group().style.getPropertyValue('--st-sable-folder-accent'), '#cc3366');
+  assert.ok(group().style.getPropertyValue('--st-sable-folder-accent-ink-rgb'));
+  assert.equal(group().style.getPropertyValue('--st-sable-accent'), '');
+  assert.equal(card('world').dataset.stSableTinted, undefined); assert.equal(card('world').style.getPropertyValue('--st-sable-accent'), '');
+  assert.equal(card('threads').style.getPropertyValue('--st-sable-accent'), '#11aa22');
+  runtime.updateSettings({ layout: 'people' });
+  assert.equal(query('[data-container="people"]').dataset.stSableTinted, undefined);
+  assert.equal(group().dataset.stSableTinted, '1');
+});
+
+test('the folder editor colour: next to the icon, previewed, written with Save as the whole array, discarded by Cancel, «auto» removes it', t => {
+  const { group, control, runtime, query } = setup(t, { folders: [folder(a, ['world', 'threads']), folder(b, ['story'], 'Story')] });
+  const open = () => { control(group(), 'folder-edit').click(); return query(`[data-folder-editor="${a}"]`); };
+  const pick = (editor, value) => {
+    const swatch = editor.querySelector('[name="color"]'); swatch.value = value;
+    swatch.dispatchEvent(new swatch.ownerDocument.defaultView.Event('input', { bubbles: true }));
+  };
+  let editor = open();
+  const fields = [...editor.querySelectorAll('.st-sable-editor-field')];
+  const iconAt = fields.findIndex(field => field.querySelector('[name="icon"]'));
+  assert.ok(fields[iconAt + 1].querySelector('input[type="color"][name="color"]'));
+  assert.equal(control(editor, 'folder-color-auto').getAttribute('aria-pressed'), 'true');
+  pick(editor, '#663399');
+  assert.equal(group().style.getPropertyValue('--st-sable-folder-accent'), '#663399');
+  editor.querySelector('.st-sable-editor-cancel').click();
+  assert.equal('color' in runtime.snapshot().settings.folders[0], false); assert.equal(group().dataset.stSableTinted, undefined);
+  const writes = [], update = runtime.updateSettings;
+  runtime.updateSettings = patch => { writes.push(patch); return update(patch); };
+  editor = open(); pick(editor, '#224466'); editor.querySelector('.st-sable-editor-save').click();
+  assert.equal(writes.length, 1); assert.deepEqual(Object.keys(writes[0]), ['folders']);
+  assert.deepEqual(writes[0].folders.map(item => item.id), [a, b]);
+  assert.deepEqual(runtime.snapshot().settings.folders, [{ ...folder(a, ['world', 'threads']), color: '#224466' }, folder(b, ['story'], 'Story')]);
+  assert.equal(group().dataset.stSableTinted, '1');
+  editor = open(); editor.querySelector('[name="title"]').value = 'Renamed'; editor.querySelector('.st-sable-editor-save').click();
+  assert.equal(runtime.snapshot().settings.folders[0].color, '#224466'); assert.equal(runtime.snapshot().settings.folders[0].title, 'Renamed');
+  editor = open(); control(editor, 'folder-color-auto').click();
+  assert.equal(group().dataset.stSableTinted, undefined);
+  editor.querySelector('.st-sable-editor-save').click();
+  assert.equal('color' in runtime.snapshot().settings.folders[0], false); assert.equal(group().dataset.stSableTinted, undefined);
+  runtime.updateSettings = update;
+});

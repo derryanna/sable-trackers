@@ -1248,11 +1248,13 @@ cannot be coloured, which looks odd next to coloured cards.
   keep their own colours (a member without one stays on the shared accent,
   not the folder's). The People group and packs are unchanged (packs keep
   their section colours).
-- No footer button (amended the same evening, see §30): the colour input with
-  «auto» lives only in the folder editor form («Редактировать группу»), next
-  to the icon field, written with the rest of the form on Save.
-- Tests: normaliser keeps/drops `color`; the footer control writes the array;
-  the group gets the tint attributes; «auto» removes the field.
+- The colour lives only in the folder editor form («Редактировать группу» /
+  "Edit group"): a colour input with «auto» next to the icon field, written
+  with the rest of the form on Save as `updateSettings({ folders })` with the
+  whole array; Cancel discards it. The folder footer has no «Цвет…» button.
+- Tests: normaliser keeps/drops `color`; the editor writes the array on Save
+  and Cancel discards; the group gets the tint attributes; «auto» removes the
+  field.
 
 ## 23a. Intimacy+ additions (3 Oct 2026)
 

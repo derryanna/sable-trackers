@@ -336,11 +336,11 @@ Done when: `npm test` green with tests for the summary lines, the period row (wr
 colour row (writes the full `visual`), the banner (shown / hidden / imported); `node --check`; no change to prompt or
 storage beyond the banner flag.
 
-## T27 — Folder colours  [ ]
+## T27 — Folder colours  [x]
 SPEC §29 (3 Oct 2026, her feedback on 0.4: «нельзя менять цвет групп, что странно»). `settings.folders[i].color`
 (hex, normalised, preserved by every folder write), the group tinted like a coloured card (glyph, title, accent bar,
-border, aggregate chip; members keep their own colours), «Цвет…» in the folder footer and a colour input in the folder
-editor, same inline colour row as cards, «auto» removes the field. Files: `src/folders.js`, `src/ui/drawer.js`,
+border, aggregate chip; members keep their own colours), a colour input with «auto» in the folder editor only (no footer
+button; scope changed after the first try), written on Save, «auto» removes the field. Files: `src/folders.js`, `src/ui/drawer.js`,
 `style.css`, i18n, tests, README (groups paragraph).
 Done when: `npm test` green with normaliser + footer + tint tests; `node --check`; no change to run/store/prompt.
 
@@ -548,3 +548,15 @@ Done when: `npm test` green; no `[data-control="color"]` in any footer; the edit
   `aria-pressed` itself; Cancel leaves the written colour alone. No new i18n keys: `card.color` («Цвет…» / "Colour…") is
   now unused but kept (the T26 i18n test lists it); the `.st-sable-person > .st-sable-card-footer > .st-sable-color-row`
   rule is dead CSS left in place. Tests: `test/settings-tier.test.mjs` (two T26 footer tests replaced by editor ones).
+- T27: `normalizeFolders` keeps `color` via `normalizeHex` (imported from `src/settings.js`; the import cycle is safe,
+  neither module calls the other at load) and omits the key when absent or invalid; `moveToFolder` / `planDrop` already
+  spread each folder, so they preserve it. Drawer: `applyGroupColor(group, color)` sets `--st-sable-folder-accent` and
+  `--st-sable-folder-accent-ink-rgb` plus `data-st-sable-tinted="1"` on the folder `section.st-sable-group` (from
+  `refreshGroup`; packs and People pass nothing). The colour is not put on `--st-sable-accent` of the group, so member
+  cards keep the shared accent; the `/* T27 */` CSS remaps `--st-sable-accent` only on the group's `::before` and its
+  header (glyph, title, aggregate chip and its menu), and mixes the border. Scope change from the maintainer: no
+  «Цвет…» in the folder footer; the colour lives only in the folder editor: `input[name=color]`
+  (`[data-control="folder-color"]`) and «auto» (`[data-control="folder-color-auto"]`) after the icon field, previewed on
+  the group while editing, written with the form on Save (`updateSettings({ folders })`, whole array; «auto» drops the
+  key), discarded by Cancel (its re-render restores the tint). `colorControls` is unchanged from T26.
+  Real rendering of `color-mix(…, currentColor)` on the title is unverified outside jsdom.
