@@ -8,9 +8,13 @@ import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
 import { ROLES, loadSettings, saveSettings, effectiveModes, reasoningPayload } from './settings.js';
-import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries, recordHistory, recordStatHistory, pruneHistory } from './store.js';
+import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, lagOf, putEntry, pruneEntries, recordHistory, recordStatHistory, pruneHistory } from './store.js';
 
 export const LOG_LIMIT = 5;
+// A state more replies behind the chat than this is not injected at all (SPEC §32).
+export const MAX_INJECT_LAG = 1;
+// Generation types that rewrite the last character reply (SPEC §32): they get the state from before it.
+const REWRITE_TYPES = new Set(['swipe', 'regenerate', 'continue']);
 const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue', 'edit']);
 const characterMessage = message => message && !message.is_user && !message.is_system;
 // Stats sections with history (SPEC §26): built-in pack sections and custom blocks of shape `stats`.
@@ -31,16 +35,27 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   let log = [], lastLogAt = 0, armed = null;
   // Profiles whose endpoint rejected the reasoning payload; for this page session only (SPEC §31).
   const noReasoning = new Set();
+  // The `GENERATION_STARTED` override (SPEC §32): true while a swipe / regenerate / continue is being generated.
+  let rewriting = false;
   const listeners = new Set();
   const bindings = [];
   const cancel = () => { if (active) { active.record?.('dropped'); active.controller.abort(); active = undefined; publish(); } };
   const lastCharacterId = ctx => ctx.chat.findLastIndex(characterMessage);
+  // The injected entry and its lag (SPEC §32). While a reply is rewritten, the state from before that reply, its lag
+  // measured against the message before the rewritten one.
+  function chooseInjected(store, ctx) {
+    const rewritten = rewriting ? lastCharacterId(ctx) : -1;
+    const injectedEntry = currentEntry(store, ctx.chat, rewritten >= 0 ? rewritten : Infinity, { skipStale: true });
+    return { injectedEntry, lag: lagOf(injectedEntry, ctx.chat, rewritten >= 0 ? rewritten : ctx.chat.length) };
+  }
+  // Message and chat events end the override; publishes only when it was on and the caller would not publish anyway.
+  const endRewrite = (republish = false) => { const was = rewriting; rewriting = false; if (was && republish) publish(); };
 
   function snapshot() {
     const ctx = getContext();
     const settings = loadSettings(ctx), store = loadStore(ctx);
     return { settings, store, log, rollArmed: armed !== null && armed === store.roll?.consumedBy,
-      entry: currentEntry(store, ctx.chat), injectedEntry: currentEntry(store, ctx.chat, Infinity, { skipStale: true }), modes: effectiveModes(settings, store),
+      entry: currentEntry(store, ctx.chat), ...chooseInjected(store, ctx), modes: effectiveModes(settings, store),
       packs: { enabled: enabledPacks(store, settings), available: getPacks(settings).map(p => ({ id: p.id,
         title: p.builtin ? t(p.title, settings.language) : p.title, icon: p.icon,
         description: p.builtin ? t(p.description, settings.language) : p.description, builtin: !!p.builtin, scope: p.scope, scopeDefault: p.scopeDefault })) },
@@ -58,9 +73,12 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const sections = getSections(view.settings, enabledPacks(view.store, view.settings));
     const hasState = sections.some(s => view.injectedEntry?.state[s.id] !== undefined && view.modes[s.id] === 'inject');
     const rollArmed = armed !== null && armed === view.store.roll?.consumedBy;
+    // Too far behind the chat: nothing at all, the model reads the messages instead (SPEC §32).
+    if (view.lag > MAX_INJECT_LAG) return '';
     return view.settings.enabled && !isGroup(ctx) && (hasState || (view.store.roll && (view.store.roll.consumedAt == null || rollArmed)))
       ? buildDigest(view.injectedEntry?.state, view.modes, { sections, language: view.settings.language,
-        order: view.settings.order, userName: ctx.name1, roll: view.store.roll, rollArmed }) : '';
+        order: view.settings.order, userName: ctx.name1, roll: view.store.roll, rollArmed,
+        lag: view.lag, asOf: view.injectedEntry?.mesId }) : '';
   }
 
   function publish() {
@@ -119,7 +137,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const ctx = getContext(), mesId = lastCharacterId(ctx);
     if (!loadSettings(ctx).enabled || isGroup(ctx) || mesId < 0) return null;
     const { built, settings, data, modes } = prepare(mesId, true);
-    return { mesId, ...built, injection: injection({ settings, store: data, modes, injectedEntry: currentEntry(data, ctx.chat, Infinity, { skipStale: true }) }, ctx), chars: built.messages.reduce((sum, m) => sum + m.content.length, 0) };
+    return { mesId, ...built, injection: injection({ settings, store: data, modes, ...chooseInjected(data, ctx) }, ctx), chars: built.messages.reduce((sum, m) => sum + m.content.length, 0) };
   }
 
   async function execute(mesId, { force = false, type = 'normal' } = {}, promise) {
@@ -249,7 +267,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
 
   function swipe(mesId) {
     const ctx = getContext();
-    if (mesId !== lastCharacterId(ctx)) return;
+    if (mesId !== lastCharacterId(ctx)) return endRewrite(true);
+    endRewrite();
     cancel(); lastFingerprint = undefined;
     const data = loadStore(ctx);
     armed = data.roll?.consumedBy === mesId ? mesId : null;
@@ -262,7 +281,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   }
 
   function deleted(newChatLength) {
-    armed = null;
+    armed = null; endRewrite();
     cancel(); lastFingerprint = undefined;
     const ctx = getContext(), data = loadStore(ctx);
     const length = Math.min(ctx.chat.length, newChatLength);
@@ -286,7 +305,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   }
 
   function chatChanged() {
-    armed = null;
+    armed = null; endRewrite();
     cancel(); lore = []; lastFingerprint = undefined; warnedProfile = false;
     publish();
   }
@@ -372,6 +391,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const ctx = getContext(), data = loadStore(ctx);
     const disarmed = armed !== null && armed === id;
     if (disarmed) armed = null;
+    endRewrite(true);
     if (Number.isInteger(id) && characterMessage(ctx.chat[id]) && data.roll
       && id > data.roll.forMesId && data.roll.consumedAt == null) {
       data.roll.consumedAt = Date.now();
@@ -461,6 +481,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       MESSAGE_RECEIVED: received, MESSAGE_SWIPED: swipe,
       MESSAGE_SENT: () => { armed = null; publish(); },
       MESSAGE_DELETED: deleted, MESSAGE_EDITED: edited, CHAT_CHANGED: chatChanged,
+      // Before SillyTavern combines the prompts (dry runs too): pick the entry for this generation (SPEC §32).
+      GENERATION_STARTED: type => { rewriting = REWRITE_TYPES.has(type); publish(); },
       WORLD_INFO_ACTIVATED: entries => { lore = Array.isArray(entries) ? structuredClone(entries) : []; },
     };
     for (const [key, handler] of Object.entries(handlers)) {

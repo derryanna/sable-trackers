@@ -195,6 +195,7 @@ Inject with `setExtensionPrompt('sable_trackers', text, IN_CHAT(1), settings.dep
 the role maps to 0 system, 1 user, 2 assistant. Models that copy a system note into the reply usually stop with `user`.
 Clear it (empty string) when the extension is disabled or there is no state.
 Re-inject on CHAT_CHANGED and after every merge.
+Which entry is injected (swipes, regenerations, lag) and when nothing is: see §32.
 
 ---
 

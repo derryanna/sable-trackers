@@ -987,3 +987,12 @@
 /* T30 */
 /* The settings intro line (SPEC §27a): muted, above the first group. */
 .st-sable-settings-intro { margin: 0 0 8px; font-size: .85em; line-height: 1.35; opacity: .65; }
+
+/* T32 */
+/* State too far behind the chat (SPEC §32): the note under the drawer's title row, in the status and in the panel. */
+.st-sable-lag { margin: 4px 12px 0; font-size: .92em; color: #e9c16f; }
+.st-sable-lag[hidden] { display: none; }
+.st-sable-panel > .st-sable-lag { margin: 0 0 2px; }
+.st-sable-status-lag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 2px; color: #e9c16f; }
+.st-sable-drawer .st-sable-status:has(.st-sable-status-lag) { opacity: 1; }
+.st-sable-drawer[data-st-sable-tone="light"] :is(.st-sable-lag, .st-sable-status-lag) { color: #8a6100; }

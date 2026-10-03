@@ -518,3 +518,13 @@ Object.assign(STRINGS.ru, {
   cutOutput: 'Ответ обрезан: модель не дописала JSON. Увеличьте «Макс. токенов» (сейчас {n}) или уменьшите размышления',
   emptyOutput: 'Модель вернула пустой ответ (фильтр содержимого?)',
 });
+// T32
+// Which state is injected (SPEC §32): the lag-1 digest line and the lag ≥ 2 notes.
+Object.assign(STRINGS.en, {
+  lagNote: 'Scene state as of reply #{n} (one reply behind the chat; newer messages take precedence)',
+  'lag.behind': 'State is {n} replies behind',
+});
+Object.assign(STRINGS.ru, {
+  lagNote: 'Состояние сцены на момент ответа #{n} (на 1 ответ позже событий в чате; новые сообщения главнее)',
+  'lag.behind': 'Состояние отстаёт на {n} ответов',
+});
