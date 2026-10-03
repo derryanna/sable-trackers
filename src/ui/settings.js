@@ -108,9 +108,12 @@ export function createSettings(runtime, { document = globalThis.document,
     const summary = node('summary', 'st-sable-group-summary'), heading = node('h4', 'st-sable-settings-heading');
     const glyphs = { connection: 'plug', context: 'align-left', sections: 'list', scales: 'sliders', custom: 'puzzle-piece', visual: 'palette', actions: 'bolt', packs: 'box-open', danger: 'triangle-exclamation' };
     heading.append(icon(glyphs[id]), text('span', '', key));
-    summary.append(heading, icon('chevron-right')); section.append(summary);
+    // What the group holds (SPEC §28), shown under the heading while the group is folded.
+    const note = text('span', 'st-sable-group-note', `group.${id}.summary`); note.dataset.groupSummary = id;
+    summary.append(heading, icon('chevron-right'), note); section.append(summary);
     if (id === 'danger') section.classList.add('st-sable-danger');
     section.addEventListener('toggle', () => {
+      note.hidden = section.open;
       if (section.open !== !!runtime.snapshot().settings.groups?.[id]) runtime.updateSettings({ groups: { [id]: section.open } });
     });
     groups.set(id, section); content.append(section);
@@ -757,8 +760,8 @@ export function createSettings(runtime, { document = globalThis.document,
   // Actions.
   const actions = group('actions', 'group.actions');
   const actionButtons = node('div', 'st-sable-settings-buttons'); actions.append(actionButtons);
+  // The legacy import lives in the drawer banner now (SPEC §28).
   button(actionButtons, 'runNow', 'rotate', () => { void runtime.refresh(); });
-  const seed = button(actionButtons, 'seedLegacy', 'file-import', () => { void runtime.seedLegacy(); });
   const reset = button(actionButtons, 'resetOverrides', 'arrow-rotate-left', () => {
     for (const id of Object.keys(runtime.snapshot().store.modeOverride)) runtime.setMode(id, null, true);
   });
@@ -1077,6 +1080,7 @@ export function createSettings(runtime, { document = globalThis.document,
     for (const id of GROUP_IDS) {
       const section = groups.get(id), open = !!view.settings.groups?.[id];
       if (section && section.open !== open) section.open = open;
+      if (section) section.querySelector('.st-sable-group-note').hidden = section.open;
     }
     for (const [key, input] of controls) {
       if (input.type === 'checkbox') input.checked = !!view.settings[key];
@@ -1096,7 +1100,6 @@ export function createSettings(runtime, { document = globalThis.document,
       setValue(input, visual[key] ?? fallback);
       auto.setAttribute('aria-pressed', String(!visual[key]));
     }
-    seed.disabled = !view.canSeedLegacy;
     reset.disabled = !Object.keys(view.store.modeOverride).length;
     refillProfiles();
     forced = undefined;

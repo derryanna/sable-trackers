@@ -306,11 +306,23 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   hiddenRow.append(hiddenToggle);
   const status = node('footer', 'status');
   status.setAttribute('role', 'status');
-  const seed = button(label('seedLegacy'), 'seedLegacy', () => { void runtime.seedLegacy(); }, 'legacy-button');
+  // Legacy import (SPEC §28): a banner above the cards while the chat has old Sable data and no state of its own.
+  // Only its buttons import or hide (per chat); opening the drawer never does.
+  const banner = node('div', 'legacy-banner');
+  banner.setAttribute('role', 'region');
+  const bannerText = node('span', 'legacy-text');
+  const afterBanner = () => { if (banner.hidden && banner.contains(document.activeElement)) close.focus(); };
+  const seed = button('', 'legacy.import', () => { void runtime.seedLegacy(); afterBanner(); }, 'legacy-action');
+  seed.dataset.control = 'legacy-import';
+  const bannerHide = button('', 'legacy.hide', () => { runtime.hideLegacyBanner(); afterBanner(); }, 'legacy-action');
+  bannerHide.dataset.control = 'legacy-hide';
+  const bannerActions = node('div', 'legacy-actions');
+  bannerActions.append(seed, bannerHide);
+  banner.append(bannerText, bannerActions);
   // Rain overlay (SPEC §16): one CSS-only layer behind the cards, display: none unless the level is full and rain is on.
   const rain = node('div', 'rain');
   rain.setAttribute('aria-hidden', 'true');
-  drawer.append(rain, header, seed, cards, hiddenRow, status, sheet);
+  drawer.append(rain, header, banner, cards, hiddenRow, status, sheet);
   // Edge pull tab: glued to the screen edge when closed, to the panel's left edge when open.
   const tab = button('', 'open', () => { if (drawer.hidden) open(tab); else hide(false); }, 'tab');
   tab.append(icon('wand-magic-sparkles'), icon('chevron-right'));
@@ -433,19 +445,36 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
 
   function closeModeMenu(restoreFocus = true) {
     if (!modeMenu) return;
-    const { chip, popup, hosts } = modeMenu;
+    const { chip, popup, hosts, commit } = modeMenu;
     modeMenu = undefined;
     popup.remove();
     for (const host of hosts) host.classList.remove('st-sable-menu-open');
     chip.setAttribute('aria-expanded', 'false');
     if (restoreFocus) chip.focus();
+    // A typed period is kept however the menu closes (Enter, a tap outside, a mode choice); Escape restores it first.
+    commit?.();
   }
   // A card chip writes one section; a group chip (SPEC §15) writes every member of the pack in one go.
   const cardTarget = id => ({ current: view.modes[id], apply: mode => runtime.setMode(id, mode),
-    gone: () => !cards.querySelector(`[data-section="${id}"]`) });
+    gone: () => !cards.querySelector(`[data-section="${id}"]`), period: () => periodOf(id) });
+  /** The period row of a card's mode menu (SPEC §28): the same global value the Sections table writes (a custom block
+   *  keeps it in customSections, everything else in settings.sections), never a per-chat override. */
+  function periodOf(id) {
+    const section = sections().find(item => item.id === id);
+    if (!section) return undefined;
+    const own = section.custom && !section.pack;
+    return { value: Number((own ? section.period : view.settings.sections[id]?.period) ?? 1),
+      hint: id === 'dossiers' ? label('menu.periodDossiers') : '',
+      write: period => {
+        if (!own) { runtime.updateSettings({ sections: { [id]: { period } } }); return; }
+        const list = runtime.snapshot().settings.customSections;
+        runtime.updateSettings({ customSections: (Array.isArray(list) ? list : []).map(item => (item?.id === id ? { ...item, period } : item)) });
+      } };
+  }
   const groupTarget = pack => ({ current: groupState(pack).mode, apply: pack.target,
     gone: () => !groupNode(pack.key) });
-  /** target = { current: the checked mode (null when mixed), apply(mode), gone(): the chip's card or group left the list }. */
+  /** target = { current: the checked mode (null when mixed), apply(mode), gone(): the chip's card or group left the list,
+   *  period?(): { value, hint, write(n) } for the «Every N replies» row }. */
   function openModeMenu(chip, wrap, target, entries = ['inject', 'show', 'off'].map(mode => ({ value: mode, text: label(mode) }))) {
     if (modeMenu?.chip === chip) { closeModeMenu(); return; }
     closeModeMenu(false);
@@ -469,7 +498,33 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       popup.append(item);
       return item;
     });
+    const period = target.period?.();
+    let periodInput, commit;
+    if (period) {
+      const row = node('label', 'mode-period');
+      periodInput = node('input', 'period-input');
+      Object.assign(periodInput, { type: 'number', name: 'period', min: '0', max: '99', step: '1', inputMode: 'numeric', value: String(period.value) });
+      periodInput.dataset.control = 'period';
+      periodInput.setAttribute('aria-label', `${chip.title}: ${label('menu.period')}`);
+      row.append(node('span', 'mode-period-label', label('menu.period')), periodInput);
+      popup.append(row);
+      if (period.hint) popup.append(node('p', 'mode-period-hint', period.hint));
+      commit = () => {
+        const raw = periodInput.value.trim(), value = Number(raw);
+        if (raw === '' || !Number.isInteger(value) || value < 0) return;
+        if (Math.min(99, value) !== period.value) period.write(Math.min(99, value));
+      };
+      periodInput.addEventListener('change', () => closeModeMenu());
+    }
     popup.addEventListener('keydown', event => {
+      if (periodInput && event.target === periodInput) {
+        // Arrows step the number natively; Enter keeps the value, Escape drops the typed text, Shift+Tab goes back.
+        if (event.key === 'Escape') periodInput.value = String(period.value);
+        else if (event.key === 'Enter') { event.preventDefault(); closeModeMenu(); }
+        else if (event.key === 'Tab' && event.shiftKey) { event.preventDefault(); (choices.find(item => item.getAttribute('aria-checked') === 'true' && !item.disabled) ?? choices.find(item => !item.disabled))?.focus(); }
+        else if (event.key === 'Tab') closeModeMenu();
+        return;
+      }
       const available = choices.filter(item => !item.disabled), index = available.indexOf(document.activeElement);
       if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
         event.preventDefault();
@@ -478,11 +533,13 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         available[target]?.focus();
       } else if (['Enter', ' '].includes(event.key)) {
         event.preventDefault(); available[index]?.click();
+      } else if (event.key === 'Tab' && periodInput && !event.shiftKey) {
+        event.preventDefault(); periodInput.focus(); periodInput.select?.();
       } else if (event.key === 'Tab') closeModeMenu();
     });
     // The open card and, for a member, its group let the menu extend past their edges (style.css).
     const hosts = [wrap.closest('.st-sable-card'), wrap.closest('.st-sable-group')].filter(Boolean);
-    modeMenu = { chip, wrap, popup, hosts };
+    modeMenu = { chip, wrap, popup, hosts, commit };
     wrap.append(popup);
     for (const host of hosts) host.classList.add('st-sable-menu-open');
     chip.setAttribute('aria-expanded', 'true');
@@ -968,6 +1025,44 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     heading.append(handle, title, wrap, fold);
     return heading;
   }
+  // Card colour from the card (SPEC §28): «Цвет…» opens an inline row with the swatch and «auto» of Appearance → Cards →
+  // Card colours. `key` is the card (a section id or person:<id>), `colorId` the cardColors entry it writes.
+  const colorRows = new Set();
+  let colorRowId = 0;
+  function colorControls(key, colorId, name) {
+    const open = colorRows.has(key), result = [];
+    const toggle = button('', 'card.color', () => {
+      if (colorRows.has(key)) colorRows.delete(key); else colorRows.add(key);
+      render(view);
+    }, 'edit');
+    toggle.append(icon('palette'), document.createTextNode(` ${label('card.color')}`));
+    toggle.setAttribute('aria-label', `${label('card.colorLabel')}: ${name}`);
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.dataset.control = 'color';
+    result.push(toggle);
+    if (!open) return result;
+    const visual = normalizeVisual(view.settings.visual), current = visual.cardColors[colorId];
+    const row = node('div', 'color-row'); row.id = `st-sable-color-row-${++colorRowId}`; row.dataset.cardColor = colorId;
+    toggle.setAttribute('aria-controls', row.id);
+    const write = color => {
+      const now = normalizeVisual(runtime.snapshot().settings.visual), colors = { ...now.cardColors };
+      if (color) colors[colorId] = color; else delete colors[colorId];
+      // saveSettings does not deep-merge visual: the whole object goes back.
+      runtime.updateSettings({ visual: normalizeVisual({ ...now, cardColors: colors }) });
+    };
+    const input = node('input', 'color-input'); input.type = 'color'; input.name = `cardColors.${colorId}`;
+    input.value = current ?? visual.accent; input.dataset.control = 'color-input';
+    input.setAttribute('aria-label', `${name}: ${label('card.colorLabel')}`);
+    input.addEventListener('input', () => { const card = row.closest('.st-sable-card'); if (card) applyCardColor(card, input.value); });
+    input.addEventListener('change', () => write(input.value));
+    const auto = button(label('visual.auto'), 'visual.auto', () => { if (current) write(null); }, 'color-auto');
+    auto.dataset.control = 'color-auto';
+    auto.setAttribute('aria-label', `${name}: ${label('visual.auto')}`);
+    auto.setAttribute('aria-pressed', String(!current));
+    row.append(input, auto);
+    result.push(row);
+    return result;
+  }
   // The pencil lives under the card, not in the header: a fifth header control made long titles wrap on phones.
   function buildFooter(section) {
     const { id } = section, { mode, folded } = cardState(id), name = section.custom ? section.title : label(section.title);
@@ -985,6 +1080,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       move.addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); openFolderMenu(id, move, wrap); } });
       wrap.append(move); footer.append(wrap);
     }
+    footer.append(...colorControls(id, id, name));
     return footer;
   }
   function buildCard(section) {
@@ -1119,7 +1215,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     heading.append(fold);
     card.firstElementChild.replaceWith(heading);
     body.hidden = footer.hidden = folded;
-    footer.replaceChildren(muted(label('people.hint')));
+    const npcs = sections().find(section => section.id === 'npcs');
+    footer.replaceChildren(muted(label('people.hint')), ...colorControls(key, 'npcs', npcs ? sectionTitle(npcs) : person.name));
     const parts = [], part = name => { const element = node('div', 'person-part'); element.dataset.part = name; return element; };
     if (npc && on('npcs')) {
       const element = part('npcs');
@@ -1358,6 +1455,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   }
 
   function render(next) {
+    // A render closes the menu; a typed period is written after this render, not in the middle of it.
+    const pending = modeMenu?.commit;
+    if (modeMenu) modeMenu.commit = undefined;
     closeModeMenu();
     // Notifications are the only source of state renders after initial mounting.
     drag = undefined;
@@ -1374,10 +1474,12 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (entryKey !== lastEntryKey || view.store !== previousStore || !view.entry) revealed.clear();
     containerList = describeContainers();
     drawer.lang = view.settings.language;
-    seed.hidden = !view.canSeedLegacy;
-    seed.textContent = label('seedLegacy');
-    seed.title = label('seedLegacy');
-    seed.setAttribute('aria-label', label('seedLegacy'));
+    banner.hidden = !view.canSeedLegacy || !!view.legacyBannerHidden;
+    banner.setAttribute('aria-label', label('legacy.banner'));
+    bannerText.textContent = label('legacy.banner');
+    for (const [element, key] of [[seed, 'legacy.import'], [bannerHide, 'legacy.hide']]) {
+      element.textContent = label(key); element.title = label(key); element.setAttribute('aria-label', label(key));
+    }
     for (const [element, key] of [[refresh, 'refresh'], [pin, 'pin'], [settings, 'settings'], [packs, 'packs.open'], [close, 'close']]) {
       element.title = label(key); element.setAttribute('aria-label', label(key));
     }
@@ -1489,6 +1591,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     else if (focusPerson !== undefined && focusRole) [...cards.querySelectorAll('[data-person]')].find(card => card.dataset.person === focusPerson)
       ?.querySelector(`[data-control="${focusRole}"]`)?.focus();
     else if (focusPack && focusRole) groupNode(focusPack)?.querySelector(`[data-control="${focusRole}"]`)?.focus();
+    pending?.();
   }
 
   function renderStatus() {

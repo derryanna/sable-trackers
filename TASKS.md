@@ -326,7 +326,7 @@ button and `st-sable-stale` on stale cards. Files: `src/settings.js`, `src/run.j
 Done when: `npm test` green with normaliser tests (`hints`, `recomputeOnEdit` dropped), drawer tests for the hint
 sequence and the status states (no profile / stale), the legend present in the menu; `node --check`.
 
-## T26 — Settings in one tier  [ ]
+## T26 — Settings in one tier  [x]
 SPEC §28 (3 Oct 2026: «один этаж, в заголовках перечислено содержимое, период в меню чипа, цвет в меню карточки,
 импорт плашкой»). Folded group summary lines (`group.<id>.summary`); «Раз в N ответов» row in the mode menu writing
 the global period; «Цвет…» in card footers with the Card colours swatches; the legacy import button leaves Actions
@@ -338,6 +338,25 @@ storage beyond the banner flag.
 
 ## Notes from previous tasks
 (append here)
+- T26: folded settings groups carry `span.st-sable-group-note[data-group-summary]` as the summary's last child (after the
+  chevron; CSS wraps it to a second line), `hidden` while the group is open, text from `group.<id>.summary`. The mode menu
+  takes an optional `target.period()` → `{ value, hint, write(n) }`; only card chips pass it (`cardTarget` → `periodOf(id)`),
+  so group chips and the «В группу…» menu have no row. The row is `label.st-sable-mode-period` after the options (input
+  `[data-control="period"]`, 0–99, values over 99 clamp, invalid text writes nothing); a custom block writes its
+  `customSections` entry, built-ins and pack sections `sections[id].period`; dossiers add `p.st-sable-mode-period-hint`.
+  The typed period is committed by `closeModeMenu` however the menu closes (Enter, change, a tap outside, a mode choice);
+  Escape restores it; a render triggered elsewhere commits it after the render. Keyboard: arrows still cycle the options
+  only, Tab from an option focuses the input, Shift+Tab goes back. «Цвет…» (`[data-control="color"]`) is the last footer
+  control of section and person cards; the open set is in memory, keyed by section id or `person:<id>`; the inline
+  `.st-sable-color-row` holds `input[type=color][name="cardColors.<id>"]` (preview on input, write on change) and
+  `[data-control="color-auto"]`; person cards write `cardColors.npcs`. Folder footers get no colour (folders have none).
+  The drawer's old `.st-sable-legacy-button` became `.st-sable-legacy-banner` (`[data-control="legacy-import"]`,
+  `[data-control="legacy-hide"]`); `runtime.hideLegacyBanner()` sets `chat_metadata.sableTrackers.legacyBannerHidden`,
+  exposed as `snapshot().legacyBannerHidden`. The Settings → Actions import button is gone (the `seedLegacy` i18n key and
+  the old `.st-sable-legacy-button` CSS are now unused and were left in place to keep the diff small). The `/* T26 */` CSS
+  block sits right before `/* Full: every rule below`, not at the very end: `test/effects.test.mjs` requires every rule
+  after that marker to be full-scoped. Existing tests adjusted: the scales group title is read from `summary > h4`, the
+  mode menu test counts `.st-sable-mode-option`s, the drawer and settings import tests now describe the banner.
 - T20: `store.history[bondId][scale]` via `recordHistory(data, bonds, mesId, keys)` / `pruneHistory(data, keep)` (keep = a
   chat length or a Set of mesIds) and `HISTORY_POINTS = 12` in `src/store.js`; `run.js` records after a parsed run result is
   stored (not on a skipped run with no due sections) and after `editState('bonds')`, prunes in `deleted`. A point is

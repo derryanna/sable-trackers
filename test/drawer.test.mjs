@@ -586,7 +586,7 @@ test('mode menu checks current mode, supports keyboard selection and restores ch
   chip().focus(); key(chip(), 'ArrowDown');
   assert.equal(runtime.snapshot().modes.world, 'inject', 'opening never writes a mode');
   assert.equal(chip().getAttribute('aria-expanded'), 'true');
-  const choices = [...query('[role="menu"]').children];
+  const choices = [...query('[role="menu"]').querySelectorAll('.st-sable-mode-option')];
   assert.deepEqual(choices.map(item => item.textContent), ['в промпт', 'показ', 'выкл']);
   assert.deepEqual(choices.map(item => item.getAttribute('aria-checked')), ['true', 'false', 'false']);
   assert.ok(choices[0].querySelector('.fa-check'));

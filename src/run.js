@@ -34,6 +34,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         description: p.builtin ? t(p.description, settings.language) : p.description, builtin: !!p.builtin, scope: p.scope, scopeDefault: p.scopeDefault })) },
       running: active ? { mesId: active.mesId, swipeId: active.swipeId, startedAt: active.startedAt } : null,
       canSeedLegacy: !store.ring.length && !!seedFromLegacy(ctx.chat),
+      // The drawer's import banner (SPEC §28) is dismissed per chat.
+      legacyBannerHidden: store.legacyBannerHidden === true,
       name1: ctx.name1, name2: ctx.name2 };
   }
 
@@ -385,6 +387,16 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     return true;
   }
 
+  /** «Скрыть» on the legacy import banner (SPEC §28): one per-chat flag, nothing else changes. */
+  function hideLegacyBanner() {
+    const ctx = getContext(), data = loadStore(ctx);
+    if (data.legacyBannerHidden === true) return false;
+    data.legacyBannerHidden = true;
+    publish();
+    void saveStore(ctx);
+    return true;
+  }
+
   function start() {
     if (bindings.length) return;
     const ctx = getContext();
@@ -405,7 +417,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
     idle: () => active?.promise ?? Promise.resolve(),
     preview, clearLog() { log = []; publish(); },
-    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setSectionsMode, setPack, seedLegacy, editState, rollDice,
+    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setSectionsMode, setPack, seedLegacy, hideLegacyBanner, editState, rollDice,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },
   };

@@ -161,7 +161,7 @@ function settingsSetup(t, settings = {}) {
 
 test('settings: built-in checkboxes write the whole off array; the rebuild hint is shown in both languages', t => {
   const { runtime, patches, group, fire } = settingsSetup(t);
-  assert.equal(group.querySelector('summary').textContent, 'Bond scales');
+  assert.equal(group.querySelector('summary > h4').textContent, 'Bond scales');
   const boxes = [...group.querySelectorAll('input[data-scale]')];
   assert.deepEqual(boxes.map(box => box.dataset.scale), BOND_SCALES);
   assert.ok(boxes.every(box => box.checked));
@@ -177,7 +177,7 @@ test('settings: built-in checkboxes write the whole off array; the rebuild hint 
   assert.doesNotMatch(danger.value, /reputation =/, 'the Danger zone shows the rebuilt default');
   assert.match(danger.value, /respect = respect for toward/);
   runtime.updateSettings({ language: 'ru' });
-  assert.equal(group.querySelector('summary').textContent, 'Шкалы отношений');
+  assert.equal(group.querySelector('summary > h4').textContent, 'Шкалы отношений');
   assert.equal(boxes[4].parentElement.textContent, 'Репутация — как NPC оценивает цель, не слава');
   assert.match(group.textContent, /своя инструкция в «Опасной зоне» заменяет её целиком/);
 });
