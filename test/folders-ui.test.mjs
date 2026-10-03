@@ -174,30 +174,12 @@ test('preview module and phone iframe fixture load with two folders', async () =
 });
 
 // T27: folder colours (SPEC §29).
-test('folder footer «Цвет…» comes before the editor button and writes the whole folders array; «auto» removes the field', t => {
-  const { group, control: find, runtime } = setup(t, { folders: [folder(a, ['world', 'threads']), folder(b, ['story'], 'Story')] });
-  // Member cards have their own «Цвет…»; the folder's sits in the footer directly under the group body.
-  const footer = () => group().querySelector('.st-sable-group-body > .st-sable-card-footer');
-  const control = (_, name) => find(footer(), name);
-  const buttons = [...footer().querySelectorAll('button')].map(item => item.dataset.control);
-  assert.ok(buttons.indexOf('color') >= 0 && buttons.indexOf('color') < buttons.indexOf('folder-edit'));
-  assert.equal(control(null, 'color').textContent.trim(), 'Цвет…');
-  let writes = [];
-  const update = runtime.updateSettings; runtime.updateSettings = patch => { writes.push(patch); return update(patch); };
-  control(group(), 'color').click();
-  const input = footer().querySelector('input[type="color"][name="folders.f_00000001.color"]');
-  assert.ok(input); assert.equal(control(group(), 'color').getAttribute('aria-expanded'), 'true');
-  input.value = '#336699'; input.dispatchEvent(new input.ownerDocument.defaultView.Event('input', { bubbles: true }));
-  assert.equal(group().style.getPropertyValue('--st-sable-folder-accent'), '#336699'); assert.equal(writes.length, 0);
-  input.dispatchEvent(new input.ownerDocument.defaultView.Event('change', { bubbles: true }));
-  assert.equal(writes.length, 1); assert.deepEqual(Object.keys(writes[0]), ['folders']);
-  assert.deepEqual(writes[0].folders.map(item => item.id), [a, b]);
-  assert.deepEqual(runtime.snapshot().settings.folders, [{ ...folder(a, ['world', 'threads']), color: '#336699' }, folder(b, ['story'], 'Story')]);
-  const auto = control(group(), 'color-auto'); assert.equal(auto.getAttribute('aria-pressed'), 'false');
-  auto.click();
-  assert.equal('color' in runtime.snapshot().settings.folders[0], false);
-  assert.equal(group().dataset.stSableTinted, undefined); assert.equal(group().style.getPropertyValue('--st-sable-folder-accent'), '');
-  runtime.updateSettings = update;
+test('the folder footer has no colour control; member cards keep their own «Цвет…»', t => {
+  const { group, control } = setup(t);
+  const footer = group().querySelector('.st-sable-group-body > .st-sable-card-footer');
+  assert.deepEqual([...footer.querySelectorAll('button')].map(item => item.dataset.control), ['folder-edit']);
+  assert.equal(footer.querySelector('input[type="color"]'), null);
+  assert.ok(control(group().querySelector('.st-sable-card[data-section="world"]'), 'color'));
 });
 
 test('a coloured folder tints its group, not its members; packs and the People group stay untinted', t => {
@@ -214,21 +196,34 @@ test('a coloured folder tints its group, not its members; packs and the People g
   assert.equal(group().dataset.stSableTinted, '1');
 });
 
-test('the folder editor shows a colour input next to the icon; save writes it, «auto» clears it, untouched keeps it', t => {
-  const { group, control, runtime, query } = setup(t);
-  control(group(), 'folder-edit').click();
-  let editor = query(`[data-folder-editor="${a}"]`);
+test('the folder editor colour: next to the icon, previewed, written with Save as the whole array, discarded by Cancel, «auto» removes it', t => {
+  const { group, control, runtime, query } = setup(t, { folders: [folder(a, ['world', 'threads']), folder(b, ['story'], 'Story')] });
+  const open = () => { control(group(), 'folder-edit').click(); return query(`[data-folder-editor="${a}"]`); };
+  const pick = (editor, value) => {
+    const swatch = editor.querySelector('[name="color"]'); swatch.value = value;
+    swatch.dispatchEvent(new swatch.ownerDocument.defaultView.Event('input', { bubbles: true }));
+  };
+  let editor = open();
   const fields = [...editor.querySelectorAll('.st-sable-editor-field')];
   const iconAt = fields.findIndex(field => field.querySelector('[name="icon"]'));
   assert.ok(fields[iconAt + 1].querySelector('input[type="color"][name="color"]'));
-  const swatch = editor.querySelector('[name="color"]'); swatch.value = '#224466';
-  swatch.dispatchEvent(new swatch.ownerDocument.defaultView.Event('input', { bubbles: true }));
-  editor.querySelector('.st-sable-editor-save').click();
-  assert.equal(runtime.snapshot().settings.folders[0].color, '#224466'); assert.equal(group().dataset.stSableTinted, '1');
-  control(group(), 'folder-edit').click(); editor = query(`[data-folder-editor="${a}"]`);
-  editor.querySelector('[name="title"]').value = 'Renamed'; editor.querySelector('.st-sable-editor-save').click();
-  assert.equal(runtime.snapshot().settings.folders[0].color, '#224466'); assert.equal(runtime.snapshot().settings.folders[0].title, 'Renamed');
-  control(group(), 'folder-edit').click(); editor = query(`[data-folder-editor="${a}"]`);
-  control(editor, 'folder-color-auto').click(); editor.querySelector('.st-sable-editor-save').click();
+  assert.equal(control(editor, 'folder-color-auto').getAttribute('aria-pressed'), 'true');
+  pick(editor, '#663399');
+  assert.equal(group().style.getPropertyValue('--st-sable-folder-accent'), '#663399');
+  editor.querySelector('.st-sable-editor-cancel').click();
   assert.equal('color' in runtime.snapshot().settings.folders[0], false); assert.equal(group().dataset.stSableTinted, undefined);
+  const writes = [], update = runtime.updateSettings;
+  runtime.updateSettings = patch => { writes.push(patch); return update(patch); };
+  editor = open(); pick(editor, '#224466'); editor.querySelector('.st-sable-editor-save').click();
+  assert.equal(writes.length, 1); assert.deepEqual(Object.keys(writes[0]), ['folders']);
+  assert.deepEqual(writes[0].folders.map(item => item.id), [a, b]);
+  assert.deepEqual(runtime.snapshot().settings.folders, [{ ...folder(a, ['world', 'threads']), color: '#224466' }, folder(b, ['story'], 'Story')]);
+  assert.equal(group().dataset.stSableTinted, '1');
+  editor = open(); editor.querySelector('[name="title"]').value = 'Renamed'; editor.querySelector('.st-sable-editor-save').click();
+  assert.equal(runtime.snapshot().settings.folders[0].color, '#224466'); assert.equal(runtime.snapshot().settings.folders[0].title, 'Renamed');
+  editor = open(); control(editor, 'folder-color-auto').click();
+  assert.equal(group().dataset.stSableTinted, undefined);
+  editor.querySelector('.st-sable-editor-save').click();
+  assert.equal('color' in runtime.snapshot().settings.folders[0], false); assert.equal(group().dataset.stSableTinted, undefined);
+  runtime.updateSettings = update;
 });

@@ -339,8 +339,8 @@ storage beyond the banner flag.
 ## T27 — Folder colours  [x]
 SPEC §29 (3 Oct 2026, her feedback on 0.4: «нельзя менять цвет групп, что странно»). `settings.folders[i].color`
 (hex, normalised, preserved by every folder write), the group tinted like a coloured card (glyph, title, accent bar,
-border, aggregate chip; members keep their own colours), «Цвет…» in the folder footer and a colour input in the folder
-editor, same inline colour row as cards, «auto» removes the field. Files: `src/folders.js`, `src/ui/drawer.js`,
+border, aggregate chip; members keep their own colours), a colour input with «auto» in the folder editor only (no footer
+button; scope changed after the first try), written on Save, «auto» removes the field. Files: `src/folders.js`, `src/ui/drawer.js`,
 `style.css`, i18n, tests, README (groups paragraph).
 Done when: `npm test` green with normaliser + footer + tint tests; `node --check`; no change to run/store/prompt.
 
@@ -529,11 +529,9 @@ Done when: `npm test` green with the pack tests updated for nine sections; `node
   `--st-sable-folder-accent-ink-rgb` plus `data-st-sable-tinted="1"` on the folder `section.st-sable-group` (from
   `refreshGroup`; packs and People pass nothing). The colour is not put on `--st-sable-accent` of the group, so member
   cards keep the shared accent; the `/* T27 */` CSS remaps `--st-sable-accent` only on the group's `::before` and its
-  header (glyph, title, aggregate chip and its menu), and mixes the border. `colorControls(key, colorId, name, folderId)`
-  serves folders too: key `folder:<id>`, row `[data-folder-color]`, input `name="folders.<id>.color"`, preview on input,
-  `updateSettings({ folders })` on change / «auto» (`writeFolderColor`). The folder footer reads «Цвет…» · «Редактировать
-  группу» · row. The folder editor has `input[name=color]` (`[data-control="folder-color"]`) and «auto»
-  (`[data-control="folder-color-auto"]`) after the icon field; an untouched colour field keeps whatever colour the
-  folder has at save time (the footer row may have changed it while the editor was open). Member cards' own «Цвет…» also
-  match `[data-control="color"]` inside a group, so tests scope to the footer that is a direct child of the group body.
+  header (glyph, title, aggregate chip and its menu), and mixes the border. Scope change from the maintainer: no
+  «Цвет…» in the folder footer; the colour lives only in the folder editor: `input[name=color]`
+  (`[data-control="folder-color"]`) and «auto» (`[data-control="folder-color-auto"]`) after the icon field, previewed on
+  the group while editing, written with the form on Save (`updateSettings({ folders })`, whole array; «auto» drops the
+  key), discarded by Cancel (its re-render restores the tint). `colorControls` is unchanged from T26.
   Real rendering of `color-mix(…, currentColor)` on the title is unverified outside jsdom.

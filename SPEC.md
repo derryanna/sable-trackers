@@ -1244,12 +1244,13 @@ cannot be coloured, which looks odd next to coloured cards.
   keep their own colours (a member without one stays on the shared accent,
   not the folder's). The People group and packs are unchanged (packs keep
   their section colours).
-- The folder footer gets «Цвет…» / "Colour…" before «Редактировать группу»,
-  opening the same inline colour row as cards (`input[type=color]`, «auto»),
-  writing `updateSettings({ folders })` with the whole array. The folder
-  editor form also shows the colour input next to the icon field.
-- Tests: normaliser keeps/drops `color`; the footer control writes the array;
-  the group gets the tint attributes; «auto» removes the field.
+- The colour lives only in the folder editor form («Редактировать группу» /
+  "Edit group"): a colour input with «auto» next to the icon field, written
+  with the rest of the form on Save as `updateSettings({ folders })` with the
+  whole array; Cancel discards it. The folder footer has no «Цвет…» button.
+- Tests: normaliser keeps/drops `color`; the editor writes the array on Save
+  and Cancel discards; the group gets the tint attributes; «auto» removes the
+  field.
 
 ## 23a. Intimacy+ additions (3 Oct 2026)
 

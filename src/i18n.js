@@ -479,7 +479,7 @@ Object.assign(STRINGS.ru, {
   'person.add': '+ Человек', 'person.name': 'Имя', 'person.addSave': 'Добавить',
 });
 // T27
-// Folder colours (SPEC §29): the footer «Цвет…» reuses card.color; these name the group colour.
+// Folder colours (SPEC §29): the colour field of the folder editor.
 Object.assign(STRINGS.en, {
   'folders.color': 'Colour', 'folders.colorLabel': 'Group colour',
 });
