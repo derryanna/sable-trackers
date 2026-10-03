@@ -22,8 +22,8 @@
     "scene_phase": "breather"
   },
   "npcs": [
-    { "id": "maren", "name": "Maren", "present": true, "outfit": "grey wool dress, apron", "position": "at the table", "mood": "guarded, tired", "agenda": "Find out what {{user}} knows about the rope.", "action": "turning the logbook pages", "wants_toward": "{{user}}", "secret": "She saw Tomas at the boathouse that night." },
-    { "id": "tomas", "name": "Tomas", "present": false, "outfit": "", "position": "harbour", "mood": "unknown", "agenda": "", "action": "", "wants_toward": "", "secret": "" }
+    { "id": "maren", "name": "Maren", "present": true, "outfit": "grey wool dress, apron", "position": "at the table", "mood": "guarded, tired", "agenda": "Find out what {{user}} knows about the rope.", "action": "turning the logbook pages", "wants_toward": "{{user}}", "secret": "She saw Tomas at the boathouse that night.", "truth": "Afraid that speaking will put Tomas in danger." },
+    { "id": "tomas", "name": "Tomas", "present": false, "outfit": "", "position": "harbour", "mood": "unknown", "agenda": "", "action": "", "wants_toward": "", "secret": "", "truth": "" }
   ],
   "thoughts": [
     { "id": "maren", "name": "Maren", "thought": "If I tell them about Tomas, the whole village turns on him. Not yet." }

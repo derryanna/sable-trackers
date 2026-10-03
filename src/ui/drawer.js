@@ -155,6 +155,7 @@ const MARKERS = {
 // Scales where a high value means friction; their bars get the warm tint.
 const FRICTION = new Set(['suspicion', 'fear', 'grudge', 'tension']);
 const PRIORITIES = ['high', 'mid', 'low'];
+const revealed = new Set();
 
 // "18+" is part of the intimacy pack's title (SPEC §15 Decisions); the UI shows it as a badge instead.
 export function packTitle(title) {
@@ -500,6 +501,27 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     for (const key of keys) if (value?.[key]) list.append(node('dt', '', label(key)), node('dd', '', value[key]));
     if (list.childNodes.length) parent.append(list);
   }
+  let spoilerId = 0;
+  function spoiler(parent, npc) {
+    const block = node('div', 'spoiler-block'), list = node('dl', 'kv');
+    list.id = `st-sable-spoiler-${++spoilerId}`;
+    const toggle = button('', 'secret', () => {
+      if (revealed.has(npc.id)) revealed.delete(npc.id); else revealed.add(npc.id);
+      paint();
+    }, 'spoiler');
+    toggle.dataset.control = 'spoiler';
+    toggle.setAttribute('aria-controls', list.id);
+    function paint() {
+      const shown = revealed.has(npc.id);
+      toggle.setAttribute('aria-expanded', String(shown));
+      toggle.replaceChildren(view.settings.visual?.icons === 'emoji' ? glyphNode(document, '🙊') : icon(shown ? 'eye' : 'eye-slash'), node('span', '', label('secret')));
+      list.hidden = !shown;
+      list.replaceChildren();
+      // Keep concealed text out of the DOM until the reader asks for it.
+      if (shown) for (const key of ['secret', 'truth']) if (npc[key]) list.append(node('dt', '', label(key)), node('dd', '', npc[key]));
+    }
+    paint(); block.append(toggle, list); parent.append(block);
+  }
   function details(parent, parts, expanded, key) {
     const item = node('details', 'detail');
     item.dataset.key = key;
@@ -811,7 +833,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
           parts.push(node('span', 'mood', npc.mood || '—'));
           const item = details(body, parts, !!npc.present, `npcs:${npc.id}`);
           item.classList.add(npc.present ? 'st-sable-present' : 'st-sable-absent');
-          fields(item, npc, ['outfit', 'position', 'agenda', 'action', 'wants_toward', 'secret']);
+          fields(item, npc, ['agenda', 'outfit', 'position', 'action', 'wants_toward', ...(view.settings.spoilers ? [] : ['secret', 'truth'])]);
+          if (view.settings.spoilers && (npc.secret || npc.truth)) spoiler(item, npc);
         }
         break;
       case 'thoughts':
@@ -1209,7 +1232,12 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const focusId = focused?.closest('[data-section]')?.dataset.section;
     const focusPack = focused?.closest('.st-sable-group')?.dataset.container;
     const focusRole = focused?.dataset.control;
+    const previousStore = view.store;
     view = next;
+    const entryKey = JSON.stringify([view.entry?.mesId, view.entry?.swipeId, view.entry?.turn,
+      view.entry?.state?.meta?.updatedAt, view.entry?.state?.meta?.editedAt]);
+    // Metadata belongs to a chat; identical entry timestamps in another chat must conceal spoilers too.
+    if (entryKey !== lastEntryKey || view.store !== previousStore || !view.entry) revealed.clear();
     containerList = describeContainers();
     drawer.lang = view.settings.language;
     seed.hidden = !view.canSeedLegacy;
@@ -1282,8 +1310,6 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     cards.scrollTop = scrollTop;
     // Change flags (SPEC §16): the card flash lasts this render; the title dot stays until the card is unfolded or the
     // next run (a new ring entry, an edit, or any changed value) recomputes the set.
-    const entryKey = JSON.stringify([view.entry?.mesId, view.entry?.swipeId, view.entry?.turn,
-      view.entry?.state?.meta?.updatedAt, view.entry?.state?.meta?.editedAt]);
     if (changedCards.size || entryKey !== lastEntryKey) { freshCards = changedCards; lastEntryKey = entryKey; }
     for (const card of allCards) {
       const id = card.dataset.section;

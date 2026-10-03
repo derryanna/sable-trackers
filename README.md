@@ -17,6 +17,8 @@ Open the scene drawer from the edge tab, the extensions wand menu, or the panel 
 
 While an update is running, the status says “updating…” with a pulsing dot and a spinning ⟳ (the **Effects** level “off” stops every animation). Tapping ⟳ for the same reply keeps that update running; otherwise it updates all enabled sections regardless of period. Folding, pinning and appearance changes never interrupt an update.
 
+NPC rows show **About to** first, with **Secret** and **Deep down** hidden behind a **Secret** tap until the next state update or chat change; neither hidden field enters the main prompt. Turn off **Sections → Secrets and truths behind a tap** to display both as plain fields.
+
 ## Sections and modes
 
 | Section | Contents | Default mode / period |
@@ -95,6 +97,8 @@ Sable Trackers хранит состояние сцены отдельно от 
 Установка: скопируйте URL этого репозитория, откройте **Extensions → Install extension**, вставьте URL и перезагрузите SillyTavern. В **Extensions → Sable Trackers** включите расширение и выберите профиль **chat-completion** для недорогой модели. Отключите другие трекеры, записывающие блоки в ответ. Русский язык выбран по умолчанию. «Размышления модели» (по умолчанию «мало») не дают думающим моделям вроде GLM, Gemini или Kimi потратить весь лимит ответа на размышления; «как у модели» ничего не отправляет. Группы настроек сворачиваются и запоминают своё открытое или закрытое состояние.
 
 Режимы: **в промпт** — обновлять, показывать и передавать основной модели; **показ** — только обновлять и показывать; **выкл** — не запрашивать раздел, сохранив старое значение. Период задаётся в ответах персонажа. Переключатель «только для этого чата» сохраняет локальные режимы, кнопка сброса возвращает общие. «Обновить сейчас» запускает обновление вручную. Импорт старого Sable доступен при наличии совместимых данных и пустой истории трекера.
+
+В строке NPC первым показано «Собирается», а «Тайна» и «На самом деле» открываются нажатием на «Тайна» до следующего обновления состояния или смены чата; оба скрытых поля не попадают в основной промпт. Отключите **Секции → Тайны и «на самом деле» за спойлером**, чтобы показывать их обычными полями.
 
 Нажмите на плашку режима и выберите вариант в меню. Нажатие на заголовок карточки сворачивает или разворачивает её. Выключенные разделы по умолчанию скрыты: **Скрыто: N** временно показывает их для включения, **Скрыть** убирает снова. Настройка **Действия → Скрывать выключенные** отключает это скрытие. В таблице **Секции** кнопки **▲ ▼** меняют порядок встроенных и своих блоков; перетаскивание за ручку в панели тоже работает.
 

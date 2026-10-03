@@ -222,6 +222,7 @@ export function createSettings(runtime, { document = globalThis.document,
     }
   }
   sectionsGroup.append(table, text('p', 'st-sable-settings-hint', 'periodHint'));
+  checkbox(sectionsGroup, 'spoilers');
 
   let foldersArmed = false;
   const suggested = button(sectionsGroup, () => label(foldersArmed ? 'folders.confirmSuggested' : 'folders.suggested'), 'folder-tree', () => {

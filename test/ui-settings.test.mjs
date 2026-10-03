@@ -519,3 +519,22 @@ test('model reasoning select sits after the language, lists auto/low/min and wri
   assert.equal(reasoning.parentElement.querySelector('.st-sable-settings-label').textContent, 'Размышления модели');
   assert.equal(reasoning.options[0].textContent, 'как у модели');
 });
+
+
+test('Sections spoiler checkbox is localized, ordered and saves a boolean patch', t => {
+  assert.equal(normalizeSettings().spoilers, true);
+  assert.equal(normalizeSettings({ spoilers: 'false' }).spoilers, true);
+  assert.equal(normalizeSettings({ spoilers: false }).spoilers, false);
+  const { query, change, runtime, calls } = setup(t);
+  const input = query('[data-group="sections"] input[name="spoilers"]');
+  assert.equal(input.checked, true);
+  assert.equal(input.parentElement.textContent, 'Secrets and truths behind a tap');
+  assert.ok(input.parentElement.previousElementSibling.classList.contains('st-sable-settings-hint'));
+  assert.equal(input.parentElement.nextElementSibling.dataset.control, 'suggested-folders');
+  change('[name="spoilers"]', false);
+  assert.deepEqual(calls.patches.at(-1), { spoilers: false });
+  assert.equal(runtime.snapshot().settings.spoilers, false);
+  runtime.updateSettings({ language: 'ru' });
+  assert.equal(input.checked, false);
+  assert.equal(input.parentElement.textContent, 'Тайны и «на самом деле» за спойлером');
+});

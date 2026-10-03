@@ -77,7 +77,7 @@ Object.assign(STRINGS.en, {
   'section.story': 'Story', 'section.npcs': 'NPCs', 'section.thoughts': 'NPC Inner Chatter',
   'section.bonds': 'Bonds', 'section.dossiers': 'New NPC Dossiers', 'section.planner': 'Story Planner', 'section.banlist': 'Ban List',
   outfit: 'Outfit', position: 'Position', visible_condition: 'Condition', carrying: 'Carrying',
-  agenda: 'Agenda', action: 'Action', wants_toward: 'Target', secret: 'Secret', role: 'Role', look: 'Look', voice: 'Voice', hook: 'Hook',
+  agenda: 'About to', action: 'Action', wants_toward: 'Target', secret: 'Secret', truth: 'Deep down', role: 'Role', look: 'Look', voice: 'Voice', hook: 'Hook',
   arc_phase: 'Arc', scene_phase: 'Scene', affection: 'Affection', trust: 'Trust', desire: 'Desire', love: 'Love', reputation: 'Reputation',
   suspicion: 'Suspicion', respect: 'Respect', fear: 'Fear', grudge: 'Grudge', tension: 'Tension',
 });
@@ -90,7 +90,7 @@ Object.assign(STRINGS.ru, {
   'section.story': 'Сюжет', 'section.npcs': 'Персонажи', 'section.thoughts': 'Мысли NPC',
   'section.bonds': 'Отношения', 'section.dossiers': 'Новые досье NPC', 'section.planner': 'Планировщик сюжета', 'section.banlist': 'Список запретов',
   outfit: 'Одежда', position: 'Положение', visible_condition: 'Состояние', carrying: 'При себе',
-  agenda: 'Намерение', action: 'Действие', wants_toward: 'Цель', secret: 'Секрет', role: 'Роль', look: 'Внешность', voice: 'Голос', hook: 'Зацепка',
+  agenda: 'Собирается', action: 'Действие', wants_toward: 'Цель', secret: 'Тайна', truth: 'На самом деле', role: 'Роль', look: 'Внешность', voice: 'Голос', hook: 'Зацепка',
   arc_phase: 'Арка', scene_phase: 'Сцена', affection: 'Привязанность', trust: 'Доверие', desire: 'Влечение', love: 'Влюблённость', reputation: 'Репутация',
   suspicion: 'Подозрение', respect: 'Уважение', fear: 'Страх', grudge: 'Обида', tension: 'Напряжение',
 });
@@ -205,6 +205,7 @@ Object.assign(STRINGS.en, {
   'field.summary': 'Summary', 'field.pc': 'Player character', 'field.name': 'Name', 'field.doing': 'Doing',
   'field.text': 'Text', 'field.priority': 'Priority', 'field.seeds': 'Seeds', 'field.timers': 'Timers',
   'field.planted_turn': 'Planted on turn', 'field.due': 'Due', 'field.present': 'In the scene', 'field.mood': 'Mood',
+  'field.truth': 'Deep down', spoilers: 'Secrets and truths behind a tap',
   'field.thought': 'Thought', 'field.toward': 'Toward', 'field.stats': 'Scales', 'field.changes': 'Last changes',
   'field.beats': 'Beats', 'field.beat': 'Beat', 'field.why': 'Why', 'field.remember': 'Do not forget',
   'field.pattern': 'Pattern', 'field.example': 'Example', 'field.key': 'Key', 'field.value': 'Value',
@@ -220,6 +221,7 @@ Object.assign(STRINGS.ru, {
   'field.summary': 'Кратко', 'field.pc': 'Персонаж игрока', 'field.name': 'Имя', 'field.doing': 'Чем занят',
   'field.text': 'Текст', 'field.priority': 'Важность', 'field.seeds': 'Зацепки', 'field.timers': 'Сроки',
   'field.planted_turn': 'Посажено на ходу', 'field.due': 'Срок', 'field.present': 'В сцене', 'field.mood': 'Настроение',
+  'field.truth': 'На самом деле', spoilers: 'Тайны и «на самом деле» за спойлером',
   'field.thought': 'Мысль', 'field.toward': 'К кому', 'field.stats': 'Шкалы', 'field.changes': 'Последние изменения',
   'field.beats': 'Ходы сюжета', 'field.beat': 'Ход', 'field.why': 'Зачем', 'field.remember': 'Не забыть',
   'field.pattern': 'Шаблон', 'field.example': 'Пример', 'field.key': 'Ключ', 'field.value': 'Значение',

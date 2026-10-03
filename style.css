@@ -82,7 +82,7 @@
 /* Titles break between words or at hyphenation points (drawer lang), never mid-letter. */
 .st-sable-card-label { overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; }
 .st-sable-card-icon { flex: none; width: 1.25em; text-align: center; font-size: var(--st-sable-fs); }
-.st-sable-handle, .st-sable-fold, .st-sable-edit, .st-sable-editor-remove { width: 36px; height: 36px; min-width: 36px; min-height: 36px; padding: 0; border: 0; border-radius: 10px; background: transparent; }
+.st-sable-handle, .st-sable-fold, .st-sable-edit, .st-sable-spoiler, .st-sable-editor-remove { width: 36px; height: 36px; min-width: 36px; min-height: 36px; padding: 0; border: 0; border-radius: 10px; background: transparent; }
 /* The grip is a drag handle, not a tap target: narrower, still full height, so titles keep their room. */
 .st-sable-drawer .st-sable-handle { width: 28px; min-width: 28px; cursor: grab; touch-action: none; font-size: 12px; }
 .st-sable-handle > .fa-solid { opacity: .42; }
@@ -222,6 +222,11 @@
 .st-sable-card-footer { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; padding: 0 8px 6px; }
 .st-sable-card-footer[hidden] { display: none; }
 .st-sable-edit { width: auto; min-width: 36px; padding: 0 10px; font-size: 11px; opacity: .7; gap: 6px; }
+.st-sable-spoiler-block { margin-top: 4px; }
+.st-sable-drawer .st-sable-spoiler { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; width: auto; min-width: 36px; min-height: 36px; padding: 0 10px; font-size: 11px; opacity: .7; }
+.st-sable-spoiler:hover, .st-sable-spoiler[aria-expanded="true"] { opacity: 1; }
+.st-sable-spoiler-block > .st-sable-kv { margin-top: 4px; }
+.st-sable-spoiler-block > .st-sable-kv[hidden] { display: none; }
 .st-sable-edit[aria-pressed="true"], .st-sable-edit:hover { opacity: 1; }
 .st-sable-edit > .fa-solid { opacity: .5; }
 .st-sable-edit[aria-pressed="true"] { background: rgba(var(--st-sable-ink-rgb, 255,255,255), .12); background: color-mix(in srgb, var(--st-sable-accent, rgb(var(--st-sable-ink-rgb, 245,244,238))) 18%, transparent); }

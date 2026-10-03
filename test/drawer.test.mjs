@@ -298,7 +298,7 @@ test('cards read at a glance: icons, mode accents, priority dots, bars with delt
   assert.ok(maren.classList.contains('st-sable-present'));
   assert.ok(tomas.classList.contains('st-sable-absent'));
   assert.equal(tomas.querySelector('.st-sable-pill').textContent, 'не здесь');
-  assert.equal(maren.querySelector('.st-sable-kv dt').textContent, 'Одежда');
+  assert.equal(maren.querySelector('.st-sable-kv dt').textContent, 'Собирается');
   const trust = card('bonds').querySelector('[role="meter"][aria-label="Доверие"]');
   assert.equal(trust.getAttribute('aria-valuenow'), '34');
   assert.equal(trust.querySelector('.st-sable-bar-fill').style.transform, 'scaleX(0.34)', 'the fill is scaled, so a new value slides it (SPEC §16)');
@@ -747,4 +747,88 @@ test('card colours scope accent and ink and clear on publish, including retained
   assert.equal(card('world'), retained); check('world', '#123456');
   runtime.updateSettings({ visual: { cardColors: {} } }); runtime.publish();
   assert.equal(card('world'), retained); check('world');
+});
+
+
+test('NPC spoilers reveal locally, preserve folds and reset on entries, edits and chat changes', async t => {
+  const { card, runtime, fake, document, styled } = setup(t);
+  const row = () => card('npcs').querySelector('[data-key="npcs:maren"]');
+  const toggle = () => row().querySelector('[data-control="spoiler"]');
+  const block = () => document.getElementById(toggle().getAttribute('aria-controls'));
+  assert.equal(row().querySelector('dt').textContent, 'Собирается');
+  assert.equal(toggle().textContent, 'Тайна');
+  assert.equal(toggle().getAttribute('aria-expanded'), 'false');
+  assert.ok(toggle().querySelector('.fa-eye-slash')); assert.ok(block().hidden);
+  assert.ok(!row().textContent.includes(fixture.npcs[0].secret));
+  assert.ok(!row().textContent.includes(fixture.npcs[0].truth));
+  assert.equal(styled()(toggle()).minHeight, '36px');
+  const original = row(), other = card('world').firstElementChild;
+  toggle().click();
+  assert.equal(row(), original); assert.equal(card('world').firstElementChild, other);
+  assert.equal(toggle().getAttribute('aria-expanded'), 'true');
+  assert.ok(toggle().querySelector('.fa-eye')); assert.equal(block().hidden, false);
+  assert.deepEqual([...block().querySelectorAll('dt')].map(x => x.textContent), ['Тайна', 'На самом деле']);
+  assert.ok(block().textContent.includes(fixture.npcs[0].secret));
+  assert.ok(block().textContent.includes(fixture.npcs[0].truth));
+  toggle().click(); assert.ok(block().hidden); assert.ok(!row().textContent.includes(fixture.npcs[0].secret));
+  toggle().click(); row().open = false;
+  runtime.updateSettings({ pinned: true });
+  assert.equal(block().hidden, false); assert.equal(row().open, false);
+  const entry = structuredClone(runtime.snapshot().entry);
+  entry.mesId = fake.add(); entry.turn++; entry.state.meta.updatedAt = '2026-03-03T21:11:00Z';
+  runtime.snapshot().store.ring.push(entry); runtime.publish();
+  assert.ok(block().hidden); assert.equal(row().open, false);
+  toggle().click();
+  runtime.editState('npcs', runtime.snapshot().entry.state.npcs);
+  assert.ok(block().hidden);
+  toggle().click();
+  runtime.snapshot().entry.state.meta.updatedAt = '2026-03-03T21:12:00Z'; runtime.publish();
+  assert.ok(block().hidden);
+  toggle().click();
+  // Another chat can contain an exact copy of the same ring entry.
+  fake.ctx.chatId = 'chat-b'; fake.ctx.chatMetadata = structuredClone(fake.ctx.chatMetadata);
+  await fake.emit('CHAT_CHANGED'); assert.ok(block().hidden);
+  toggle().click();
+  const saved = fake.ctx.chatMetadata;
+  fake.ctx.chatMetadata = {}; await fake.emit('CHAT_CHANGED');
+  assert.equal(card('npcs').querySelector('[data-control="spoiler"]'), null);
+  fake.ctx.chatMetadata = saved; await fake.emit('CHAT_CHANGED'); assert.ok(block().hidden);
+});
+
+test('NPC spoilers handle empty, absent and truth-only rows, emoji, plain fields and untrusted text', t => {
+  const state = structuredClone(fixture), xss = '<img src=x onerror="alert(1)">';
+  state.npcs[1].truth = xss;
+  const { card, runtime } = setup(t, state);
+  const row = () => card('npcs').querySelector('[data-key="npcs:tomas"]');
+  assert.equal(row().open, false);
+  row().open = true; row().querySelector('[data-control="spoiler"]').click();
+  assert.ok(row().textContent.includes(xss)); assert.equal(row().querySelector('img'), null);
+  assert.deepEqual([...row().querySelector('.st-sable-spoiler-block dl').querySelectorAll('dt')].map(x => x.textContent), ['На самом деле']);
+  runtime.updateSettings({ visual: { icons: 'emoji' }, language: 'en' });
+  const button = row().querySelector('[data-control="spoiler"]');
+  assert.equal(button.textContent, '🙊Secret'); assert.equal(button.querySelector('span').getAttribute('aria-hidden'), 'true');
+  runtime.updateSettings({ spoilers: false });
+  assert.equal(card('npcs').querySelector('[data-control="spoiler"]'), null);
+  assert.ok(row().textContent.includes(xss));
+  const present = card('npcs').querySelector('[data-key="npcs:maren"]');
+  assert.deepEqual([...present.querySelectorAll('dt')].map(x => x.textContent), ['About to', 'Outfit', 'Position', 'Action', 'Target', 'Secret', 'Deep down']);
+  assert.ok(present.textContent.includes(fixture.npcs[0].secret)); assert.ok(present.textContent.includes(fixture.npcs[0].truth));
+  runtime.editState('npcs', fixture.npcs); runtime.updateSettings({ spoilers: true });
+  assert.equal(row().querySelector('[data-control="spoiler"]'), null);
+  runtime.editState('npcs', [{ ...fixture.npcs[1], secret: 'Kept the spare key.', truth: '' }]);
+  row().querySelector('[data-control="spoiler"]').click();
+  assert.deepEqual([...row().querySelector('.st-sable-spoiler-block dl').querySelectorAll('dt')].map(x => x.textContent), ['Secret']);
+});
+
+test('NPC editor gets a localized truth input and saves it through the schema', t => {
+  const { card, runtime } = setup(t);
+  for (const language of ['ru', 'en']) {
+    runtime.updateSettings({ language }); card('npcs').querySelector('[data-control="edit"]').click();
+    const input = field(card('npcs'), translate('field.truth', language));
+    assert.equal(input.tagName, 'INPUT'); assert.equal(input.maxLength, 160);
+    assert.equal(input.value, runtime.snapshot().entry.state.npcs[0].truth);
+    input.value = 'Worried about the missing page.';
+    card('npcs').querySelector('.st-sable-editor-save').click();
+    assert.equal(runtime.snapshot().entry.state.npcs[0].truth, input.value);
+  }
 });

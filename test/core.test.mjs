@@ -4,12 +4,28 @@ import { readFile } from 'node:fs/promises';
 import { BUILTIN_PACKS } from '../src/packs/index.js';
 import { cleanMessage } from '../src/clean.js';
 import { buildPrompt, COMMON_RULES, getPromptTexts } from '../src/prompt.js';
-import { parseStateOutput } from '../src/parse.js';
+import { parseStateOutput, sanitizeSection } from '../src/parse.js';
 import { mergeState } from '../src/merge.js';
 import { buildDigest } from '../src/digest.js';
 import { SECTION_ORDER, SECTIONS } from '../src/sections.js';
 
 const fixture = async name => JSON.parse(await readFile(new URL(`../fixtures/${name}`, import.meta.url), 'utf8'));
+
+test('NPC truth is schema-backed, bounded and canon-grounded; hidden fields never enter the digest', async () => {
+  const section = SECTIONS.find(s => s.id === 'npcs');
+  assert.deepEqual(section.schema.item.fields.truth, { type: 'string', max: 160 });
+  assert.match(section.instructions, /truth is one short phrase of at most 12 words/);
+  assert.match(section.instructions, /grounded in canon and shown behaviour; leave it empty without a basis/);
+  assert.match(section.instructions, /agenda is what the NPC is about to do next/);
+  const [npc] = sanitizeSection(section, [{ id: 'a', truth: '  ' + 'x'.repeat(180), unknown: 'drop' }]);
+  assert.equal(npc.truth, 'x'.repeat(160)); assert.equal(npc.unknown, undefined);
+  const state = await fixture('state-full.json');
+  for (const language of ['ru', 'en']) {
+    const actual = buildDigest({ npcs: state.npcs }, { npcs: 'inject' }, { language });
+    assert.ok(!actual.includes(state.npcs[0].secret)); assert.ok(!actual.includes(state.npcs[0].truth));
+    assert.equal(actual, buildDigest({ npcs: state.npcs.map(({ secret, truth, ...npc }) => npc) }, { npcs: 'inject' }, { language }));
+  }
+});
 
 test('prompt overrides change only instructions and preserve the default format', () => {
   assert.deepEqual(getPromptTexts({}), { rules: COMMON_RULES, sections: Object.fromEntries(SECTIONS.map(s => [s.id, s.instructions])), packs: Object.fromEntries(BUILTIN_PACKS.map(p => [p.id, p.rules])) });

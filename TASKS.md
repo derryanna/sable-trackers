@@ -208,7 +208,7 @@ fixture shares the preview's two folders. Validation: 198 tests, changed-JavaScr
 checks pass; the actual preview module loads in jsdom with both folders. Browser discovery returned no connected
 browser, so real-browser/Android visual verification remains manual. No dependencies, commit or push.
 
-## T17 — NPC underside: secret and truth behind a tap  [ ]
+## T17 — NPC underside: secret and truth behind a tap  [x]
 SPEC §19 (3 Oct 2026, maintainer: «секрет я бы поменяла на тайну 🙊… мне нравится структура»). `npcs[].truth`
 (string ≤ 160, a short phrase of what the NPC actually feels beneath the shown behaviour; instruction added to
 `npcs`), neither `secret` nor `truth` in the digest, `settings.spoilers` (default true). Drawer: in each NPC row
@@ -220,6 +220,10 @@ the spoiler checkbox before «Разложить по группам». Labels r
 cover `truth`, the digest snapshot tests are unchanged, drawer tests cover hidden-by-default, reveal, re-hide on
 a new entry and on chat change, the setting off, present and absent rows, the editor field; README ru + en and
 SPEC §2 table mention the field; `fixtures/state-full.json` carries a `truth` for one NPC.
+
+Done: schema, canon-grounded instruction, localized spoiler/editor/setting, fixture and bilingual README updated; digest and reply panel unchanged.
+Decisions: concealed values are absent from DOM text until revealed; only that spoiler block updates on tap. Entry keys are checked before rendering rows. Chat metadata identity also clears reveals, because different chats can share identical entry keys; replacing metadata conservatively hides them too. Existing row folds remain intact.
+Validation: 203 tests pass, changed JavaScript syntax checks and diff whitespace check pass. No dependencies, commit or push; live Android/SillyTavern layout remains unverified.
 
 Candidates noted the same day, not scheduled: a «по персонажам» layout (one card per NPC built from npcs,
 thoughts, bonds and dossiers), signed −100…+100 bond scales with a centre line, a 12-point history sparkline per
