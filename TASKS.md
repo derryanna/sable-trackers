@@ -352,6 +352,15 @@ ordered climax · wetness · contact · zones · kinks · limits · experience �
 `sanitizeSection`), README pack paragraph, SPEC §23 list.
 Done when: `npm test` green with the pack tests updated for nine sections; `node --check`.
 
+## T29 — Card colour moves into the card editor  [ ]
+SPEC §30 (3 Oct 2026, her phone: «убираем цвет, теперь огромная одна секция… может добавить в редактор?»). Remove the
+«Цвет…» footer control and inline row from section and person card footers; add a «Цвет карточки» row with the colour
+input and «auto» as the last row of the section editor before Save / Cancel (immediate write of the full `visual`,
+preview on input, independent of Save). Files: `src/ui/drawer.js`, `style.css`, i18n, tests (move the T26 colour tests
+to the editor), README (one sentence).
+Done when: `npm test` green; no `[data-control="color"]` in any footer; the editor row writes `visual.cardColors[id]`;
+`node --check`.
+
 ## Notes from previous tasks
 (append here)
 - T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and

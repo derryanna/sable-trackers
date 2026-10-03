@@ -1244,10 +1244,9 @@ cannot be coloured, which looks odd next to coloured cards.
   keep their own colours (a member without one stays on the shared accent,
   not the folder's). The People group and packs are unchanged (packs keep
   their section colours).
-- The folder footer gets «Цвет…» / "Colour…" before «Редактировать группу»,
-  opening the same inline colour row as cards (`input[type=color]`, «auto»),
-  writing `updateSettings({ folders })` with the whole array. The folder
-  editor form also shows the colour input next to the icon field.
+- No footer button (amended the same evening, see §30): the colour input with
+  «auto» lives only in the folder editor form («Редактировать группу»), next
+  to the icon field, written with the rest of the form on Save.
 - Tests: normaliser keeps/drops `color`; the footer control writes the array;
   the group gets the tint attributes; «auto» removes the field.
 
@@ -1277,3 +1276,25 @@ left out: how much semen, and how wet she is. Both go into `intimacy_plus`:
   and cap list, digest snapshot with the new inject sections, fixture
   validates through `sanitizeSection`), README pack paragraph, SPEC §23
   section list.
+
+## 30. Card colour moves into the card editor
+
+Why (3 Oct 2026, her phone): the footer «Цвет…» plus its inline colour row
+made one card huge; she asked to take it out of the footer and put it into
+the editor.
+
+- Remove the «Цвет…» footer control (`[data-control="color"]`) and the
+  inline colour row from every card footer, section and person cards alike.
+- The section editor (the form behind the pen «Редактировать», SPEC §13)
+  gets a last row before Save / Cancel: «Цвет карточки» / "Card colour" with
+  the same `input[type=color]` and «auto» as Appearance → Cards → Card
+  colours, writing `visual.cardColors[sectionId]` (full `visual` object) on
+  change, previewing on input; «auto» removes the entry. The colour write is
+  immediate and independent of the form's Save (settings, not state); Cancel
+  closes the form and keeps the colour. The README says so in one sentence.
+- The person form (SPEC §25) gets no colour row; person cards take the
+  `npcs` card colour as before, set from the topics layout.
+- Folder colour: only in the folder editor form (SPEC §29 as amended: no
+  footer button).
+- Tests: the footer has no colour control; the editor row writes the full
+  `visual`; «auto» removes the entry; the T26 tests move accordingly.
