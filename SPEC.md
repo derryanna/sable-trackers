@@ -53,7 +53,7 @@ model), `render(state)` for the drawer, and `digest(state)` for injection.
 | `story` | 🌱 seeds `{text, planted_turn}` (planted, not yet paid off, max 6); ⏳ timers `{text, due}` (in-world deadlines, max 4); `arc_phase`, `scene_phase` (short labels) | inject | 1 |
 | `npcs` | per NPC: `id, name, present, outfit, position, mood, agenda, action, wants_toward, secret, truth` | inject | 1 |
 | `thoughts` | per present NPC: private first-person thought, ≤30 words (≈ "NPC Inner Chatter") | show | 1 |
-| `bonds` | per NPC: `toward` + scales 0–100 or null: affection, trust, desire, love, reputation, suspicion, respect, fear, grudge, tension; plus `changes` (only changed scales: `{delta, reason}`) | inject | 1 |
+| `bonds` | per NPC: `toward` + scales 0–100 or null: affection, trust, desire, love, reputation, suspicion, respect, fear, grudge, tension; plus `changes` (only changed scales: `{delta, reason}`); built-ins can be switched off and custom scales added in the «Шкалы отношений» / "Bond scales" settings group (§20) | inject | 1 |
 | `dossiers` | one dossier per NEW named NPC: `{name, role, look, voice, hook}`, each ≤1 sentence; written once when the NPC first appears, never rewritten | show | 0 (only when a new NPC appears) |
 | `planner` | 2–3 possible next beats `{beat, why}` and one "don't forget" line | show | 5 |
 | `banlist` | phrases/rhetorical patterns the main model overused in the last replies: `{pattern, example}`, max 8, oldest dropped first | inject | 3 |
@@ -215,6 +215,7 @@ Re-inject on CHAT_CHANGED and after every merge.
   pack glyph + title, an aggregate mode chip, fold) and the pack's cards nested inside; built-in
   and custom cards stay flat unless placed in a folder.
 - User folders (§18) group existing built-in and custom cards with a shared fold and mode chip.
+- `settings.layout = 'people'` (§21) shows the four NPC-keyed sections as one «Люди» group of person cards.
 - Status line at the bottom: last run time, ok/error, token estimate
   (chars/4 if the API gives no usage).
 - Renders with plain DOM + template strings. No framework. Escape all
@@ -321,6 +322,7 @@ Rules: custom sections behave exactly like built-ins: requested from the side mo
   titleWeight: 700,   // 500–800, step 100
   chipStyle: 'filled' | 'outline', // the active «в промпт» chip
   accentBar: true,    // the left accent bar on cards
+  sparklines: true,   // history sparklines under bond scales (§22)
   spacing: 'cozy' | 'compact' }
 ```
 
@@ -495,6 +497,8 @@ Built-in packs for v1 (content is a task; shapes are fixed here):
   sports commentator or a nature documentary). Rules keep
   the canon guard from §2 unchanged: every participant must be an established
   adult, otherwise the pack returns empty values; nothing is invented.
+- `intimacy_plus` (18+): a deeper, explicit companion to `intimacy`, enabled alone or on top of it;
+  seven sections (`climax`, `contact`, `zones`, `kinks`, `limits`, `experience`, `after`), see §23.
 - Candidates for later: `investigation` (clues, suspects, leads),
   `survival` (hunger, cold, supplies), `travel` (route, days, provisions).
 
@@ -715,3 +719,255 @@ field and the spoiler.
 
 A per-character layout, signed bond scales and history sparklines are
 separate candidates (see TASKS.md).
+
+## 20. Bond scales: switchable built-ins and custom scales
+
+Why (3 Oct 2026): first outside feedback on the bonds card: one reader finds
+«Репутация» and «Уважение» near-duplicates, another wants fewer scales, the
+maintainer wants to add her own. Like packs, the scale set becomes a choice:
+the built-in scales can be switched off one by one and custom scales added.
+
+### Data
+
+- `settings.bondScales = { off: [], custom: [] }`.
+  - `off`: built-in scale keys switched off (subset of `BOND_SCALES`, no
+    duplicates; an unknown key is dropped).
+  - `custom`: at most 6 of `{ key, title, hint, friction }`. `key` matches
+    `^[a-z][a-z0-9_]{1,15}$` and is not a built-in key; `title` 1–30
+    characters (shown as the row label, any language); `hint` ≤ 200
+    characters, one sentence telling the side model what the scale measures,
+    written like the built-in definitions («ревность = jealousy toward
+    toward»); `friction` boolean (true = a high value means friction, the
+    warm bar tint). A custom entry with a bad key or empty title is dropped.
+- `BOND_SCALES` stays the frozen list of built-in keys. New pure
+  `bondScales(settings)` in `src/sections.js` returns the active scales in
+  order: built-ins minus `off` in their canonical order, then custom entries
+  in their stored order, each as `{ key, builtin, title, hint, friction }`
+  where a built-in's `title` is its i18n key (`affection` etc.) and its
+  `hint` the definition sentence now embedded in the bonds instruction
+  (moved into a `BOND_SCALE_HINTS` map, en only, as every instruction).
+  `FRICTION` (suspicion, fear, grudge, tension) moves next to it.
+- The `bonds` section becomes settings-dependent in `getSections(settings,
+  …)` and `getAllSections(settings)`: `schema.item.fields.stats.fields` =
+  the active keys; `instructions` = the base rules text with the per-scale
+  definitions of the active scales joined in order («affection = …;
+  trust = …; jealousy = …»). With the default settings the text is
+  byte-for-byte today's instruction, so the existing prompt snapshots hold.
+  Everything downstream (prompt, parse, sanitize, the manual editor, the
+  digest) follows the schema and needs no scale knowledge of its own.
+- `src/merge.js` recomputes deltas over the active keys of the registry it is
+  given (`options.sections` / the `bonds` schema), not over `BOND_SCALES`; a
+  scale that was switched off disappears from the next state and from
+  `changes`; switching it back on starts it fresh (the «absent from PREVIOUS
+  STATE» rule).
+- The ring is untouched: old entries keep whatever keys they carried.
+
+### Drawer and panel
+
+- `renderBonds` iterates `bondScales(view.settings)`: label = i18n label for
+  a built-in, the stored title for a custom scale; the warm tint follows
+  `friction`. Keys missing from a bond are skipped as today. The reply panel
+  does the same.
+- The manual editor shows the active scales (schema-driven).
+
+### Settings
+
+- New collapsible group «Шкалы отношений» / "Bond scales" (`GROUP_IDS` gets
+  `scales`, placed after Sections), closed by default:
+  - one checkbox per built-in scale in canonical order, labelled with its
+    name and a short description (new i18n keys `scale.<key>.hint`, ru + en,
+    one line each, e.g. «Репутация — как NPC оценивает цель, не слава»),
+    checked unless the key is in `off`; writing toggles `off` as a whole
+    array;
+  - a hint line: «Инструкция по умолчанию пересобирается из включённых шкал;
+    своя инструкция в «Опасной зоне» заменяет её целиком» / "The default
+    instruction is rebuilt from the enabled scales; an override in the Danger
+    zone replaces it whole";
+  - «Свои шкалы» / "Custom scales": rows like custom blocks (key, title, hint,
+    friction checkbox, two-tap delete), «Добавить шкалу» / "Add scale"
+    disabled at 6; every write sends the whole `custom` array.
+- The Danger zone's bonds textarea shows the rebuilt default when there is no
+  override (`getPromptTexts` reads the settings-dependent section).
+
+### Non-goals
+
+Per-chat scale sets, reordering built-in scales, scales with a range other
+than 0–100, migrating values between a built-in and a custom key.
+
+## 21. Layout option: by topics or by people
+
+Why (3 Oct 2026): a community widget shows one card per character with
+everything about that character on it; the maintainer wants that as an
+**option**, not a replacement. Sable's data is already keyed by NPC in four
+sections (`npcs`, `thoughts`, `bonds`, `dossiers`), so a second layout can be
+a pure re-slicing of the same state. Nothing changes in storage, the prompt
+or the digest.
+
+### Setting
+
+- `settings.layout`: `'topics'` (default, today's drawer) | `'people'`.
+  Settings → Sections: a select «Раскладка панели: по темам / по
+  персонажам» / "Drawer layout: by topics / by people", placed before the
+  Sections table. Global, like `order`.
+
+### People layout
+
+- The flat cards that are not NPC-keyed (`world`, `offscreen`, `threads`,
+  `story`, `planner`, `banlist`, custom blocks, pack groups, folders) render
+  exactly as in the topics layout. The four NPC-keyed sections do not render
+  as cards; instead one built-in group «Люди» / "People"
+  (`section.st-sable-group[data-people]`, glyph `fa-users`) takes the
+  position of the first of them in the grouped order and holds one **person
+  card** per NPC. The group header is the pack-group header (handle for the
+  whole block, title, an aggregate chip over the four sections' modes with
+  the same set-all menu, fold under `folded['people']`). A folder that lists
+  any of the four sections keeps its other members; those four are consumed
+  by the People group while this layout is on.
+- Person card: `section.st-sable-card[data-person="<npcId>"]`, no handle
+  (order = present NPCs first, then absent, each by their order in `npcs`),
+  header = presence dot, name, mood (as the npcs row summary), fold under
+  `folded['person:<id>']` (absent NPCs start folded, present ones open, as
+  the npcs rows do today). Body, in this order and only for sections whose
+  mode is not `off`:
+  1. the npcs fields (`agenda` first, then outfit, position, action,
+     wants_toward) and the «Тайна» spoiler (§19);
+  2. the thought as a blockquote (present NPCs only, as today);
+  3. the bond rows (`toward` line, then the active scales as keyed
+     `scaleRow`s with keys `person:<id>:<scale>` so bars slide and flash as
+     in §16);
+  4. the dossier fields (role, look, voice, hook) when a dossier matches the
+     NPC by `name` (case-insensitive) or `id`.
+  A dossier with no matching NPC gets its own person card at the end of the
+  group with the dossier fields only.
+- Footer: «Редактировать» opens the npcs editor row for this NPC? No: v1
+  keeps the schema-driven editors per section. The person card footer shows
+  a muted hint «Редактирование: в раскладке по темам» / "Editing: in the
+  topics layout" and the «В группу…» button is absent (person cards are not
+  reorderable members).
+- Change flags, the title dot, crit glow and card colours (`visual.cardColors`
+  keyed `person:<id>` is out of scope; person cards take the npcs card colour
+  if set) keep working through the keyed rows.
+- hideOff: a person card hides when all four sections are off (then the group
+  hides); the reveal row shows them back. «Скрыто: N» counts the four
+  sections as today, not the person cards.
+- Keyed persistence (§16): person cards persist across renders keyed by NPC
+  id; the People group container persists like a pack group.
+
+### Non-goals
+
+Editing from a person card, per-person colours, reordering people, the
+reply panel (unchanged).
+
+## 22. Bond visuals: history sparklines and signed custom scales
+
+Why (3 Oct 2026): the maintainer wants richer bond visuals from the same
+widget: a small history line under each scale and a signed scale with a
+centre (hatred on the left, love on the right).
+
+### History
+
+- `store.history = { [bondId]: { [scaleKey]: [{ mesId, value }] } }` per
+  chat, at most 12 points per scale, written in `run.js` when a run result
+  is stored: for each bond and each active scale with a numeric value, push
+  `{ mesId, value }`; if the last point has the same `mesId` (a swipe, an
+  edit, a refresh of the same reply) replace it instead; trim to 12. Pruned
+  with the ring on `MESSAGE_DELETED` (drop points whose `mesId` is gone).
+  Manual edits (`editState`) write a point the same way.
+- Drawer: under a bond bar, when the scale has at least 2 history points and
+  `visual.sparklines` is on (boolean, default true, Appearance → Cards), a
+  `div.st-sable-spark` of up to 12 `span` bars (height = value / range),
+  tinted like the bar (friction = warm), 16 px tall, `aria-hidden`, no text.
+  Plain DOM, no canvas. The effects level `off` still shows it (static).
+- The reply panel and the digest ignore history.
+
+### Signed scales
+
+- Any active scale can be signed, per scale: range −100…+100, where negative
+  means the opposite feeling (affection → dislike, trust → distrust, a custom
+  «ревность» → the opposite of jealousy). Built-ins: `settings.bondScales.signed`
+  (array of built-in keys, normalised like `off`); custom scales (§20) gain
+  `signed` (boolean, default false). `bondScales()` descriptors carry
+  `signed`. Schema: a `score` with `min: -100` for signed keys (parse clamps
+  accordingly; unsigned scales stay 0–100). The side-model definition of a
+  signed scale gets the sentence "−100…+100, negative = the opposite feeling"
+  appended automatically. Values already stored stay as they are when the
+  flag changes.
+- Drawer and panel: a signed scale renders a centred bar: a hairline at 50 %,
+  the fill from the centre to the value (right for positive, left for
+  negative; negative uses the warm tint, positive the accent), the number
+  signed («−40», «+65»), delta badges unchanged. The merge delta rule (at
+  most 10 per reply unless major) applies as is.
+- Settings (the §20 group): every built-in scale row gets a second checkbox
+  «−100…+100» next to its on/off checkbox, writing `bondScales.signed` as a
+  whole array; the custom scale row gets the same checkbox next to «трение».
+
+### Non-goals
+
+History for pack stats, exporting history, migrating values when a scale
+changes range.
+
+## 23. Intimacy+ pack (18+)
+
+Why (3 Oct 2026): a reader's list of what the most thorough adult block she
+had seen tracked. The base intimacy pack (§15) already has arousal, climax
+counts, volume and marks; the rest goes into a second built-in pack, deeper
+and more explicit, that users enable on top of the first or alone.
+
+### Pack
+
+- `id: 'intimacy_plus'`, title «Интим+ (18+)» / "Intimacy+ (18+)", icon
+  `fa-fire`, description «Глубже: шкала оргазма, проникновение и финал, зоны,
+  кинки, антикинки, опыт, после» / "Deeper: climax build-up, contact and
+  release, zones, kinks, dislikes, experience, afterglow". `scope: true`,
+  `scopeDefault: 'others'`. Rules = the adult guard of §15 (every participant
+  an established adult, including those outside the tracking scope; empty
+  values otherwise) + `{{scope}}` + "Track only explicit, established facts;
+  never infer consent, preference or dislike from arousal, silence or
+  compliance; preferences and dislikes come only from shown enjoyment, shown
+  discomfort or stated words; invent nothing. Clinical wording, no slang, no
+  judgement."
+- The side model writes explicit content here by design; the pack
+  description says so. Every section instruction starts with the adult guard
+  sentence and the empty-value rule, as in the base pack.
+
+### Sections (key, shape, glyph, cap, default mode)
+
+1. `climax` — stats, `fa-bolt`, cap 8, inject. «Оргазм» / "Climax". Keys
+   `Name · climax`, 0–100 with `max: 100`: build-up toward orgasm for each
+   tracked participant, present only once sexual contact or petting has
+   begun (`[]` before that); cautious estimates labelled in `note`; set to 0
+   right after an explicit climax (the base pack counts them); never invent
+   a climax. No `delta`.
+2. `contact` — kv, `fa-circle-nodes`, cap 6, inject. «Контакт» / "Contact".
+   Keys `Name · penetration` → `depth · orifice` only when both are
+   established in the text; `Name · release` → `amount · where` for an
+   explicit release event, cleared when the scene moves on; omit unknown
+   entries; never estimate amounts.
+3. `zones` — kv, `fa-hand-dots`, cap 10, show. «Зоны» / "Zones". Keys
+   `Name · zone` → state (marks, soreness, sensitivity) only when described;
+   preserved until a change is established; invent nothing.
+4. `kinks` — tags, `fa-heart-circle-plus`, cap 12, inject. «Кинки» /
+   "Kinks". Short participant-labelled tags of preferences and fetishes,
+   added only from shown enjoyment or an explicit statement; persistent
+   across scenes; removed only when the text contradicts them.
+5. `limits` — tags, `fa-heart-circle-xmark`, cap 8, inject. «Антикинки» /
+   "Dislikes". Short participant-labelled tags of what a participant
+   disliked or refused, from shown discomfort or explicit refusal;
+   persistent; removed only when contradicted.
+6. `experience` — list, `fa-book-open`, cap 10, show. «Опыт» / "Experience".
+   Short entries «Name: first X, positive (why)» / «Name: after Y avoids Z»,
+   appended only for a new explicit experience; older entries kept; the
+   oldest dropped first past the cap.
+7. `after` — text, `fa-mug-hot`, show. «После» / "Afterglow". Compact state
+   after the act per participant: closeness or distance, soreness, mood;
+   empty while the act continues or when nothing happened.
+
+### Everything else
+
+- `packSections` / `BUILTIN_PACKS` as for the two existing packs; i18n keys
+  `pack.intimacy_plus.*`; `fixtures/state-packs.json` gains synthetic values
+  for every new section (the Guard and the Traveller, both adults, kept
+  tame); the digest snapshot test gains the inject lines; `test/packs.test.mjs`
+  shape/cap list and scope set updated; the pack sheet lists three packs.
+- README ru + en: one sentence per pack in the packs paragraph; SPEC §15
+  built-in list mentions `intimacy_plus`.

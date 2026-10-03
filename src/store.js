@@ -14,6 +14,7 @@ export function loadStore(ctx) {
   data.modeOverride ??= {};
   data.turnsSince ??= {};
   data.lastRun ??= null;
+  data.history ??= {};
   return data;
 }
 
@@ -68,4 +69,37 @@ export function putEntry(data, entry, keep) {
 
 export function pruneEntries(data, length) {
   data.ring = data.ring.filter(entry => entry.mesId < length);
+}
+
+// Bond history (SPEC §22): `history[bondId][scale]` = the last HISTORY_POINTS `{ mesId, value }` points.
+export const HISTORY_POINTS = 12;
+
+/** Records one point per bond and active scale with a finite value; the same `mesId` (a swipe, an edit, a refresh)
+ *  replaces the last point instead of adding one. Bonds missing from `bonds` keep their history until pruned. */
+export function recordHistory(data, bonds, mesId, keys) {
+  if (!Array.isArray(bonds) || !Number.isInteger(mesId)) return;
+  const history = data.history ??= {};
+  for (const bond of bonds) {
+    if (!bond?.id) continue;
+    for (const key of keys) {
+      const value = bond.stats?.[key];
+      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
+      const points = (history[bond.id] ??= {})[key] ??= [];
+      if (points.at(-1)?.mesId === mesId) points.pop();
+      points.push({ mesId, value });
+      if (points.length > HISTORY_POINTS) points.splice(0, points.length - HISTORY_POINTS);
+    }
+  }
+}
+
+/** Drops points whose message is gone (`keepMesIds`: a Set of ids or a chat length) and empty scales and bonds. */
+export function pruneHistory(data, keepMesIds) {
+  const keep = typeof keepMesIds === 'number' ? id => id < keepMesIds : id => keepMesIds.has(id);
+  for (const [id, scales] of Object.entries(data.history ?? {})) {
+    for (const [key, points] of Object.entries(scales)) {
+      const kept = Array.isArray(points) ? points.filter(point => keep(point?.mesId)) : [];
+      if (kept.length) scales[key] = kept; else delete scales[key];
+    }
+    if (!Object.keys(scales).length) delete data.history[id];
+  }
 }

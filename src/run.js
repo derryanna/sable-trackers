@@ -1,5 +1,5 @@
 import { seedFromLegacy } from './legacy.js';
-import { getSections } from './sections.js';
+import { getSections, bondScales } from './sections.js';
 import { roll } from './packs/dice.js';
 import { getPacks } from './packs/index.js';
 import { buildPrompt } from './prompt.js';
@@ -8,7 +8,7 @@ import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
 import { ROLES, loadSettings, saveSettings, effectiveModes, reasoningPayload } from './settings.js';
-import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries } from './store.js';
+import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries, recordHistory, pruneHistory } from './store.js';
 
 export const LOG_LIMIT = 5;
 const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue', 'edit']);
@@ -186,6 +186,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
       for (const id of parsed.validSections) counters[id] = 0;
       putEntry(current, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
+      recordHistory(current, state.bonds, mesId, bondScales(settings).map(scale => scale.key));
       const content = typeof result === 'string' ? result : result.content;
       current.lastRun = { mesId, ok: true, at: Date.now(), ms: Date.now() - started,
         inTok: Math.ceil(built.messages.reduce((sum, m) => sum + m.content.length, 0) / 4), outTok: Math.ceil(content.length / 4) };
@@ -225,6 +226,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const ctx = getContext(), data = loadStore(ctx);
     const length = Math.min(ctx.chat.length, newChatLength);
     pruneEntries(data, length);
+    pruneHistory(data, length);
     if (data.roll && length <= data.roll.forMesId) delete data.roll;
     restoreCounters(data, currentEntry(data, ctx.chat));
     publish();
@@ -285,10 +287,14 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   }
 
   function setFolderMode(folderId, mode, chatOnly = loadSettings(getContext()).perChatOverrides) {
-    const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
-    const folder = settings.folders.find(item => item.id === folderId);
-    if (!folder || (!(mode === null && chatOnly) && !['inject', 'show', 'off'].includes(mode))) return false;
-    const ids = folder.members;
+    const folder = loadSettings(getContext()).folders.find(item => item.id === folderId);
+    return !!folder && setSectionsMode(folder.members, mode, chatOnly);
+  }
+
+  /** Several sections in one write (the People group, SPEC §21), with the per-chat override semantics of setPackMode. */
+  function setSectionsMode(ids, mode, chatOnly = loadSettings(getContext()).perChatOverrides) {
+    const ctx = getContext(), data = loadStore(ctx);
+    if (!Array.isArray(ids) || (!(mode === null && chatOnly) && !['inject', 'show', 'off'].includes(mode))) return false;
     if (chatOnly) {
       for (const id of ids) { if (mode === null) delete data.modeOverride[id]; else data.modeOverride[id] = mode; }
       void saveStore(ctx);
@@ -357,6 +363,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     entry.state[id] = cleaned;
     entry.state.meta = { ...entry.state.meta, editedAt: Date.now() };
     delete entry.stale;
+    if (id === 'bonds') recordHistory(data, cleaned, entry.mesId, bondScales(settings).map(scale => scale.key));
     publish();
     void saveStore(ctx);
     return true;
@@ -398,7 +405,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
     idle: () => active?.promise ?? Promise.resolve(),
     preview, clearLog() { log = []; publish(); },
-    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setPack, seedLegacy, editState, rollDice,
+    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setSectionsMode, setPack, seedLegacy, editState, rollDice,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },
   };

@@ -36,7 +36,7 @@ const renderers = {
   },
   npcs: (value, tr) => `${tr('npcs')}: ${value.map(x => `${x.name} (${x.present ? tr('here') : tr('away')}) — ${join([x.mood, x.agenda, x.action])}`).join(' | ')}`,
   thoughts: (value, tr) => `${tr('thoughts')}: ${value.map(x => `${x.name}: “${x.thought}”`).join(' | ')}`,
-  bonds: (value, tr) => `${tr('bonds')}: ${value.map(x => `${x.name}${x.toward ? ` → ${x.toward}` : ''}: ${Object.entries(x.stats ?? {}).filter(([,v]) => v != null).map(([key,v]) => { const c=x.changes?.[key]; return `${key} ${v}${c ? ` (${signed(c.delta)}${c.reason ? ` ${c.reason}` : ''})` : ''}`; }).join(', ')}`).join(' | ')}`,
+  bonds: (value, tr, options) => `${tr('bonds')}: ${value.map(x => `${x.name}${x.toward ? ` → ${x.toward}` : ''}: ${Object.entries(x.stats ?? {}).filter(([key,v]) => v != null && (!options.scales || Object.hasOwn(options.scales, key))).map(([key,v]) => { const c=x.changes?.[key]; return `${key} ${v}${c ? ` (${signed(c.delta)}${c.reason ? ` ${c.reason}` : ''})` : ''}`; }).join(', ')}`).join(' | ')}`,
   dossiers: (value, tr) => `${tr('dossiers')}: ${value.map(x => `${x.name} — ${join([x.role,x.look,x.voice,x.hook])}`).join(' | ')}`,
   planner: (value, tr) => `${tr('planner')}: ${join([...(value.beats ?? []).map((x,i)=>`${i+1}. ${x.beat}${x.why ? ` (${x.why})` : ''}`), value.remember ? `${tr('remember')}: ${value.remember}` : ''])}`,
   banlist: (value, tr) => `${tr('avoid')}: ${value.map(x => `“${x.example || x.pattern}”${x.example ? ` (${x.pattern})` : ''}`).join(' · ')}`,
@@ -57,7 +57,7 @@ export function buildDigest(state = {}, modes = {}, options = {}) {
     if (section.custom && (section.shape === 'text' ? typeof value !== 'string' : !Array.isArray(value))) continue;
     const line = section.custom
       ? section.title.toUpperCase() + ': ' + customText(section, value)
-      : renderers[id]?.(value, tr, { ...options, state });
+      : renderers[id]?.(value, tr, { ...options, state, scales: id === 'bonds' ? section.schema?.item?.fields?.stats?.fields : undefined });
     if (line && line !== `${tr(id)}: `) lines.push(line);
   }
   const pending = options.roll && (options.roll.consumedAt == null || options.rollArmed) ? formatRoll(options.roll, options.roll.label) : '';

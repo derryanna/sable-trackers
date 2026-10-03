@@ -8,6 +8,9 @@ const STRINGS = {
     'pack.intimacy.title': 'Intimacy (18+)', 'pack.intimacy.desc': 'Tracks established adult scenes (18+): arousal, stamina, counters and marks, plus achievements and a cheeky commentator.',
     'pack.intimacy.scene': 'Intimacy scene', 'pack.intimacy.arousal': 'Arousal', 'pack.intimacy.counters': 'Counters', 'pack.intimacy.marks': 'Marks',
     'pack.intimacy.achievements': 'Achievements', 'pack.intimacy.commentary': 'Commentator',
+    'pack.intimacy_plus.title': 'Intimacy+ (18+)', 'pack.intimacy_plus.desc': 'Explicit, deeper adult tracking (18+): climax build-up, contact and release, zones, kinks, dislikes, experience, afterglow. Works alone or with Intimacy.',
+    'pack.intimacy_plus.climax': 'Climax', 'pack.intimacy_plus.contact': 'Contact', 'pack.intimacy_plus.zones': 'Zones', 'pack.intimacy_plus.kinks': 'Kinks',
+    'pack.intimacy_plus.limits': 'Dislikes', 'pack.intimacy_plus.experience': 'Experience', 'pack.intimacy_plus.after': 'Afterglow',
     'shape.stats': 'Stats', 'shape.tags': 'Tags',
     'group.danger': 'Danger zone', dangerHint: 'Advanced instructions and request diagnostics. The log stays in memory only and is lost on reload.',
     'sub.prompts': 'Model instructions', 'sub.preview': 'What the model receives', 'sub.log': 'Request log',
@@ -37,6 +40,9 @@ const STRINGS = {
     'pack.intimacy.title': 'Интим (18+)', 'pack.intimacy.desc': 'Отслеживает сцену взрослых участников (18+): возбуждение, силы, счётчики и следы, плюс ачивки и ехидный комментатор.',
     'pack.intimacy.scene': 'Интимная сцена', 'pack.intimacy.arousal': 'Возбуждение', 'pack.intimacy.counters': 'Счётчики', 'pack.intimacy.marks': 'Следы',
     'pack.intimacy.achievements': 'Ачивки', 'pack.intimacy.commentary': 'Комментатор',
+    'pack.intimacy_plus.title': 'Интим+ (18+)', 'pack.intimacy_plus.desc': 'Откровенно и глубже (18+): шкала оргазма, проникновение и финал, зоны, кинки, антикинки, опыт, после. Работает отдельно или вместе с «Интимом».',
+    'pack.intimacy_plus.climax': 'Оргазм', 'pack.intimacy_plus.contact': 'Контакт', 'pack.intimacy_plus.zones': 'Зоны', 'pack.intimacy_plus.kinks': 'Кинки',
+    'pack.intimacy_plus.limits': 'Антикинки', 'pack.intimacy_plus.experience': 'Опыт', 'pack.intimacy_plus.after': 'После',
     'shape.stats': 'Показатели', 'shape.tags': 'Метки',
     'group.danger': 'Опасная зона', dangerHint: 'Расширенные инструкции и диагностика запросов. Журнал хранится только в памяти и исчезает при перезагрузке.',
     'sub.prompts': 'Инструкции модели', 'sub.preview': 'Что получает модель', 'sub.log': 'Журнал запросов',
@@ -236,7 +242,7 @@ Object.assign(STRINGS.en, {
   cardColors: 'Card colours', cardColorsHint: "Empty = the shared accent. The colour tints the card's bar, chip and border.",
   'visual.cardFill': 'Card fill', 'visual.border': 'Borders',
   'visual.titleFont': 'Title font', 'visual.titleWeight': 'Title weight', 'visual.chipStyle': '“inject” chip',
-  'visual.accentBar': 'Accent bar on cards', 'visual.spacing': 'Spacing', 'visual.bgDim': 'Dimming', 'visual.bgFit': 'Fit',
+  'visual.accentBar': 'Accent bar on cards', 'visual.sparklines': 'History sparklines under scales', 'visual.spacing': 'Spacing', 'visual.bgDim': 'Dimming', 'visual.bgFit': 'Fit',
   'font.theme': 'Theme font', 'font.serif': 'Serif', 'font.mono': 'Monospace', 'font.rounded': 'Rounded',
   'chip.filled': 'Filled', 'chip.outline': 'Outline', 'spacing.cozy': 'Cozy', 'spacing.compact': 'Compact',
   'fit.cover': 'Fill', 'fit.contain': 'Whole picture', 'fit.tile': 'Tile',
@@ -256,7 +262,7 @@ Object.assign(STRINGS.ru, {
   cardColors: 'Цвета карточек', cardColorsHint: 'Пусто = общий акцент. Цвет красит полоску, чип и рамку карточки.',
   'visual.cardFill': 'Заливка карточек', 'visual.border': 'Рамки',
   'visual.titleFont': 'Шрифт заголовков', 'visual.titleWeight': 'Жирность заголовков', 'visual.chipStyle': 'Кнопка «в промпт»',
-  'visual.accentBar': 'Полоса слева на карточках', 'visual.spacing': 'Плотность', 'visual.bgDim': 'Затемнение', 'visual.bgFit': 'Размещение',
+  'visual.accentBar': 'Полоса слева на карточках', 'visual.sparklines': 'Мини-графики под шкалами', 'visual.spacing': 'Плотность', 'visual.bgDim': 'Затемнение', 'visual.bgFit': 'Размещение',
   'font.theme': 'Как в теме', 'font.serif': 'С засечками', 'font.mono': 'Моноширинный', 'font.rounded': 'Округлый',
   'chip.filled': 'Залитая', 'chip.outline': 'Контур', 'spacing.cozy': 'Просторно', 'spacing.compact': 'Компактно',
   'fit.cover': 'Заполнить', 'fit.contain': 'Целиком', 'fit.tile': 'Плиткой',
@@ -342,4 +348,44 @@ Object.assign(STRINGS.ru, {
   'folders.empty': 'Пусто. Добавьте карточку через «В группу…»', 'folders.group': 'Группа', 'folders.fold': 'Свернуть / развернуть группу',
   'folders.suggested': 'Разложить по группам', 'folders.confirmSuggested': 'Нажмите ещё раз: текущие группы будут заменены',
   'folders.world': 'Мир', 'folders.people': 'Люди', 'folders.story': 'Сюжет',
+});
+
+// Bond scales (SPEC §20): the settings group, one hint line per built-in scale and the custom scale rows.
+Object.assign(STRINGS.en, {
+  'group.scales': 'Bond scales',
+  'scale.affection.hint': 'Affection — emotional attachment, not necessarily romance', 'scale.trust.hint': 'Trust — willingness to rely on the target',
+  'scale.desire.hint': 'Desire — attraction to the target, not love or arousal in general', 'scale.love.hint': 'Love — romantic feelings, apart from affection and desire',
+  'scale.reputation.hint': 'Reputation — how the NPC rates the target, not fame', 'scale.suspicion.hint': 'Suspicion — suspicion toward the target',
+  'scale.respect.hint': 'Respect — respect for the target', 'scale.fear.hint': 'Fear — fear of the target',
+  'scale.grudge.hint': 'Grudge — resentment toward the target, not anger in general', 'scale.tension.hint': 'Tension — current tension; it can drop independently of affection',
+  'scales.rebuildHint': 'The default instruction is rebuilt from the enabled scales; an override in the Danger zone replaces it whole.',
+  'scales.custom': 'Custom scales', 'scales.add': 'Add scale', 'scales.newTitle': 'New scale', 'scales.max': 'At most 6 custom scales.',
+  'scales.key': 'Key', 'scales.title': 'Title', 'scales.hint': 'What it measures (for the side model)', 'scales.friction': 'High value = friction', 'scales.signed': '−100…+100',
+  'scales.delete': 'Delete', 'scales.confirmDelete': 'Delete for good?',
+  'scales.keyHint': 'Latin lower-case letters, digits and _, starts with a letter, 2–16 characters, not a built-in scale; it names the JSON field.',
+  'scales.hintPlaceholder': 'E.g.: jealousy toward toward',
+});
+Object.assign(STRINGS.ru, {
+  'group.scales': 'Шкалы отношений',
+  'scale.affection.hint': 'Привязанность — эмоциональная связь, не обязательно романтика', 'scale.trust.hint': 'Доверие — готовность положиться',
+  'scale.desire.hint': 'Влечение — тяга к цели, не любовь и не возбуждение вообще', 'scale.love.hint': 'Влюблённость — романтические чувства, отдельно от привязанности и влечения',
+  'scale.reputation.hint': 'Репутация — как NPC оценивает цель, не слава', 'scale.suspicion.hint': 'Подозрение — подозрение к цели',
+  'scale.respect.hint': 'Уважение — уважение к цели', 'scale.fear.hint': 'Страх — страх перед целью',
+  'scale.grudge.hint': 'Обида — обида на цель, не злость вообще', 'scale.tension.hint': 'Напряжение — текущее напряжение, может спадать независимо от привязанности',
+  'scales.rebuildHint': 'Инструкция по умолчанию пересобирается из включённых шкал; своя инструкция в «Опасной зоне» заменяет её целиком.',
+  'scales.custom': 'Свои шкалы', 'scales.add': 'Добавить шкалу', 'scales.newTitle': 'Новая шкала', 'scales.max': 'Не больше 6 своих шкал.',
+  'scales.key': 'Ключ', 'scales.title': 'Название', 'scales.hint': 'Что измеряет (для вспомогательной модели)', 'scales.friction': 'Высокое значение = трение', 'scales.signed': '−100…+100',
+  'scales.delete': 'Удалить', 'scales.confirmDelete': 'Точно удалить?',
+  'scales.keyHint': 'Строчные латинские буквы, цифры и _, начинается с буквы, 2–16 знаков, не встроенная шкала; это имя поля в JSON.',
+  'scales.hintPlaceholder': 'Например: jealousy toward toward',
+});
+
+// Drawer layout (SPEC §21): the settings select, the People group and the person card footer.
+Object.assign(STRINGS.en, {
+  layout: 'Drawer layout', 'layout.topics': 'by topics', 'layout.people': 'by people',
+  people: 'People', 'field.role': 'Role', 'people.hint': 'Editing: in the topics layout',
+});
+Object.assign(STRINGS.ru, {
+  layout: 'Раскладка панели', 'layout.topics': 'по темам', 'layout.people': 'по персонажам',
+  people: 'Люди', 'field.role': 'Роль', 'people.hint': 'Редактирование: в раскладке по темам',
 });

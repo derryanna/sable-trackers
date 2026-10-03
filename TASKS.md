@@ -229,8 +229,107 @@ Candidates noted the same day, not scheduled: a «по персонажам» la
 thoughts, bonds and dossiers), signed −100…+100 bond scales with a centre line, a 12-point history sparkline per
 scale (needs a small per-chat history store).
 
+## T18 — Bond scales: switchable built-ins and custom scales  [x]
+SPEC §20 (3 Oct 2026, outside feedback: «репутация и уважение похожи, объединила бы»; maintainer: «как в паках,
+основные и допки вкл/выкл, добавить своё»). `settings.bondScales = { off, custom }` (normalised: `off` ⊂ built-in
+keys, `custom` ≤ 6 of `{ key, title, hint, friction }` with slug keys that never collide with built-ins),
+`bondScales(settings)` in `src/sections.js` (built-ins minus `off` in canonical order, then custom), the `bonds`
+section built from it in `getSections` / `getAllSections` (stats schema fields = active keys; instructions = base
+text + the active scales' definitions, byte-identical to today with default settings), `merge.js` recomputing over
+the registry's active keys, `renderBonds` and the reply panel iterating the active scales with titles and friction
+from the descriptors, a new settings group «Шкалы отношений» (`GROUP_IDS` + `scales`: a checkbox with a one-line
+hint per built-in scale, the rebuild hint, custom scale rows with a two-tap delete and «Добавить шкалу»). Done
+when: tests cover the normaliser, `bondScales`, the settings-dependent schema and instruction (default = today's
+text), merge over active keys, digest and drawer showing active scales only, a custom scale with friction tint, the
+settings group (toggle writes `off`, custom rows write `custom`), every existing test green, README ru + en and
+SPEC §2 mention the group.
+
+## T19 — Layout option: by people  [x]
+SPEC §21 (3 Oct 2026, maintainer: «по персонажу делала бы как опцию»). `settings.layout` (`topics` | `people`,
+select in Settings → Sections). In the people layout the four NPC-keyed sections (`npcs`, `thoughts`, `bonds`,
+`dossiers`) render as one built-in group «Люди» (`[data-people]`, pack-group header with an aggregate chip over
+the four modes, fold `folded.people`) holding one person card per NPC (`[data-person]`: presence dot + name +
+mood header, fold `folded['person:<id>']`, body = npcs fields + spoiler, thought, bond rows as keyed
+`scaleRow`s, matching dossier), unmatched dossiers as trailing person cards, no editor and no «В группу…» on
+person cards, hideOff when all four are off; everything else renders as in the topics layout; storage, prompt
+and digest untouched. Done when: tests cover the select, the group and its chip, person card order and content
+per mode, the dossier match, keyed persistence of person cards and bond rows across renders, hideOff, folders
+that list an NPC section, the topics layout unchanged (existing tests green); README ru + en mention the
+option; `dev/preview.html` accepts `?layout=people`.
+
+## T20 — Bond visuals: history sparklines and signed custom scales  [x]
+SPEC §22 (3 Oct 2026, maintainer: «визуал я оч люблю»). `store.history[bondId][scale]` = up to 12
+`{ mesId, value }` points written when a run result or a manual edit is stored (same `mesId` replaces, pruned
+with the ring), `visual.sparklines` (default true) → a 12-bar `div.st-sable-spark` under a bond bar with ≥ 2
+points, tinted like the bar; any scale can be signed per scale (`bondScales.signed` for built-ins, `signed`
+on custom entries; range −100…+100, schema `score` with `min: -100`, the definition gets the signed sentence,
+a centred bar with a hairline, signed numbers, warm tint for the negative side) in the drawer, the panel and
+the §20 settings group (a second «−100…+100» checkbox per scale). Done when: tests cover history writes (append,
+replace on the same mesId, cap 12, prune), the sparkline (hidden under 2 points, bar count and heights, the
+visual toggle), signed parsing and clamping, the centred bar and signed labels, the settings checkbox; every
+existing test green; README ru + en mention both; SPEC §12 lists `visual.sparklines`.
+
+## T21 — Intimacy+ pack (18+)  [x]
+SPEC §23 (3 Oct 2026, a reader's list of a thorough adult block; maintainer: «идея для второго пака… пиши»).
+Built-in pack `intimacy_plus` («Интим+ (18+)», `fa-fire`, scope default `others`, the adult guard + explicit-facts
+rules) with seven sections: `climax` (stats, inject), `contact` (kv, inject), `zones` (kv, show), `kinks` (tags,
+inject), `limits` (tags, inject), `experience` (list, show), `after` (text, show), each instruction starting with
+the adult guard and the empty-value rule. Content only: `src/packs/index.js`, i18n ru + en, fixtures, tests
+(shape/cap list, scope set, digest snapshot, the fixture key list, the pack sheet count), README + SPEC §15.
+Done when: `npm test` green with the new pack in every pack test, the fixture validates through `sanitizeSection`
+for every new section, the digest snapshot includes the four inject sections, the sheet lists three packs.
+
 ## Notes from previous tasks
 (append here)
+- T20: `store.history[bondId][scale]` via `recordHistory(data, bonds, mesId, keys)` / `pruneHistory(data, keep)` (keep = a
+  chat length or a Set of mesIds) and `HISTORY_POINTS = 12` in `src/store.js`; `run.js` records after a parsed run result is
+  stored (not on a skipped run with no due sections) and after `editState('bonds')`, prunes in `deleted`. A point is
+  written whenever the stored state carries the bond, also on replies where bonds were not due (the line then shows a
+  flat step per reply). `settings.bondScales` is now `{ off, signed, custom }` (custom entries carry `signed`);
+  `SIGNED_HINT` in `src/sections.js` is appended to signed definitions; a signed flag alone rebuilds the bonds section
+  (the default text stays byte-identical). The common sentence "Known scores are integers 0-100" stays: the per-scale
+  range sentence overrides it locally, and changing it would break the byte-identical default. `scaleRow` takes `signed`
+  and `history`; the sparkline is the summary's last child (the first four children are read by position; CSS puts it
+  in grid column 2, second row) so a closed `<details>` still shows it. The signed fill keeps the transform animation: it
+  is half the track, anchored inline with `left: 50%` / `right: 50%` and scaled by |value|/100. Decisions: the negative
+  side takes the opposite tint of the scale (warm for affinity scales, as SPEC says; the plain bar colour for a friction
+  scale such as a signed fear), sparkline bars of negative points likewise; sparkline bars do not animate (the CSS test
+  forbids height transitions, and §22 says static is fine); the reply panel badge of a signed scale appends the signed
+  current value («Maren: +5 Trust → −40»), since the panel shows only deltas; the bond score column is 2.6em (was 2.1em)
+  with `white-space: nowrap` so «−100» fits. The custom scale row's empty space came from `flex: 1 1 12em` on the hint
+  field inside a column flex container (a 12em height); only the title grows now, inside the key/title line, gaps 8 px.
+- T21: `intimacy_plus` follows `intimacy` in `BUILTIN_PACKS`; content only, no drawer or settings code changed (the
+  machinery groups by `section.pack`, so the underscore in the id is harmless). Decisions: the pack rules name the empty
+  value per section like the base pack does; `contact` may write `none` for an entry only when the text establishes there
+  was none (so a paused scene can show an explicit zero, as the fixture does); `climax` points at the base pack for climax
+  counts and resets to 0 after an explicit orgasm; `after` has no `{{scope}}` and describes everyone present, as §23 says;
+  the ru/en descriptions end with "works alone or with Intimacy". The fixture keeps the Guard and the Traveller in a
+  paused, tame scene; its four inject sections add CLIMAX / CONTACT / KINKS / DISLIKES lines to the digest snapshot.
+- T19: `settings.layout` (`LAYOUTS` in `src/settings.js`), the select «Раскладка панели» first in Settings → Sections,
+  `runtime.setSectionsMode(ids, mode, chatOnly)` (`setFolderMode` now delegates to it). In the drawer the people layout is
+  a container descriptor `{ kind: 'people', key: 'people' }` plus `drawerFolders()`: `groupedOrder` gets a leading pseudo
+  folder `{ id: 'people', members: the four }` and the user folders minus the four, so the block is contiguous and the
+  handle / ↑↓ / touch drag move it like a folder (`moveToken` now recognises container keys instead of `:`; `shownIds`
+  expands the People group to its four ids). Decisions: a folder whose members are only NPC sections is hidden while the
+  layout is on (it would otherwise show as an empty folder); a folder chip in this layout writes only its remaining
+  members; with all four off the group hides under hideOff and, revealed, shows an off group with «—» (no person cards);
+  the header mood shows only while `npcs` is not off; bonds whose id matches no NPC also get a trailing person card (so no
+  bars disappear), after them unmatched dossiers (card key = dossier name, made unique); person cards default to folded
+  unless the NPC is present; the title dot is per person (`freshCards` holds `person:<id>` for cards whose bond rows
+  changed) rather than the whole npcs/bonds sections; `fields()` now labels through `fieldLabel` and `field.role` was
+  added, because `role` is the injection-role setting label («Роль вставки») — this also fixes the dossier role label in
+  the manual editor. `normalizeSettings` keeps `folded.people` and any `person:<id>` key.
+- T18: `bondScales(settings)`, `bondsSection(settings)`, `normalizeBondScales`, `BOND_SCALE_HINTS`, `FRICTION_SCALES`,
+  `BOND_SCALE_KEY` and `MAX_CUSTOM_SCALES` live in `src/sections.js`; `getSections`/`getAllSections` swap in the
+  settings-dependent bonds section (default settings return the frozen `SECTION_MAP.bonds`, so the default text is
+  byte-identical; `test/scales.test.mjs` holds a literal copy). Decisions: a custom scale without a hint is described to
+  the side model by its title (`key = title`); with every scale off the definitions read `none`; the base sentences
+  about affection growth and desire/love for minors stay even when those scales are off (they are harmless rules).
+  `merge.js` reads the active keys from the registry's bonds schema; `digest.js` filters bond stats by the same schema,
+  so a switched-off key still stored in an old bond is not injected. `parse.js` needed no change (`changes` already
+  accepts any key; merge recomputes it over active keys). Settings rows for custom scales are positional (index-keyed);
+  an invalid key is marked `aria-invalid` with a hint line and kept in the input, unsaved, until fixed or a row is
+  deleted. The editor's `fieldLabel` falls back to a custom scale's title after the i18n lookups.
 - T13: the drawer's top-level children are `.st-sable-card` or `.st-sable-group`; find cards with
   `cards.querySelector('.st-sable-card[data-section="…"]')` (deep), never through `cards.children`. Section order for the
   drawer comes from `groupedOrder(...)`; `orderedSectionIds` is for the digest and the settings table.

@@ -1,11 +1,11 @@
-import { SECTIONS, SECTION_ORDER, getSections, getAllSections, normalizeCustomSections } from './sections.js';
+import { SECTIONS, SECTION_ORDER, getSections, getAllSections, normalizeBondScales, normalizeCustomSections } from './sections.js';
 import { BUILTIN_PACKS, getPacks, normalizePacks } from './packs/index.js';
 import { normalizeFolders } from './folders.js';
 import { enabledPacks } from './store.js';
 import { COMMON_RULES } from './prompt.js';
 
 export const SETTINGS_KEY = 'sableTrackers';
-export const GROUP_IDS = Object.freeze(['connection', 'context', 'sections', 'custom', 'visual', 'actions', 'packs', 'danger']);
+export const GROUP_IDS = Object.freeze(['connection', 'context', 'sections', 'scales', 'custom', 'visual', 'actions', 'packs', 'danger']);
 // Drawer look (SPEC §12). Ranges are inclusive; the UI sliders use the same bounds.
 // base/text: null = automatic (dark glass, theme text; a base derives its own ink). Hex colours override (SPEC §12).
 // bgImage: null or a sanitised data:/http(s) URL (normalizeBgImage); the other keys are numbers, booleans or choices.
@@ -26,7 +26,7 @@ export const FX_DEFAULTS = Object.freeze({
 export const FX_RANGES = Object.freeze({ 'glow.intensity': [0, 1, 0.05], 'rain.density': [0, 1, 0.05], 'rain.angle': [-30, 30, 1] });
 export const VISUAL_DEFAULTS = Object.freeze({ opacity: 0.93, blur: 14, fontSize: 13, widthVw: 80, accent: '#f5f4ee', base: null, text: null, icons: 'fa', radius: 18,
   bgImage: null, bgDim: 0.45, bgFit: 'cover', effects: 'subtle', fx: FX_DEFAULTS, cardColors: Object.freeze({}),
-  cardFill: 0.05, border: 0.13, titleFont: 'theme', titleWeight: 700, chipStyle: 'filled', accentBar: true, spacing: 'cozy' });
+  cardFill: 0.05, border: 0.13, titleFont: 'theme', titleWeight: 700, chipStyle: 'filled', accentBar: true, spacing: 'cozy', sparklines: true });
 export const VISUAL_RANGES = Object.freeze({ opacity: [0.5, 1, 0.01], blur: [0, 30, 1], fontSize: [12, 16, 1], widthVw: [60, 100, 1], radius: [8, 24, 1],
   bgDim: [0, 0.9, 0.01], cardFill: [0, 0.3, 0.01], border: [0, 0.5, 0.01], titleWeight: [500, 800, 100] });
 // Closed choices in display order; VISUAL_DEFAULTS holds the default of each.
@@ -42,10 +42,10 @@ export const DEFAULTS = {
   enabled: true, profileId: '', language: 'ru', messages: 4,
   cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3, role: 'system', reasoning: 'low',
   recomputeOnEdit: false, perChatOverrides: false, showPanel: true, showFloatingButton: true,
-  hideOff: true, spoilers: true,
+  hideOff: true, spoilers: true, layout: 'topics',
   prompts: { rules: null, sections: {}, packs: {} },
   packs: [], packDefaults: [], packScope: {},
-  order: SECTION_ORDER, customSections: [], folders: [],
+  order: SECTION_ORDER, customSections: [], folders: [], bondScales: { off: [], signed: [], custom: [] },
   groups: { connection: true },
   folded: {}, pinned: false, floatingPosition: null,
   sections: Object.fromEntries(SECTIONS.map(s => [s.id, { mode: s.defaultMode, period: s.period }])),
@@ -54,6 +54,8 @@ export const DEFAULTS = {
 const isMode = value => ['inject', 'show', 'off'].includes(value);
 // Injection role for setExtensionPrompt (SPEC §5), in the order of SillyTavern's extension_prompt_roles.
 export const ROLES = Object.freeze(['system', 'user', 'assistant']);
+// Drawer layout (SPEC §21): topic cards, or the four NPC-keyed sections as one card per person.
+export const LAYOUTS = Object.freeze(['topics', 'people']);
 
 export function normalizeSettings(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
@@ -68,9 +70,11 @@ export function normalizeSettings(value = {}) {
   }
   result.profileId = typeof result.profileId === 'string' ? result.profileId : '';
   result.role = ROLES.includes(result.role) ? result.role : DEFAULTS.role;
+  result.layout = LAYOUTS.includes(result.layout) ? result.layout : DEFAULTS.layout;
   result.reasoning = REASONING_LEVELS.includes(result.reasoning) ? result.reasoning : DEFAULTS.reasoning;
   result.language = ['ru', 'en'].includes(result.language) ? result.language : 'ru';
   result.customSections = normalizeCustomSections(value.customSections);
+  result.bondScales = normalizeBondScales(value.bondScales);
   result.packs = normalizePacks(value.packs);
   result.folders = normalizeFolders(value.folders, getSections(result));
   const packIds = getPacks(result).map(pack => pack.id);
@@ -78,9 +82,11 @@ export function normalizeSettings(value = {}) {
   result.packScope = Object.fromEntries(packIds.filter(id => ['all', 'user', 'others'].includes(value.packScope?.[id])).map(id => [id, value.packScope[id]]));
   const all = getAllSections({ ...result, prompts: {} });
   const ids = all.map(section => section.id);
-  // Fold keys are section ids plus pack and folder container keys (SPEC §15/§18).
-  const foldKeys = [...ids, ...packIds.map(id => `pack:${id}`), ...result.folders.map(folder => `folder:${folder.id}`)];
-  result.folded = Object.fromEntries(foldKeys.filter(id => typeof value.folded?.[id] === 'boolean').map(id => [id, value.folded[id]]));
+  // Fold keys are section ids plus pack and folder container keys (SPEC §15/§18), the People group and person cards (§21).
+  const foldKeys = [...ids, ...packIds.map(id => `pack:${id}`), ...result.folders.map(folder => `folder:${folder.id}`), 'people'];
+  const isPerson = id => /^person:.{1,200}$/s.test(id);
+  result.folded = Object.fromEntries(Object.keys(value.folded && typeof value.folded === 'object' ? value.folded : {})
+    .filter(id => (foldKeys.includes(id) || isPerson(id)) && typeof value.folded[id] === 'boolean').map(id => [id, value.folded[id]]));
   result.groups = { ...DEFAULTS.groups, ...Object.fromEntries(GROUP_IDS
     .filter(id => typeof value.groups?.[id] === 'boolean').map(id => [id, value.groups[id]])) };
   const position = value.floatingPosition;
@@ -158,7 +164,7 @@ export function normalizeVisual(value, settings = {}) {
   // Migration (SPEC §16): the old `motion` boolean becomes the level (false → off, true → subtle) and is not kept.
   if (!EFFECTS_LEVELS.includes(source.effects) && typeof source.motion === 'boolean') result.effects = source.motion ? 'subtle' : 'off';
   result.fx = normalizeFx(source.fx);
-  result.accentBar = typeof source.accentBar === 'boolean' ? source.accentBar : VISUAL_DEFAULTS.accentBar;
+  for (const key of ['accentBar', 'sparklines']) result[key] = typeof source[key] === 'boolean' ? source[key] : VISUAL_DEFAULTS[key];
   result.bgImage = normalizeBgImage(source.bgImage);
   return result;
 }
