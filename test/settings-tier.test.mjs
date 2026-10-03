@@ -143,22 +143,22 @@ test('mode menu period: group chips and the folder menu have no period row', t =
   assert.equal(query('[role="menu"] input[name="period"]'), null);
 });
 
-test('card footer «Colour…» opens an inline swatch row that writes the full visual object', t => {
+// SPEC §30: the card colour lives in the section editor, not in the footer.
+test('section editor: the last row before Save / Cancel is «Card colour», written at once with the full visual object', t => {
   const { card, control, fire, runtime, patches } = setup(t, { settings: { visual: { ...VISUAL_DEFAULTS, opacity: 0.8, cardColors: { world: '#112233' } } } });
-  const toggle = () => control(card('threads'), 'color');
-  assert.equal(toggle().textContent.trim(), 'Colour…');
-  assert.equal(toggle().getAttribute('aria-expanded'), 'false');
-  assert.equal(card('threads').querySelector('.st-sable-color-row'), null);
-  toggle().click();
-  assert.equal(toggle().getAttribute('aria-expanded'), 'true');
-  const row = card('threads').querySelector('.st-sable-card-footer > .st-sable-color-row');
+  const editor = () => card('threads').querySelector('.st-sable-editor');
+  control(card('threads'), 'edit').click();
+  const row = editor().querySelector('.st-sable-editor-color');
   assert.ok(row);
-  assert.equal(toggle().getAttribute('aria-controls'), row.id);
+  assert.equal(row.nextElementSibling, editor().querySelector('.st-sable-editor-actions'), 'the colour row sits right before Save / Cancel');
+  assert.equal(row.dataset.cardColor, 'threads');
+  assert.equal(row.querySelector('.st-sable-editor-label').textContent, 'Card colour');
   const input = row.querySelector('input[type="color"]'), auto = control(row, 'color-auto');
+  assert.equal(input.name, 'cardColors.threads');
   assert.equal(input.value, VISUAL_DEFAULTS.accent, 'automatic shows the accent');
   assert.equal(auto.textContent, 'auto');
   assert.equal(auto.getAttribute('aria-pressed'), 'true');
-  // Preview on input touches only the card; change writes.
+  // Preview on input touches only the card; change writes without Save.
   input.value = '#aa5500'; fire(input, 'input');
   assert.equal(card('threads').style.getPropertyValue('--st-sable-accent'), '#aa5500');
   assert.equal(runtime.snapshot().settings.visual.cardColors.threads, undefined);
@@ -168,41 +168,51 @@ test('card footer «Colour…» opens an inline swatch row that writes the full 
   assert.equal(visual.opacity, 0.8, 'the other visual keys travel with it');
   assert.deepEqual(visual.cardColors, { world: '#112233', threads: '#aa5500' });
   assert.deepEqual(runtime.snapshot().settings.visual.cardColors, { world: '#112233', threads: '#aa5500' });
-  // The row stays open after the write and reflects it.
-  const after = card('threads').querySelector('.st-sable-color-row');
-  assert.equal(after.querySelector('input').value, '#aa5500');
-  assert.equal(control(after, 'color-auto').getAttribute('aria-pressed'), 'false');
-  control(after, 'color-auto').click();
+  // The editor stays open after the write and reflects it.
+  assert.equal(editor().querySelector('.st-sable-editor-color'), row);
+  assert.equal(input.value, '#aa5500');
+  assert.equal(auto.getAttribute('aria-pressed'), 'false');
+  assert.equal(card('threads').style.getPropertyValue('--st-sable-accent'), '#aa5500');
+  // «auto» removes the entry.
+  auto.click();
   assert.deepEqual(patches.at(-1).visual.cardColors, { world: '#112233' });
   assert.equal(patches.at(-1).visual.opacity, 0.8);
-  toggle().click();
-  assert.equal(card('threads').querySelector('.st-sable-color-row'), null);
+  assert.equal(auto.getAttribute('aria-pressed'), 'true');
+  assert.equal(input.value, VISUAL_DEFAULTS.accent);
+  // Cancel closes the form and keeps the colour.
+  input.value = '#336699'; fire(input, 'change');
+  editor().querySelector('.st-sable-editor-actions > .st-sable-editor-cancel').click();
+  assert.equal(editor(), null);
+  assert.equal(runtime.snapshot().settings.visual.cardColors.threads, '#336699');
+  assert.equal(card('threads').style.getPropertyValue('--st-sable-accent'), '#336699');
 });
 
-test('every card footer has «Colour…»: custom and pack cards write their own id, person cards the npcs colour', t => {
+test('no card footer has a colour control: custom and pack editors write their own id, person cards keep the npcs colour', t => {
   const { card, control, query, fire, runtime } = setup(t, { settings: { packDefaults: ['combat'] } });
-  for (const section of [...query('.st-sable-cards').querySelectorAll('.st-sable-card[data-section]')]) {
-    const footer = section.querySelector('.st-sable-card-footer');
-    if (footer) assert.ok(control(footer, 'color'), `${section.dataset.section} has a colour button`);
+  const noFooterColour = () => {
+    assert.equal(query('.st-sable-cards').querySelector('.st-sable-card-footer [data-control="color"]'), null);
+    assert.equal(query('.st-sable-cards').querySelector('.st-sable-card-footer .st-sable-color-row'), null);
+  };
+  noFooterColour();
+  for (const [id, color] of [[CLUES.id, '#336699'], ['combat_stats', '#993333']]) {
+    control(card(id), 'edit').click();
+    const input = card(id).querySelector('.st-sable-editor-color input[type="color"]');
+    assert.equal(input.name, `cardColors.${id}`);
+    input.value = color; fire(input, 'change');
+    assert.equal(runtime.snapshot().settings.visual.cardColors[id], color);
   }
-  control(card(CLUES.id), 'color').click();
-  let input = card(CLUES.id).querySelector('.st-sable-color-row input');
-  input.value = '#336699'; fire(input, 'change');
-  assert.equal(runtime.snapshot().settings.visual.cardColors[CLUES.id], '#336699');
-  control(card('combat_stats'), 'color').click();
-  input = card('combat_stats').querySelector('.st-sable-color-row input');
-  input.value = '#993333'; fire(input, 'change');
-  assert.equal(runtime.snapshot().settings.visual.cardColors.combat_stats, '#993333');
-  runtime.updateSettings({ layout: 'people' });
+  runtime.updateSettings({ visual: { ...runtime.snapshot().settings.visual, cardColors: { npcs: '#228844' } }, layout: 'people' });
   const person = query('.st-sable-card[data-person]');
   runtime.updateSettings({ folded: { ...runtime.snapshot().settings.folded, [`person:${person.dataset.person}`]: false } });
+  noFooterColour();
   const personCard = () => [...query('.st-sable-cards').querySelectorAll('[data-person]')].find(item => item.dataset.person === person.dataset.person);
-  control(personCard(), 'color').click();
-  input = personCard().querySelector('.st-sable-color-row input');
-  assert.equal(input.name, 'cardColors.npcs');
-  input.value = '#228844'; fire(input, 'change');
-  assert.equal(runtime.snapshot().settings.visual.cardColors.npcs, '#228844');
+  assert.equal(personCard().querySelector('.st-sable-card-footer').childElementCount, 0);
   assert.equal(personCard().style.getPropertyValue('--st-sable-accent'), '#228844');
+  // The person form has no colour row.
+  control(personCard(), 'person-menu').click();
+  [...query('.st-sable-mode-menu').querySelectorAll('[role="menuitem"]')].find(item => item.textContent === 'Edit').click();
+  assert.ok(personCard().querySelector('.st-sable-person-form'));
+  assert.equal(personCard().querySelector('.st-sable-editor-color, input[type="color"]'), null);
 });
 
 test('legacy banner: shown above the cards with old data and an empty ring; Import seeds, never automatically', async t => {

@@ -352,7 +352,7 @@ ordered climax · wetness · contact · zones · kinks · limits · experience �
 `sanitizeSection`), README pack paragraph, SPEC §23 list.
 Done when: `npm test` green with the pack tests updated for nine sections; `node --check`.
 
-## T29 — Card colour moves into the card editor  [ ]
+## T29 — Card colour moves into the card editor  [x]
 SPEC §30 (3 Oct 2026, her phone: «убираем цвет, теперь огромная одна секция… может добавить в редактор?»). Remove the
 «Цвет…» footer control and inline row from section and person card footers; add a «Цвет карточки» row with the colour
 input and «auto» as the last row of the section editor before Save / Cancel (immediate write of the full `visual`,
@@ -532,3 +532,12 @@ Done when: `npm test` green; no `[data-control="color"]` in any footer; the edit
   wrong for male names; a neutral wording is a follow-up. `people.hint` is unused now but left in `src/i18n.js`. Sticky
   Save / Cancel needs `overflow: clip` on the card and the People group while a form is open (`:has`). Real Android
   feel (sticky bar over the keyboard, menu position near the screen edge) is unverified outside headless Chromium.
+- T29: the footer «Цвет…» (`colorControls`, `[data-control="color"]`) is gone from section and person cards; the
+  person card footer is now empty and hidden by `.st-sable-card-footer:empty`. `colorRow(colorId, name)` in
+  `src/ui/drawer.js` builds `div.st-sable-editor-field.st-sable-editor-color[data-card-color]` (label «Цвет карточки» =
+  the existing `card.colorLabel`, then `.st-sable-color-row` with `input[type=color][name="cardColors.<id>"]` and
+  `[data-control="color-auto"]`), appended by `createEditor` right before `.st-sable-editor-actions`. It reads the
+  current colour from `runtime.snapshot()` on every write (the editor node outlives renders) and re-syncs the input and
+  `aria-pressed` itself; Cancel leaves the written colour alone. No new i18n keys: `card.color` («Цвет…» / "Colour…") is
+  now unused but kept (the T26 i18n test lists it); the `.st-sable-person > .st-sable-card-footer > .st-sable-color-row`
+  rule is dead CSS left in place. Tests: `test/settings-tier.test.mjs` (two T26 footer tests replaced by editor ones).
