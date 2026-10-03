@@ -71,7 +71,8 @@ export function pruneEntries(data, length) {
   data.ring = data.ring.filter(entry => entry.mesId < length);
 }
 
-// Bond history (SPEC §22): `history[bondId][scale]` = the last HISTORY_POINTS `{ mesId, value }` points.
+// Bond history (SPEC §22): `history[bondId][scale]` = the last HISTORY_POINTS `{ mesId, value }` points; stats sections
+// (SPEC §26) share the map as `history[sectionId][itemKey]`.
 export const HISTORY_POINTS = 12;
 
 /** Records one point per bond and active scale with a finite value; the same `mesId` (a swipe, an edit, a refresh)
@@ -81,15 +82,34 @@ export function recordHistory(data, bonds, mesId, keys) {
   const history = data.history ??= {};
   for (const bond of bonds) {
     if (!bond?.id) continue;
-    for (const key of keys) {
-      const value = bond.stats?.[key];
-      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
-      const points = (history[bond.id] ??= {})[key] ??= [];
-      if (points.at(-1)?.mesId === mesId) points.pop();
-      points.push({ mesId, value });
-      if (points.length > HISTORY_POINTS) points.splice(0, points.length - HISTORY_POINTS);
-    }
+    for (const key of keys) addPoint(history, bond.id, key, mesId, bond.stats?.[key]);
   }
+}
+
+function addPoint(history, id, line, mesId, value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return;
+  const points = (history[id] ??= {})[line] ??= [];
+  if (points.at(-1)?.mesId === mesId) points.pop();
+  points.push({ mesId, value });
+  if (points.length > HISTORY_POINTS) points.splice(0, points.length - HISTORY_POINTS);
+}
+
+/** Stat history (SPEC §26): `history[sectionId][itemKey]` for the items of a `stats` value with a numeric `max`, by the
+ *  same rules as bonds. Lines whose key is absent from `items` are dropped (a stat that disappears takes its line). */
+export function recordStatHistory(data, sectionId, items, mesId) {
+  if (typeof sectionId !== 'string' || !Array.isArray(items) || !Number.isInteger(mesId)) return;
+  const history = data.history ??= {};
+  const present = new Set();
+  for (const item of items) {
+    const key = typeof item?.key === 'string' ? item.key.trim() : '';
+    if (!key) continue;
+    present.add(key);
+    if (typeof item.max === 'number' && Number.isFinite(item.max)) addPoint(history, sectionId, key, mesId, item.value);
+  }
+  const lines = history[sectionId];
+  if (!lines) return;
+  for (const key of Object.keys(lines)) if (!present.has(key)) delete lines[key];
+  if (!Object.keys(lines).length) delete history[sectionId];
 }
 
 /** Drops points whose message is gone (`keepMesIds`: a Set of ids or a chat length) and empty scales and bonds. */

@@ -304,7 +304,7 @@ Done when: `npm test` green with `editSections` (invalid → false, nothing writ
 record), `applyPersonDraft` (replace / add / remove / orphan dossier / no change → {}), form build from fixtures,
 delete + undo round trip; `node --check`; topics-layout editors unchanged.
 
-## T24 — Stat history and tap-to-jump  [ ]
+## T24 — Stat history and tap-to-jump  [x]
 SPEC §26 (3 Oct 2026: «стату привязывать к сообщению» for people who re-read). `recordHistory` generalised to
 `history[key][line]` for stats sections (items with numeric `max` only; lines absent from the fresh value are
 dropped); sparkline under stats bars; every sparkline becomes a button: tap picks a bar, shows «ответ #N · HP 40»,
@@ -413,3 +413,19 @@ storage beyond the banner flag.
 - Visual base colour (branch `visual-base`): `visual.base` / `visual.text` (null = automatic) with `normalizeHex` in `src/settings.js`. `src/ui/drawer.js` exports `luminance`, `inkFor` (black/white by higher WCAG contrast, crossover L ≈ 0.179, not 0.5, so pastel light bases get black ink) and `visualColors`. `applyVisual` sets base/ink/accent-ink/text variables and `data-st-sable-tone` on the drawer and the tab, and removes them when automatic. The default accent is no longer set inline (the CSS fallback follows the ink). The `inject` chip is now a solid accent fill with accent-ink text and a 1px ink border. Only the drawer and tab use ink; the reply panel and the settings block still follow the theme.
 - Manual editing + FA markers (branch `edit-state`): `sanitizeSection` exported from `parse.js`. `runtime.editState(id, value)` sanitizes, replaces the section in the current entry (or creates one for the last character reply), sets `meta.editedAt`, clears `stale`, cancels an in-flight run, re-injects and saves. The drawer has a schema-driven editor behind the pen button in each card header (SPEC §13). Cards are now built per section (`buildCard`/`buildHeader`), and render() reconciles instead of `replaceChildren`, so an open editor keeps its node, draft and focus. The drag grip is 28px wide to give titles room. Story seeds/timers and world meta markers follow `visual.icons`; `panel.js` has no emoji markers.
 - T10: ring entries are now capped per message (`keep` messages × ≤ 6 swipes), so `ring.length` can exceed `keep`; use `SWIPES_PER_MESSAGE` from `src/store.js` in size estimates. `settings.role` maps through `ROLES` (`src/settings.js`) to 0/1/2 in `publish()`; the clearing call carries the same role. Whether `user` actually stops a given main model from echoing the block is unverified live (hand-off §6 question 1 is still open).
+- T24: `recordStatHistory(data, sectionId, items, mesId)` in `src/store.js` writes `history[sectionId][itemKey]` (key
+  trimmed; only items with a finite numeric `max`; lines whose key is absent from `items` are deleted, an empty section
+  key goes; a non-array value or a missing mesId writes nothing). `run.js` calls it for every enabled `custom` section
+  of shape `stats` (built-in pack sections and custom blocks) right after the bond `recordHistory`, and in `editState`
+  for such a section. `editSections` (T23) did not exist on this branch: when it lands, call `recordStatHistory` for each
+  stats section it touches (same rule as `editState`). The drawer now passes `{ mesId, value }` points as `spec.history`
+  (was bare values) and `sparkline()` keeps the pick per row key in a Map per chat store (a WeakMap on `view.store`), so
+  a pick survives re-renders and new points (matched by mesId) but not a chat switch; a pruned point clears it. The
+  sparkline is `role="button"`, `tabindex=0`, aria-label `spark.history`; the label is `div.st-sable-spark-label`
+  (`aria-live="polite"`) right after it inside the summary (grid row 3, columns 2…4), and both swallow the click so the
+  row does not fold. A die (stats `%` rows) is inserted before the sparkline so it keeps the first column. ←/→ with no
+  pick start at the newest bar and only move the label; Enter (and Space) jump. The 36 px hit area is real layout
+  (`height: 36px; padding: 10px 0; margin-top: -7px`, the top padding sitting in the empty space under the bar). The
+  `visual.sparklines` label and the new `visual.sparklinesHint` are overridden in the `// T24` block at the end of
+  `src/i18n.js` (the old values on the Round 3 lines are dead). `test/effects.test.mjs` now ends the "Full" CSS block
+  at the first `/* T<n> */` marker, so task blocks appended at the end of `style.css` are not read as full-only rules.

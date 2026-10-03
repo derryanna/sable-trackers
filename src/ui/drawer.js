@@ -645,24 +645,100 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   /** Creates or updates the row for `key`. spec: { name, title, stat, friction, value, max, plain, unit, delta, reason, openable, die,
    *  signed, history }; `plain` shows the bare number (bond scales are always out of 100), `signed` draws a centred bar for
    *  −max…+max with a signed number, `history` (numbers) adds the sparkline under the bar (SPEC §22). */
-  /** The history line under a bar (SPEC §22): one span per point, kept in place and resized; absent under 2 points or
-   *  with `visual.sparklines` off. Heights span the scale's range, at least 8 %. It is the summary's last child (the
-   *  first four are read by position; the grid puts it under the bar), so a closed row still shows it. */
+  /** The history line under a bar (SPEC §22, §26): one span per `{ mesId, value }` point, kept in place and resized;
+   *  absent under 2 points or with `visual.sparklines` off. Heights span the scale's range, at least 8 %. It is the
+   *  summary's last fixed child (the first four are read by position; the grid puts it under the bar), so a closed row
+   *  still shows it. It is a button: a tap picks the bar under the pointer and jumps to its reply (`spark-label` below
+   *  names it), a second tap on the same bar hides the label; ←/→ move the pick, Enter jumps. */
   function sparkline(row, spec, signed) {
     let spark = row.querySelector(':scope > .st-sable-spark');
     const points = view.settings.visual?.sparklines === false || !Array.isArray(spec.history) ? []
-      : spec.history.filter(Number.isFinite).slice(-12);
-    if (points.length < 2) { spark?.remove(); return; }
-    if (!spark) { spark = node('div', 'spark'); spark.setAttribute('aria-hidden', 'true'); row.append(spark); }
+      : spec.history.filter(point => Number.isFinite(point?.value) && Number.isInteger(point?.mesId)).slice(-12);
+    const key = row.parentElement?.dataset.key;
+    if (points.length < 2) {
+      spark?.remove(); row.querySelector(':scope > .st-sable-spark-label')?.remove(); picks().delete(key);
+      return;
+    }
+    if (!spark) {
+      spark = node('div', 'spark'); spark.setAttribute('role', 'button'); spark.tabIndex = 0;
+      spark.addEventListener('click', sparkClick); spark.addEventListener('keydown', sparkKey);
+      row.append(spark);
+    }
+    spark.setAttribute('aria-label', label('spark.history'));
     spark.className = `st-sable-spark ${spec.friction ? 'st-sable-friction' : 'st-sable-affinity'}`;
     while (spark.children.length > points.length) spark.lastElementChild.remove();
     while (spark.children.length < points.length) spark.append(document.createElement('span'));
     const min = signed ? -spec.max : 0, max = spec.max;
-    points.forEach((value, index) => {
+    points.forEach(({ value }, index) => {
       const span = spark.children[index], ratio = (Math.min(max, Math.max(min, value)) - min) / (max - min);
       span.style.height = `${Math.max(8, Math.round(ratio * 1000) / 10)}%`;
       span.classList.toggle('st-sable-negative', signed && value < 0);
     });
+    sparks.set(spark, { key, points, title: spec.name, signed });
+    showPick(spark);
+  }
+  // Picked bars by row key, per chat store, so a pick survives re-renders but not a chat switch.
+  const sparks = new WeakMap(), pickStores = new WeakMap(), noStore = new Map();
+  function picks() {
+    const store = view.store;
+    if (!store || typeof store !== 'object') return noStore;
+    if (!pickStores.has(store)) pickStores.set(store, new Map());
+    return pickStores.get(store);
+  }
+  const messageNode = mesId => document.querySelector(`#chat .mes[mesid="${mesId}"]`);
+  /** Marks the picked bar and writes the label row right after the sparkline; no pick (or a pruned one) removes it. */
+  function showPick(spark) {
+    const data = sparks.get(spark), mesId = picks().get(data.key);
+    const index = mesId === undefined ? -1 : data.points.findIndex(point => point.mesId === mesId);
+    [...spark.children].forEach((span, at) => span.classList.toggle('st-sable-spark-active', at === index));
+    let text = spark.nextElementSibling?.classList.contains('st-sable-spark-label') ? spark.nextElementSibling : null;
+    if (index < 0) { if (mesId !== undefined) picks().delete(data.key); text?.remove(); return; }
+    if (!text) {
+      text = node('div', 'spark-label'); text.setAttribute('aria-live', 'polite');
+      // Inside the summary: a tap on the label must not fold the row.
+      text.addEventListener('click', event => event.preventDefault());
+      spark.after(text);
+    }
+    const { value } = data.points[index];
+    text.textContent = `${label('spark.reply')} #${mesId} · ${data.title} ${data.signed ? signedNumber(value) : value}`
+      + (messageNode(mesId) ? '' : ` ${label('spark.notLoaded')}`);
+  }
+  function pickSpark(spark, index, jump) {
+    const data = sparks.get(spark);
+    if (!data) return;
+    const point = data.points[Math.min(data.points.length - 1, Math.max(0, index))];
+    picks().set(data.key, point.mesId);
+    showPick(spark);
+    if (jump) messageNode(point.mesId)?.scrollIntoView?.({ block: 'center',
+      behavior: drawer.dataset.stSableEffects === 'off' ? 'auto' : 'smooth' });
+  }
+  const pickedIndex = spark => {
+    const data = sparks.get(spark), mesId = picks().get(data?.key);
+    return mesId === undefined ? -1 : data.points.findIndex(point => point.mesId === mesId);
+  };
+  function sparkClick(event) {
+    // The sparkline sits inside a <summary>: the tap is the sparkline's, not the row's.
+    event.preventDefault(); event.stopPropagation();
+    const spark = event.currentTarget, data = sparks.get(spark);
+    if (!data) return;
+    const box = spark.getBoundingClientRect(), count = data.points.length;
+    const index = box.width > 0 ? Math.floor((event.clientX - box.left) / box.width * count) : count - 1;
+    const at = Math.min(count - 1, Math.max(0, index));
+    if (at === pickedIndex(spark)) { picks().delete(data.key); showPick(spark); return; }
+    pickSpark(spark, at, true);
+  }
+  function sparkKey(event) {
+    const spark = event.currentTarget, data = sparks.get(spark);
+    if (!data) return;
+    const current = pickedIndex(spark), last = data.points.length - 1;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      const step = event.key === 'ArrowLeft' ? -1 : 1;
+      pickSpark(spark, current < 0 ? last : current + step, false);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      pickSpark(spark, current < 0 ? last : current, true);
+    }
   }
   function scaleRow(existing, key, spec) {
     const kind = spec.max == null ? 'counter' : 'bar';
@@ -715,7 +791,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (delta) { badge.textContent = `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`; badge.className = `st-sable-badge ${delta > 0 ? 'st-sable-up' : 'st-sable-down'}`; }
     row.querySelector('.st-sable-dice-row')?.remove();
     const die = spec.die?.();
-    if (die) row.append(die);
+    // The die keeps its place in the first column, before the sparkline (null = the end of the row).
+    if (die) row.insertBefore(die, row.querySelector(':scope > .st-sable-spark'));
     const openable = !!delta || !!spec.openable;
     wrap.classList.toggle('st-sable-delta', !!delta);
     wrap.classList.toggle('st-sable-static', !openable);
@@ -745,7 +822,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         const change = bond.changes?.[scale], key = `${groupKey}:${scale}`, name = builtin ? label(title) : title;
         const { element, changed } = scaleRow(rows, key, { name, title: name, friction, signed,
           value: score, max: 100, plain: true, delta: change?.delta, reason: change?.reason,
-          history: view.store?.history?.[bond.id]?.[scale]?.map(point => point.value) });
+          history: view.store?.history?.[bond.id]?.[scale] });
         rows.delete(key); changedAny ||= changed;
         place(group, element, previous); previous = element;
       }
@@ -765,7 +842,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     for (const item of value) {
       const key = unique(seen, `${section.id}:${item.key}`);
       const { element, changed } = scaleRow(rows, key, { name: item.key, stat: true, value: item.value, max: item.max, unit: item.unit,
-        delta: item.delta, reason: item.note, openable: !!item.note, die: () => dice?.(item.key, item.value) });
+        delta: item.delta, reason: item.note, openable: !!item.note, die: () => dice?.(item.key, item.value),
+        history: view.store?.history?.[section.id]?.[String(item.key).trim()] });
       rows.delete(key); changedAny ||= changed;
       place(group, element, previous); previous = element;
     }
