@@ -350,6 +350,8 @@ The drawer editor is generated from the schema, so built-in and custom sections 
 
 An open editor keeps its node, draft and focus across runtime renders (only its header refreshes). It warns when its section changed underneath. Opening, cancelling and editing rows touch only that card.
 
+`editState` is a wrapper over `runtime.editSections(values)` (§25), the batched all-or-nothing write that the person card form uses.
+
 ## 14. Danger zone
 
 Settings contain `prompts: { rules: null, sections: {} }`. Rules replace `COMMON_RULES` (up to 4000 characters); built-in section ids map to replacement instructions (up to 2000 characters). Values are trimmed; empty or default values are removed, unknown ids dropped. Normalization is idempotent. Partial patches merge section overrides; `null` removes one. Custom blocks keep their own instructions. `getPromptTexts(settings, sections = SECTIONS)` returns effective `{ rules, sections: { [id]: instructions } }`. The language line, output envelope, key list and JSON schema remain fixed.
@@ -839,11 +841,9 @@ or the digest.
      NPC by `name` (case-insensitive) or `id`.
   A dossier with no matching NPC gets its own person card at the end of the
   group with the dossier fields only.
-- Footer: «Редактировать» opens the npcs editor row for this NPC? No: v1
-  keeps the schema-driven editors per section. The person card footer shows
-  a muted hint «Редактирование: в раскладке по темам» / "Editing: in the
-  topics layout" and the «В группу…» button is absent (person cards are not
-  reorderable members).
+- Footer: the «В группу…» button is absent (person cards are not
+  reorderable members). Editing from the card: see §25 (the pencil menu
+  replaced the old footer hint «Редактирование: в раскладке по темам»).
 - Change flags, the title dot, crit glow and card colours (`visual.cardColors`
   keyed `person:<id>` is out of scope; person cards take the npcs card colour
   if set) keep working through the keyed rows.
@@ -855,8 +855,8 @@ or the digest.
 
 ### Non-goals
 
-Editing from a person card, per-person colours, reordering people, the
-reply panel (unchanged).
+Per-person colours, reordering people, the reply panel (unchanged).
+Editing from a person card is §25.
 
 ## 22. Bond visuals: history sparklines and signed custom scales
 

@@ -925,3 +925,38 @@
 .st-sable-card.st-sable-menu-open:last-child { margin-bottom: 190px; }
 /* Stale cards (SPEC §27): the accent bar dims until the state is recomputed. */
 .st-sable-card.st-sable-stale::before { opacity: .35; }
+
+/* T23 */
+/* Person card editing (SPEC §25): the 36 px pencil sits between the mood and the fold; its menu is the mode menu. The
+   form replaces the card body; Save / Cancel stick to the bottom of the card list while the form scrolls. `overflow:
+   clip` (not hidden) on the card and the People group keeps them from becoming scroll boxes, so sticky works. Nothing
+   here animates, so the effects level `off` needs no override. */
+.st-sable-drawer .st-sable-person-header > .st-sable-person-menu { flex: none; margin-left: auto; }
+.st-sable-drawer .st-sable-person-header > .st-sable-person-menu + .st-sable-fold { margin-left: 0; }
+.st-sable-drawer .st-sable-person-pencil { flex: none; width: 36px; padding: 0; }
+.st-sable-person-pencil > .fa-solid { font-size: 13px; opacity: .7; }
+.st-sable-drawer .st-sable-person-menu .st-sable-mode-menu { white-space: nowrap; overflow-wrap: normal; }
+.st-sable-drawer .st-sable-person-menu .st-sable-mode-option > .fa-solid { width: 14px; text-align: center; opacity: .75; }
+.st-sable-drawer .st-sable-card:has(.st-sable-person-form), .st-sable-drawer .st-sable-group:has(.st-sable-person-form) { overflow: clip; }
+.st-sable-person-form { gap: 10px; }
+.st-sable-person-slot:empty, .st-sable-person-adds[hidden], .st-sable-person-stale[hidden] { display: none; }
+.st-sable-person-slot { display: flex; flex-direction: column; gap: 10px; }
+.st-sable-person-sub { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .1); }
+.st-sable-person-sub-title { display: flex; align-items: center; gap: 6px; min-height: 36px; margin: 0; color: inherit; font-size: var(--st-sable-fs, 13px); font-weight: 700; line-height: 1.3; }
+.st-sable-person-sub-title > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.st-sable-person-sub-title > .st-sable-editor-remove { flex: none; }
+.st-sable-person-caption { margin: -4px 0 0; font-size: 12px; opacity: .6; }
+.st-sable-person-range { font-weight: 400; opacity: .8; white-space: nowrap; }
+.st-sable-person-adds { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-sable-person-adds > .st-sable-editor-add { min-height: 36px; }
+.st-sable-person-stale { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 10px; border-radius: 12px; color: #e9c16f; background: rgba(233,193,111,.1); border: 1px solid rgba(233,193,111,.35); }
+.st-sable-person-stale-text { flex: 1 1 8em; min-width: 0; font-weight: 600; }
+.st-sable-person-stale-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-sable-drawer[data-st-sable-tone="light"] .st-sable-person-stale { color: #8a6100; }
+.st-sable-person-actions { position: sticky; bottom: 0; z-index: 1; padding: 8px 0; background: rgba(var(--st-sable-base-rgb, 14,14,18), .92); border-top: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .1); }
+/* «+ Человек» (SPEC §25): the People group footer, a one-field inline form. */
+.st-sable-drawer .st-sable-people-footer { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px 10px; }
+.st-sable-drawer .st-sable-people-footer > .st-sable-edit { align-self: flex-start; width: auto; padding: 0 12px; }
+.st-sable-people-add { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.st-sable-people-add[hidden], .st-sable-people-footer > [hidden] { display: none; }
+.st-sable-people-add .st-sable-input[aria-invalid="true"] { border-color: #f29d9d; }

@@ -460,3 +460,21 @@ Object.assign(STRINGS.ru, {
   'card.color': 'Цвет…', 'card.colorLabel': 'Цвет карточки',
   'legacy.banner': 'В этом чате есть данные старого Sable', 'legacy.import': 'Импортировать', 'legacy.hide': 'Скрыть',
 });
+// T23
+// Person card editing (SPEC §25): the pencil menu, the edit form, delete with undo and «+ Person».
+Object.assign(STRINGS.en, {
+  'person.menu': 'Person actions', 'person.delete': 'Delete', 'person.deleted': '{name} deleted',
+  'person.character': 'Character', 'person.secret': 'Secret / Actually', 'person.notSent': 'not sent to the model',
+  'person.thought': 'Thought', 'person.bond': 'Bond', 'person.dossier': 'Dossier',
+  'person.addCharacter': '+ Character', 'person.addDossier': '+ Dossier', 'person.addBond': '+ Bond', 'person.addThought': '+ Thought',
+  'person.removePart': 'Remove', 'person.changed': 'Data changed', 'person.reread': 'Reload', 'person.saveAnyway': 'Save anyway',
+  'person.add': '+ Person', 'person.name': 'Name', 'person.addSave': 'Add',
+});
+Object.assign(STRINGS.ru, {
+  'person.menu': 'Действия с персонажем', 'person.delete': 'Удалить', 'person.deleted': '{name} удалена',
+  'person.character': 'Персонаж', 'person.secret': 'Тайна / На самом деле', 'person.notSent': 'не идёт в промпт',
+  'person.thought': 'Мысль', 'person.bond': 'Отношения', 'person.dossier': 'Досье',
+  'person.addCharacter': '+ Персонаж', 'person.addDossier': '+ Досье', 'person.addBond': '+ Отношения', 'person.addThought': '+ Мысль',
+  'person.removePart': 'Убрать', 'person.changed': 'Данные обновились', 'person.reread': 'Перечитать', 'person.saveAnyway': 'Сохранить всё равно',
+  'person.add': '+ Человек', 'person.name': 'Имя', 'person.addSave': 'Добавить',
+});

@@ -291,7 +291,7 @@ i18n ru + en, tests, README (groups paragraph), DESIGN-NOTES (≤ 6 lines).
 Done when: `npm test` green with `planDrop`, `slotFor` and undo-pill tests; `node --check` on changed files; the menu
 «В группу…» unchanged; no behaviour change in run/store/prompt.
 
-## T23 — Person card: pencil menu, edit form, delete, add  [ ]
+## T23 — Person card: pencil menu, edit form, delete, add  [x]
 SPEC §25 (3 Oct 2026: «просто добавить карандашик маленький и выбрать удалить/редактировать»). Builds on T22 (the
 undo pill). `runtime.editSections(values)` batched all-or-nothing write (`editState` becomes a wrapper);
 `applyPersonDraft(sections, person, draft)` pure and tested; a 36 px pencil in the person card header with a two-item
@@ -480,3 +480,30 @@ storage beyond the banner flag.
   `visual.sparklines` label and the new `visual.sparklinesHint` are overridden in the `// T24` block at the end of
   `src/i18n.js` (the old values on the Round 3 lines are dead). `test/effects.test.mjs` now ends the "Full" CSS block
   at the first `/* T<n> */` marker, so task blocks appended at the end of `style.css` are not read as full-only rules.
+- T23: `runtime.editSections(values, { history }?)` in `src/run.js`: all-or-nothing (an unknown section, an invalid value or
+  `{}` → false, nothing written), then one cancel, one `Object.assign` into the current entry (created as `editState` did),
+  `meta.editedAt`, `stale` cleared, one `recordHistory` when `bonds` is in the batch, `recordStatHistory` for every
+  touched stats section, one publish, one save. The optional `history = { [bondId]: lines | null }` drops (null) or puts
+  back (object) a bond's history; person delete and its undo use it. `editState(id, value)` = `editSections({ [id]: value })`.
+  Pure helpers in `src/ui/person.js`: `applyPersonDraft`, `deriveId` (the sanitizer's id rule), `newPersonId` (adds
+  `_2`, `_3`… against the existing npcs ids), `personFingerprint`, `dossierMatches`, `PERSON_SECTIONS`. Draft parts:
+  `bond` may be an array (all of the person's bonds, which keep the place of the first); an absent key leaves a part
+  alone. Drawer: the pencil is `[data-control="person-menu"]` inside `div.st-sable-mode-wrap.st-sable-person-menu`;
+  `openModeMenu` takes `target.actions` (plain `menuitem`s, entries carry `glyph`), used only by the pencil. Forms are a
+  Map keyed by the card's person id (cleared on a chat switch), `div.st-sable-editor.st-sable-person-form[data-person-form]`
+  with `[data-part]` sub-forms (`npc` twice: Персонаж and Тайна, `thought`, `bond-<n>`, `dossier`); inputs carry
+  `data-control="person-<part>-<field>"` (bond scales `person-bond-<n>-<scale>`), `name` = the field. Controls:
+  `person-save`, `person-cancel`, `person-reread`, `person-save-anyway`, `person-add-npc|dossier|bond|thought`; People
+  footer: `person-add`, `person-name`, `person-add-save`, `person-add-cancel` (`.st-sable-people-footer`, one node kept
+  across renders). Decisions: Save sends only the parts that differ from the form as it opened (so «Сохранить» and
+  «Сохранить всё равно» are the same write on top of the newer data; a part left alone keeps what the side model wrote
+  meanwhile); an untouched form closes without a write. Sub-forms other than Персонаж have ✕ (drops that part, its «+»
+  returns). Thought / bond / dossier names follow the NPC name typed in the form; an emptied thought removes it. «+
+  Отношения» prefills `toward: '{{user}}'`. A bond-only card (no NPC) also offers «+ Персонаж» (id = the bond id). The
+  SPEC's «reason» for Отношения has no field of its own in the bond schema: the reasons are shown inside the read-only
+  `changes` line. Secret and truth are forced to one-line inputs (their 500 limit would give a textarea). The topics
+  editor's score inputs still clamp signed scales to 0–100 (pre-existing, left alone: "topics editors unchanged"); the
+  person form uses each scale's own range. The ru pill text follows the SPEC literally («{name} удалена»), which reads
+  wrong for male names; a neutral wording is a follow-up. `people.hint` is unused now but left in `src/i18n.js`. Sticky
+  Save / Cancel needs `overflow: clip` on the card and the People group while a form is open (`:has`). Real Android
+  feel (sticky bar over the keyboard, menu position near the screen edge) is unverified outside headless Chromium.
