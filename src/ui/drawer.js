@@ -5,6 +5,7 @@ import { t } from '../i18n.js';
 import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
 import { sanitizeSection } from '../parse.js';
 import { packScopeOf } from '../packs/index.js';
+import { PERSON_SECTIONS, applyPersonDraft, newPersonId, personFingerprint } from './person.js';
 
 export function displayNode(document, view, tag, className, text) {
   const element = document.createElement(tag);
@@ -575,14 +576,14 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   const groupTarget = pack => ({ current: groupState(pack).mode, apply: pack.target,
     gone: () => !groupNode(pack.key) });
   /** target = { current: the checked mode (null when mixed), apply(mode), gone(): the chip's card or group left the list,
-   *  period?(): { value, hint, write(n) } for the «Every N replies» row }. */
+   *  period?(): { value, hint, write(n) } for the «Every N replies» row, actions?: plain menuitems (entries carry `glyph`) }. */
   function openModeMenu(chip, wrap, target, entries = ['inject', 'show', 'off'].map(mode => ({ value: mode, text: label(mode) }))) {
     if (modeMenu?.chip === chip) { closeModeMenu(); return; }
     closeModeMenu(false);
     const popup = node('div', 'mode-menu');
     popup.setAttribute('role', 'menu');
     popup.setAttribute('aria-label', chip.getAttribute('aria-label'));
-    const choices = entries.map(({ value: mode, text, disabled }) => {
+    const choices = entries.map(({ value: mode, text, disabled, glyph }) => {
       const item = button('', mode, () => {
         closeModeMenu();
         target.apply(mode);
@@ -591,10 +592,11 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       }, 'mode-option');
       item.dataset.mode = mode; item.disabled = !!disabled;
       item.title = text; item.setAttribute('aria-label', text);
-      item.setAttribute('role', 'menuitemradio');
-      item.setAttribute('aria-checked', String(target.current === mode));
+      // An action menu (the person pencil, SPEC §25) has plain items with their own glyphs and nothing checked.
+      item.setAttribute('role', target.actions ? 'menuitem' : 'menuitemradio');
+      if (!target.actions) item.setAttribute('aria-checked', String(target.current === mode));
       item.tabIndex = -1;
-      const check = icon('check'); check.style.visibility = target.current === mode ? 'visible' : 'hidden';
+      const check = icon(glyph ?? 'check'); check.style.visibility = glyph || target.current === mode ? 'visible' : 'hidden';
       item.append(check, document.createTextNode(text));
       popup.append(item);
       return item;
@@ -1387,18 +1389,27 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     title.append(dot);
     heading.append(title);
     if (npc && on('npcs')) heading.append(node('span', 'mood', npc.mood || '—'));
+    heading.append(personPencil(person));
     const fold = button('', 'fold', () => {
       if (folded) freshCards.delete(key);
       runtime.updateSettings({ folded: { ...view.settings.folded, [key]: !folded } });
     }, 'fold');
     fold.append(icon('chevron-down'));
     fold.dataset.control = 'fold'; fold.setAttribute('aria-expanded', String(!folded)); fold.setAttribute('aria-controls', body.id);
-    heading.addEventListener('click', event => { if (!event.target.closest('button')) fold.click(); });
+    heading.addEventListener('click', event => { if (!event.target.closest('button, .st-sable-mode-wrap')) fold.click(); });
     heading.append(fold);
     card.firstElementChild.replaceWith(heading);
     body.hidden = footer.hidden = folded;
     const npcs = sections().find(section => section.id === 'npcs');
-    footer.replaceChildren(muted(label('people.hint')), ...colorControls(key, 'npcs', npcs ? sectionTitle(npcs) : person.name));
+    footer.replaceChildren(...colorControls(key, 'npcs', npcs ? sectionTitle(npcs) : person.name));
+    // An open edit form (SPEC §25) owns the body: it keeps its node, draft and focus; only the «data changed» bar follows.
+    const form = personForms.get(person.id);
+    if (form) {
+      for (const child of [...body.children]) if (child !== form.element) dropRow(child);
+      if (form.element.parentNode !== body) body.append(form.element);
+      form.bar.hidden = personFingerprint(view.entry?.state) === form.base;
+      return false;
+    }
     const parts = [], part = name => { const element = node('div', 'person-part'); element.dataset.part = name; return element; };
     if (npc && on('npcs')) {
       const element = part('npcs');
@@ -1426,6 +1437,313 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     for (const element of parts) { place(body, element, previous); previous = element; }
     if (!parts.length) body.append(node('span', 'empty', '—'));
     return changed;
+  }
+
+  // Person card editing (SPEC §25): a pencil with a two-item menu, one form per person (keyed by the card's person id,
+  // several may be open), delete through one editSections call with the undo pill, «+ Человек» in the group footer.
+  const personForms = new Map();
+  const personOf = id => people(view.entry?.state ?? {}).find(item => item.id === id);
+  const personSections = () => Object.fromEntries(PERSON_SECTIONS.map(id => [id, view.entry?.state?.[id]]));
+  const personNode = id => [...cards.querySelectorAll('.st-sable-card[data-person]')].find(card => card.dataset.person === id);
+  function personPencil(person) {
+    const wrap = node('div', 'mode-wrap'); wrap.classList.add('st-sable-person-menu');
+    const name = `${label('person.menu')}: ${person.name}`;
+    const pencil = button('', 'person.menu', () => personMenu(person.id, pencil, wrap), 'edit');
+    pencil.classList.add('st-sable-person-pencil');
+    pencil.append(icon('pen'));
+    pencil.title = name; pencil.setAttribute('aria-label', name);
+    pencil.dataset.control = 'person-menu';
+    pencil.setAttribute('aria-haspopup', 'menu'); pencil.setAttribute('aria-expanded', 'false');
+    pencil.addEventListener('keydown', event => {
+      if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+      event.preventDefault();
+      if (!modeMenu || modeMenu.chip !== pencil) personMenu(person.id, pencil, wrap);
+    });
+    wrap.append(pencil);
+    return wrap;
+  }
+  function personMenu(id, pencil, wrap) {
+    openModeMenu(pencil, wrap, { current: undefined, actions: true, gone: () => false,
+      apply: value => (value === 'edit' ? openPersonForm(id) : deletePerson(id)) },
+    [{ value: 'edit', text: label('edit'), glyph: 'pen' }, { value: 'delete', text: label('person.delete'), glyph: 'trash' }]);
+  }
+  function openPersonForm(id) {
+    const person = personOf(id);
+    if (!person) return;
+    if (!personForms.has(id)) personForms.set(id, createPersonForm(person));
+    const key = `person:${id}`;
+    if (view.settings.folded[key] ?? !person.npc?.present) runtime.updateSettings({ folded: { ...view.settings.folded, [key]: false } });
+    else render(view);
+    personForms.get(id)?.element.querySelector('input, textarea, select')?.focus();
+  }
+  function closePersonForm(id) {
+    personForms.delete(id);
+    render(view);
+    personNode(id)?.querySelector('[data-control="person-menu"]')?.focus();
+  }
+  function createPersonForm(person) {
+    const element = node('div', 'editor'); element.classList.add('st-sable-person-form'); element.dataset.personForm = person.id;
+    const form = { element, bar: node('div', 'person-stale'), error: node('p', 'editor-note') };
+    form.error.classList.add('st-sable-editor-error');
+    fillPersonForm(form, person);
+    return form;
+  }
+  /** (Re)builds the form from `person` and the current state: «Перечитать» calls it again and drops the draft. */
+  function fillPersonForm(form, person) {
+    const npcs = Array.isArray(view.entry?.state?.npcs) ? view.entry.state.npcs : [];
+    Object.assign(form, { person, base: personFingerprint(view.entry?.state),
+      // Rows added here link to the NPC: its id, an orphan bond's id, or one derived from an orphan dossier's name.
+      id: person.npc?.id ?? (person.bonds.length ? person.id : newPersonId(person.name, npcs.map(item => item?.id))),
+      had: { thought: !!person.thought, bond: person.bonds.length > 0, dossier: !!person.dossier },
+      npc: null, thought: null, bonds: [], dossier: null });
+    const { element, bar, error } = form;
+    bar.replaceChildren(node('span', 'person-stale-text', label('person.changed')));
+    bar.setAttribute('role', 'status'); bar.hidden = true;
+    const reread = button(label('person.reread'), 'person.reread', () => {
+      const fresh = personOf(person.id);
+      if (!fresh) { closePersonForm(person.id); return; }
+      fillPersonForm(form, fresh);
+      render(view);
+      form.element.querySelector('input, textarea, select')?.focus();
+    }, 'editor-cancel');
+    reread.dataset.control = 'person-reread';
+    const anyway = button(label('person.saveAnyway'), 'person.saveAnyway', () => savePersonForm(person.id), 'editor-save');
+    anyway.dataset.control = 'person-save-anyway';
+    const barActions = node('div', 'person-stale-actions'); barActions.append(reread, anyway); bar.append(barActions);
+    error.textContent = label('edit.failed'); error.hidden = true;
+    const slots = { npc: node('div', 'person-slot'), thought: node('div', 'person-slot'), bonds: node('div', 'person-slot'), dossier: node('div', 'person-slot') };
+    const adds = node('div', 'person-adds');
+    const name = () => form.npc?.read().name ?? person.npc?.name ?? person.name;
+    const syncAdds = () => {
+      adds.replaceChildren();
+      const add = (key, control, action) => {
+        const item = button(label(key), key, () => { action(); syncAdds(); item.blur(); }, 'editor-add');
+        item.dataset.control = control; adds.append(item);
+      };
+      if (!form.npc) add('person.addCharacter', 'person-add-npc', () => { form.npc = npcPart(slots.npc, { id: form.id, name: name(), present: false }); });
+      if (!form.dossier) add('person.addDossier', 'person-add-dossier', () => { form.dossier = dossierPart(slots.dossier, { name: name() }); });
+      if (!form.bonds.length) add('person.addBond', 'person-add-bond', () => { form.bonds.push(bondPart(slots.bonds, { id: form.id, name: name(), toward: '{{user}}', stats: {} }, 0)); });
+      if (!form.thought) add('person.addThought', 'person-add-thought', () => { form.thought = thoughtPart(slots.thought, { id: form.id, name: name(), thought: '' }); });
+      adds.hidden = !adds.childNodes.length;
+    };
+    // A sub-form with ✕ (thought, bond, dossier) can be dropped from the draft; its «+» comes back.
+    const removable = (part, drop) => {
+      const remove = button('', 'person.removePart', () => { part.box.remove(); drop(); syncAdds(); }, 'editor-remove');
+      remove.append(icon('xmark'));
+      remove.setAttribute('aria-label', `${label('person.removePart')}: ${part.title}`);
+      part.heading.append(remove);
+    };
+    if (person.npc) form.npc = npcPart(slots.npc, person.npc);
+    if (person.thought) form.thought = thoughtPart(slots.thought, person.thought);
+    person.bonds.forEach((bond, index) => form.bonds.push(bondPart(slots.bonds, bond, index)));
+    if (person.dossier) form.dossier = dossierPart(slots.dossier, person.dossier);
+    function thoughtPart(slot, value) {
+      const part = personPart(slot, 'thoughts', 'person.thought', value, ['thought'], 'thought');
+      removable(part, () => { form.thought = null; });
+      return part;
+    }
+    function bondPart(slot, value, index) {
+      const part = personPart(slot, 'bonds', 'person.bond', value, ['toward'], `bond-${index}`);
+      part.stats = bondStats(part.box, value, index);
+      const changes = fieldEditor({ type: 'changes' }, value.changes, 'changes');
+      part.box.append(fieldRow('changes', changes));
+      const read = part.read;
+      part.read = () => ({ ...read(), stats: part.stats() });
+      removable(part, () => { form.bonds.splice(form.bonds.indexOf(part), 1); });
+      return part;
+    }
+    function dossierPart(slot, value) {
+      const fields = Object.keys(sections().find(section => section.id === 'dossiers')?.schema.item.fields ?? {}).filter(key => key !== 'name');
+      const part = personPart(slot, 'dossiers', 'person.dossier', value, fields, 'dossier');
+      removable(part, () => { form.dossier = null; });
+      return part;
+    }
+    syncAdds();
+    form.initial = Object.fromEntries(Object.entries(readPersonParts(form)).map(([key, part]) => [key, JSON.stringify(part)]));
+    const actions = node('div', 'editor-actions'); actions.classList.add('st-sable-person-actions');
+    const save = button(label('edit.save'), 'edit.save', () => savePersonForm(person.id), 'editor-save'); save.dataset.control = 'person-save';
+    const cancel = button(label('edit.cancel'), 'edit.cancel', () => closePersonForm(person.id), 'editor-cancel'); cancel.dataset.control = 'person-cancel';
+    actions.append(save, cancel);
+    element.replaceChildren(bar, ...Object.values(slots), adds, error, actions);
+  }
+  /** One sub-form: a heading with the section glyph, then schema-driven rows for `keys` of the section's item schema.
+   *  `read()` returns the original item with these fields replaced; an emptied field is removed (an empty string that
+   *  was stored stays, so an untouched form reads back unchanged). */
+  function personPart(slot, sectionId, titleKey, value, keys, prefix, plain = false) {
+    const section = sections().find(item => item.id === sectionId), fields = section?.schema.item.fields ?? {};
+    const box = node('div', 'person-sub'); box.dataset.part = prefix;
+    const heading = node('h4', 'person-sub-title'), title = label(titleKey);
+    heading.append(sectionGlyph(document, section, view.settings.visual?.icons), node('span', '', title));
+    box.append(heading);
+    const editors = [];
+    for (const key of keys) {
+      if (!fields[key]) continue;
+      // `plain`: one-line inputs whatever the length limit (secret and truth, SPEC §25).
+      const editor = fieldEditor(plain ? { ...fields[key], max: Math.min(fields[key].max ?? 239, 239) } : fields[key], value?.[key], key);
+      if (plain) editor.element.maxLength = fields[key].max;
+      editor.element.name = key;
+      editor.element.dataset.control = `person-${prefix}-${key}`;
+      box.append(fieldRow(key, editor));
+      editors.push([key, editor]);
+    }
+    slot.append(box);
+    return { box, heading, title, editors, read: () => {
+      const result = copy(value) ?? {};
+      for (const [key, editor] of editors) {
+        const item = editor.read();
+        // An unchecked box or an empty number adds nothing to a row that never had the field.
+        if (item !== undefined && !((item === false || item === null) && !Object.hasOwn(result, key))) result[key] = item;
+        else if (item === undefined && result[key] !== '') delete result[key];
+      }
+      return result;
+    } };
+  }
+  /** Персонаж + Тайна / На самом деле: presence, mood and agenda first, then the other npcs fields; secret and truth in
+   *  their own sub-heading with the «not sent to the model» caption. Both read into one npcs item. */
+  function npcPart(slot, value) {
+    const fields = Object.keys(sections().find(section => section.id === 'npcs')?.schema.item.fields ?? {});
+    const first = ['present', 'mood', 'agenda'], hidden = ['secret', 'truth'];
+    const main = personPart(slot, 'npcs', 'person.character', value,
+      [...first, ...fields.filter(key => !['id', ...first, ...hidden].includes(key))], 'npc');
+    if (value?.id) main.heading.after(node('div', 'editor-id', `id: ${value.id}`));
+    const secret = personPart(slot, 'npcs', 'person.secret', value, hidden, 'npc', true);
+    secret.heading.after(node('p', 'person-caption', label('person.notSent')));
+    return { ...main, read: () => {
+      const result = main.read(), extra = secret.read();
+      for (const key of hidden) { if (extra[key] === undefined) delete result[key]; else result[key] = extra[key]; }
+      return result;
+    } };
+  }
+  /** One number input per active scale with that scale's range (signed: −100…+100); empty = unknown (null). A scale the
+   *  bond did not carry stays absent while left empty. */
+  function bondStats(box, value, index) {
+    const grid = node('div', 'editor-object'); grid.classList.add('st-sable-editor-grid');
+    const inputs = [];
+    for (const scale of bondScales(view.settings)) {
+      const min = scale.signed ? -100 : 0, current = value?.stats?.[scale.key];
+      const input = node('input', 'input');
+      Object.assign(input, { type: 'number', step: '1', inputMode: 'numeric', min: String(min), max: '100', name: scale.key,
+        value: Number.isFinite(current) ? String(current) : '' });
+      input.dataset.control = `person-bond-${index}-${scale.key}`;
+      const read = () => {
+        const number = Number(input.value);
+        return input.value.trim() === '' || !Number.isFinite(number) ? null : Math.min(100, Math.max(min, Math.round(number)));
+      };
+      input.addEventListener('change', () => { input.value = read() ?? ''; });
+      const row = node('label', 'editor-field');
+      const caption = node('span', 'editor-label', scale.builtin ? label(scale.key) : scale.title);
+      caption.append(node('span', 'person-range', ` ${scale.signed ? '−100…+100' : '0…100'}`));
+      row.append(caption, input); grid.append(row);
+      inputs.push([scale.key, read]);
+    }
+    box.append(grid);
+    return () => {
+      const stats = { ...copy(value?.stats) };
+      for (const [key, read] of inputs) {
+        const number = read();
+        if (number !== null || Object.hasOwn(stats, key)) stats[key] = number;
+      }
+      return stats;
+    };
+  }
+  /** The draft of `applyPersonDraft`: only the parts that differ from the form as it opened, so a part left alone keeps
+   *  whatever the side model wrote meanwhile. Sub-forms that exist are read; parts the person had and the form dropped
+   *  are null. Thought, bond and dossier names follow the NPC name in the form. An empty thought removes the thought. */
+  function personDraft(form) {
+    const draft = readPersonParts(form);
+    for (const key of Object.keys(draft)) if (JSON.stringify(draft[key]) === form.initial[key]) delete draft[key];
+    return draft;
+  }
+  function readPersonParts(form) {
+    const draft = {}, npc = form.npc?.read();
+    if (npc) draft.npc = npc;
+    const name = npc?.name ?? form.person.npc?.name ?? form.person.name;
+    const named = item => (item.name === undefined || item.name === name ? item : { ...item, name });
+    if (form.thought) { const thought = form.thought.read(); draft.thought = thought.thought ? named(thought) : null; }
+    else if (form.had.thought) draft.thought = null;
+    if (form.bonds.length) draft.bond = form.bonds.map(part => named(part.read()));
+    else if (form.had.bond) draft.bond = null;
+    if (form.dossier) draft.dossier = named(form.dossier.read());
+    else if (form.had.dossier) draft.dossier = null;
+    return draft;
+  }
+  function savePersonForm(id) {
+    const form = personForms.get(id);
+    if (!form) return;
+    const values = applyPersonDraft(personSections(), form.person, personDraft(form));
+    if (!Object.keys(values).length) { closePersonForm(id); return; }
+    // Removed first: a successful save publishes, and that render must rebuild the card from the new state.
+    personForms.delete(id);
+    if (runtime.editSections(values) === false) { personForms.set(id, form); form.error.hidden = false; return; }
+    (personNode(id) ?? personNode(form.id))?.querySelector('[data-control="person-menu"]')?.focus();
+  }
+  /** Delete (SPEC §25): one editSections call takes the person out of the four sections and drops its bond history; the
+   *  undo pill puts the previous values (and the history) back through editSections. */
+  function deletePerson(id) {
+    const person = personOf(id);
+    if (!person) return;
+    const current = personSections();
+    const values = applyPersonDraft(current, person, { npc: null, thought: null, bond: null, dossier: null });
+    if (!Object.keys(values).length) return;
+    const previous = Object.fromEntries(Object.keys(values).map(key => [key, structuredClone(current[key] ?? [])]));
+    const bondId = person.npc?.id ?? person.id, lines = view.store.history?.[bondId];
+    const history = person.bonds.length ? { [bondId]: null } : undefined;
+    const kept = history ? { [bondId]: lines ? structuredClone(lines) : null } : undefined;
+    personForms.delete(id);
+    if (runtime.editSections(values, { history }) === false) return;
+    undo.show(label('person.deleted').replace('{name}', person.name), () => runtime.editSections(previous, { history: kept }));
+    undo.element.querySelector('[data-control="undo"]')?.focus();
+  }
+  // «+ Человек» (SPEC §25): the People group footer; one node kept across renders, so the typed name survives.
+  let addingPerson = false, peopleFooterNode;
+  function peopleFooter() {
+    if (!peopleFooterNode) {
+      const footer = node('div', 'card-footer'); footer.classList.add('st-sable-people-footer');
+      const open = button('', 'person.add', () => { addingPerson = true; peopleFooter(); input.focus(); }, 'edit');
+      open.dataset.control = 'person-add';
+      const form = node('form', 'people-add'); form.noValidate = true;
+      const input = node('input', 'input');
+      Object.assign(input, { type: 'text', name: 'name', maxLength: 60, required: true, autocomplete: 'off' });
+      input.dataset.control = 'person-name';
+      input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
+      const caption = node('span', 'editor-label');
+      const field = node('label', 'editor-field'); field.append(caption, input);
+      const save = button('', 'person.addSave', () => addPerson(), 'editor-save'); save.dataset.control = 'person-add-save';
+      const cancel = button('', 'edit.cancel', () => {
+        addingPerson = false; input.value = ''; input.removeAttribute('aria-invalid'); peopleFooter(); open.focus();
+      }, 'editor-cancel');
+      cancel.dataset.control = 'person-add-cancel';
+      const error = node('p', 'editor-note'); error.classList.add('st-sable-editor-error');
+      const actions = node('div', 'editor-actions'); actions.append(save, cancel);
+      form.append(field, error, actions);
+      form.addEventListener('submit', event => { event.preventDefault(); addPerson(); });
+      footer.append(open, form);
+      peopleFooterNode = { footer, open, form, input, caption, save, cancel, error };
+    }
+    const { footer, open, form, input, caption, save, cancel, error } = peopleFooterNode;
+    open.replaceChildren(icon('user-plus'), document.createTextNode(` ${label('person.add')}`));
+    open.title = label('person.add'); open.setAttribute('aria-label', label('person.add'));
+    caption.textContent = label('person.name');
+    for (const [element, key] of [[save, 'person.addSave'], [cancel, 'edit.cancel']]) {
+      element.textContent = label(key); element.title = label(key); element.setAttribute('aria-label', label(key));
+    }
+    if (!addingPerson) error.hidden = true;
+    error.textContent = label('edit.failed');
+    open.hidden = addingPerson; form.hidden = !addingPerson;
+    return footer;
+  }
+  function addPerson() {
+    const { input, error } = peopleFooterNode, name = input.value.trim().slice(0, 60);
+    if (!name) { input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    const npcs = Array.isArray(view.entry?.state?.npcs) ? view.entry.state.npcs : [];
+    const id = newPersonId(name, npcs.map(item => item?.id));
+    // The flag drops first: the publish of a successful write renders the footer closed.
+    addingPerson = false;
+    if (runtime.editSections({ npcs: [...npcs, { id, name, present: true }] }) === false) {
+      addingPerson = true; peopleFooter(); error.hidden = false; return;
+    }
+    input.value = '';
+    openPersonForm(id);
   }
 
   /** Rebuild one card only (editor open/close); the other cards are untouched. */
@@ -1650,6 +1968,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       view.entry?.state?.meta?.updatedAt, view.entry?.state?.meta?.editedAt]);
     // Metadata belongs to a chat; identical entry timestamps in another chat must conceal spoilers too.
     if (entryKey !== lastEntryKey || view.store !== previousStore || !view.entry) revealed.clear();
+    // Person forms (SPEC §25) belong to a chat.
+    if (view.store !== previousStore) personForms.clear();
     containerList = describeContainers();
     drawer.lang = view.settings.language;
     banner.hidden = !view.canSeedLegacy || !!view.legacyBannerHidden;
@@ -1695,6 +2015,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
           items.push(card); personCards.push(card);
         }
         if (!items.length) items.push(node('span', 'empty', '—'));
+        if (groupState(pack).mode !== 'off') items.push(peopleFooter());
         members.set(pack.key, { group, pack, items }); ordered.push(group);
         continue;
       }

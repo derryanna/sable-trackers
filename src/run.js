@@ -355,12 +355,19 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     void run(id, { type });
   }
 
-  /** Manual edit: replace one section in the current state. Returns false when nothing could be saved. */
-  function editState(id, value) {
+  /** Manual edit of several sections at once (SPEC §25): `values = { [sectionId]: value }`, all or nothing. Every value
+   *  goes through the section schema; an unknown section or an invalid value returns false and writes nothing.
+   *  `history` (optional) = `{ [bondId]: lines | null }`: null drops that bond's history (person delete), an object puts
+   *  it back (undo). One cancel, one history record, one publish, one save. */
+  function editSections(values, { history } = {}) {
     const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
-    const section = getSections(settings, enabledPacks(data, settings)).find(item => item.id === id);
-    const cleaned = sanitizeSection(section, value);
-    if (!section || cleaned === undefined) return false;
+    if (!values || typeof values !== 'object' || Array.isArray(values) || !Object.keys(values).length) return false;
+    const registry = getSections(settings, enabledPacks(data, settings)), cleaned = {};
+    for (const [id, value] of Object.entries(values)) {
+      const section = registry.find(item => item.id === id), result = sanitizeSection(section, value);
+      if (!section || result === undefined) return false;
+      cleaned[id] = result;
+    }
     let entry = currentEntry(data, ctx.chat);
     if (!entry) {
       const mesId = lastCharacterId(ctx);
@@ -373,15 +380,26 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     }
     // The user's edit wins over a side-model reply that was computed from the old state.
     cancel(); lastFingerprint = undefined;
-    entry.state[id] = cleaned;
+    Object.assign(entry.state, cleaned);
     entry.state.meta = { ...entry.state.meta, editedAt: Date.now() };
     delete entry.stale;
-    if (id === 'bonds') recordHistory(data, cleaned, entry.mesId, bondScales(settings).map(scale => scale.key));
-    else if (isStats(section)) recordStatHistory(data, id, cleaned, entry.mesId);
+    if (history && typeof history === 'object') {
+      for (const [id, lines] of Object.entries(history)) {
+        if (lines && typeof lines === 'object') (data.history ??= {})[id] = structuredClone(lines);
+        else if (data.history) delete data.history[id];
+      }
+    }
+    if (cleaned.bonds) recordHistory(data, cleaned.bonds, entry.mesId, bondScales(settings).map(scale => scale.key));
+    for (const id of Object.keys(cleaned)) {
+      if (isStats(registry.find(item => item.id === id))) recordStatHistory(data, id, cleaned[id], entry.mesId);
+    }
     publish();
     void saveStore(ctx);
     return true;
   }
+
+  /** Manual edit of one section (SPEC §13): a wrapper over editSections. */
+  const editState = (id, value) => editSections({ [id]: value });
 
   async function seedLegacy() {
     const ctx = getContext(), data = loadStore(ctx);
@@ -429,7 +447,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
     idle: () => active?.promise ?? Promise.resolve(),
     preview, clearLog() { log = []; publish(); },
-    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setSectionsMode, setPack, seedLegacy, hideLegacyBanner, editState, rollDice,
+    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setSectionsMode, setPack, seedLegacy, hideLegacyBanner, editState, editSections, rollDice,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },
   };
