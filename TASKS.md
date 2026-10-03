@@ -380,6 +380,17 @@ i18n ru + en, `test/fakes` + tests, README.
 Done when: `npm test` green with the retry, the no-payload second run, the cut and empty messages, the default; `node
 --check`; no change to the prompt text or the store shape.
 
+## T32 — Which state is injected: swipes, regenerations and lag  [ ]
+SPEC §32 (4 Oct 2026 night: «при свайпе модель цепляется за старый трекер как за инструкцию; модель не работала, и
+весь старый стек инжектился»). `GENERATION_STARTED` handler: for `swipe` / `regenerate` / `continue` inject the
+state before the rewritten reply, set before prompts are combined, override cleared by the next message event;
+`lagOf(entry, chat)`; lag 1 injected with a one-line note, lag ≥ 2 injects nothing and the status says «Состояние
+отстаёт на M ответов»; `snapshot().lag` / `injectedEntry`; `MAX_INJECT_LAG = 1`. Files: `src/run.js`, `src/store.js`
+(lagOf), `src/digest.js` (the note line), `src/ui/drawer.js` + `src/ui/panel.js` (the lag note), i18n ru + en,
+`test/fakes/st.mjs` (GENERATION_STARTED), tests, README (one paragraph in the Context section), SPEC §5 cross-note.
+Done when: `npm test` green with the swipe / normal / cleared-override tests, lag 1 and lag 2 tests, `lagOf` tests;
+`node --check`; the side-model request text is unchanged.
+
 ## Notes from previous tasks
 (append here)
 - T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and

@@ -1371,3 +1371,60 @@ tokens, the JSON was cut, and the parser reported only the generic
   all; a truncated response → the cut-output message with N; an empty
   response → the empty-output message; the normaliser default for
   `maxTokens`.
+
+## 32. Which state is injected: swipes, regenerations and lag
+
+Why (4 Oct 2026, night, her words): «модель получает старый трекер: при
+свайпе трекер прогрузился, и модель цепляется за него как за инструкцию;
+или модель не работала, и весь старый стек инжектился». Both are about
+the entry `publish()` chooses, and both are real: the injection is refreshed
+only on message events, never at generation start, and a failed run leaves
+an arbitrarily old entry in the prompt.
+
+### Generation start
+
+- Subscribe to `GENERATION_STARTED` (`(type, params, dryRun)`). For `type`
+  `swipe`, `regenerate` and `continue`, the injected entry becomes the state
+  **before** the last character message: `currentEntry(store, chat,
+  lastCharacterId, { skipStale: true })`, i.e. the latest entry whose
+  `mesId` is lower than the message being rewritten. For every other type
+  (`normal`, `quiet`, `impersonate`, …) the injected entry is the usual
+  latest one. `publish()` takes the chosen entry (a `generation` override
+  kept in memory until the next `MESSAGE_RECEIVED`, `MESSAGE_SWIPED`,
+  `CHAT_CHANGED` or `MESSAGE_DELETED` clears it) and sets the extension
+  prompt before SillyTavern combines the prompts.
+- Viewing an already generated swipe keeps today's rule: the entry with that
+  `swipeId` (`currentEntry` already matches `chat[mesId].swipe_id`).
+- The dry run (prompt preview) follows the same rule, so the preview shows
+  what the model gets.
+
+### Lag
+
+- `lagOf(entry, chat)` = the number of character messages after
+  `entry.mesId` up to and including the last character message (0 when
+  the entry is for the last reply; for the swipe/regenerate override, lag is
+  measured against the message before the rewritten one, so it is 0 when
+  the previous reply has a state).
+- Lag 1 (a run for the latest reply is still running, failed once, or was
+  cancelled) is injected, with one line prepended to the digest: «Состояние
+  сцены на момент ответа #N (на 1 ответ позже событий в чате; новые
+  сообщения главнее)» / "Scene state as of reply #N (one reply behind the
+  chat; newer messages take precedence)".
+- Lag 2 or more: **nothing is injected** (`setExtensionPrompt` with an empty
+  text); the status footer shows «Состояние отстаёт на M ответов» /
+  "State is M replies behind" next to the existing ⟳ control, and the cards
+  keep showing the old state with the same note under the title row
+  (`div.st-sable-lag`). The reply panel shows the note too.
+- `snapshot()` exposes `lag` and `injectedEntry` so the drawer, the panel and
+  the preview agree.
+- Constants: `MAX_INJECT_LAG = 1` in `src/run.js` (not a setting yet).
+
+### Tests
+
+- A fake `GENERATION_STARTED` with `swipe` after a stored state for the last
+  reply → the extension prompt text is built from the previous reply's
+  entry; with `normal` → from the latest entry; after `MESSAGE_RECEIVED`
+  the override is gone.
+- Lag 1 → digest prepended with the note; lag 2 → empty prompt, status
+  text, `snapshot().lag === 2`.
+- `lagOf` unit tests (no entries, entry for the last reply, swipe override).
