@@ -369,7 +369,7 @@ counters 1/4…4/4), and the settings block opens with one muted intro line (`se
 intro), README (one sentence).
 Done when: `npm test` green with the four-step hint test and the intro test; `node --check`.
 
-## T31 — Request resilience: rejected reasoning parameters, cut output, empty output  [ ]
+## T31 — Request resilience: rejected reasoning parameters, cut output, empty output  [x]
 SPEC §31 (4 Oct 2026 night, root cause of «состояние устаревшее»: Rout's Gemini lane 400s on the reasoning
 parameters; DeepSeek's reasoning + 24 sections overflow 6000 tokens and the cut JSON fails with a generic message).
 One retry without the reasoning payload on a parameter rejection (status 400 / "unsupported parameter" / "Invalid
@@ -594,3 +594,12 @@ Done when: `npm test` green with the swipe / normal / cleared-override tests, la
   step shows «Понятно»); the new third hint uses `hints.cards.title` / `hints.cards.text`, and «Наслаждайся» keeps its
   T25 keys `hints.3.*`. The settings block opens with `p.st-sable-settings-intro` (`settings.intro`), the first child of
   `.st-sable-settings-body`; muted style at the end of `style.css`.
+- T31: `isParameterRejection(error)` exported from `src/run.js` (status 400 or the message patterns, never an
+  AbortError); the set of profiles that rejected the reasoning payload lives in the `createRuntime` closure, so each
+  runtime (and each test) starts empty. The retry happens only when a non-empty payload was sent and the request is
+  still owned; the profile is remembered on the rejection itself, even if the retry fails too. The rejection warning is
+  put first in the entry's `warnings`, parse warnings follow. `outputProblem(input, parsed)` in `src/parse.js` returns
+  `'empty'` (no text or whitespace only), `'cut'` (`<sable_state>` present and the JSON did not parse) or null; both
+  record status `invalid` with the message as `error`, and errors flagged `shown` carry their own message to
+  `lastRun.error` instead of `runFailed`. Garbage without the tag keeps the generic messages. SPEC §3 still says
+  "default maxTokens 3000"; §31 supersedes it.

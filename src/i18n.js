@@ -147,7 +147,7 @@ Object.assign(STRINGS.en, {
   'hint.messages': 'How many recent chat messages the side model reads.',
   'hint.cardChars': 'Character card text limit for the side model (0 = none).',
   'hint.loreChars': 'Limit for lorebook entries activated in the last generation (0 = none).',
-  'hint.maxTokens': 'Maximum length of the side model reply.',
+  'hint.maxTokens': 'Maximum length of the side model reply. Reasoning tokens count against it.',
   'hint.depth': 'Chat depth of the injected summary (0 = at the very end).',
   'hint.keep': 'How many recent messages keep their state (all swipes included).',
   'hint.role': 'If the state block starts showing up in replies, try "user".',
@@ -169,7 +169,7 @@ Object.assign(STRINGS.ru, {
   'hint.messages': 'Сколько последних сообщений чата читает вспомогательная модель.',
   'hint.cardChars': 'Лимит текста карточки персонажа для вспомогательной модели (0 = не отправлять).',
   'hint.loreChars': 'Лимит записей лорбука, сработавших в последней генерации (0 = не отправлять).',
-  'hint.maxTokens': 'Максимальная длина ответа вспомогательной модели.',
+  'hint.maxTokens': 'Максимальная длина ответа вспомогательной модели. Токены размышлений тоже входят в этот лимит.',
   'hint.depth': 'Глубина вставки сводки в чат (0 = в самом конце).',
   'hint.keep': 'Сколько последних сообщений хранят состояние (со всеми свайпами).',
   'hint.role': 'Если блок состояния начал появляться в ответах, попробуйте «пользователь».',
@@ -505,4 +505,16 @@ Object.assign(STRINGS.ru, {
   'hints.cards.title': 'Всё меняется в карточках',
   'hints.cards.text': 'Режим — чип на карточке, период — в его меню, поля и цвет — карандаш, порядок и группы — ручка',
   'settings.intro': 'Коротко: режим, период, цвет, правка и порядок меняются прямо в карточках панели. Здесь — всё остальное.',
+});
+// T31
+// Request resilience (SPEC §31): rejected reasoning parameters, cut and empty replies.
+Object.assign(STRINGS.en, {
+  reasoningRejected: 'The model rejected the reasoning parameters; retried without them',
+  cutOutput: 'The reply was cut: the model did not finish the JSON. Raise Max tokens (now {n}) or reduce reasoning',
+  emptyOutput: 'The model returned nothing (content filter?)',
+});
+Object.assign(STRINGS.ru, {
+  reasoningRejected: 'Параметры размышлений отклонены моделью, запрос повторён без них',
+  cutOutput: 'Ответ обрезан: модель не дописала JSON. Увеличьте «Макс. токенов» (сейчас {n}) или уменьшите размышления',
+  emptyOutput: 'Модель вернула пустой ответ (фильтр содержимого?)',
 });

@@ -101,3 +101,11 @@ export function parseStateOutput(input, requestedSections, registry = SECTIONS) 
 }
 
 export const parseOutput = parseStateOutput;
+
+/** Why a reply failed before section validation (SPEC §31): 'empty' (no text at all), 'cut' (an opened
+ *  <sable_state> whose JSON did not parse, usually the output limit), else null. */
+export function outputProblem(input, parsed) {
+  const text = typeof input === 'string' ? input : input?.content;
+  if (typeof text !== 'string' || !text.trim()) return 'empty';
+  return !parsed?.ok && /<sable_state\b/i.test(text) ? 'cut' : null;
+}
