@@ -971,3 +971,261 @@ and more explicit, that users enable on top of the first or alone.
   shape/cap list and scope set updated; the pack sheet lists three packs.
 - README ru + en: one sentence per pack in the packs paragraph; SPEC §15
   built-in list mentions `intimacy_plus`.
+
+## 24. Drag between containers and the undo pill
+
+Why (3 Oct 2026, design round after 0.3.0): moving a card into or out of a
+group should be the same gesture as sorting, with the handle, no long-press;
+packs and the People group are not targets; everything that rearranges or
+deletes gets a one-level undo.
+
+### Undo pill
+
+- The drawer owns one undo pill: `div.st-sable-undo[role="status"]` at the
+  bottom of the panel, glass, 36 px tall, a text and a button «Вернуть» /
+  "Undo". `undo.show(text, restore)` replaces any pill already shown; the
+  pill hides after 5 s, on tap of the text, or after the button calls
+  `restore()`. The snapshot lives in memory only (nothing is persisted, a
+  reload loses it). Effects `off`: it appears without the 140 ms slide.
+- Users of the pill in this task: a drop (restore the previous
+  `{ folders, order }` through `updateSettings`), «Удалить группу» (now one
+  tap: restore the folder and the previous `order`), «Разложить по группам»
+  (restore the previous `folders` and `order`; the arming second tap goes
+  away). §25 adds person delete.
+
+### Drag
+
+- Starts as today: handle, pointer events, 5 px threshold, `pointercapture`.
+  A flat card or a folder member is bounded by its parent until the pointer
+  leaves the parent's box by more than **24 px** vertically (hysteresis);
+  then the card is **detached**: it keeps its full look and the
+  `st-sable-dragging` lift, and the targets below apply. Moving back inside
+  the original container re-attaches it (plain sorting again). Folder
+  handles (whole-block moves), pack members and person cards keep today's
+  rules and never detach.
+- **Targets** while detached: a user folder (`data-folder`): over its header
+  → slot at the end of its members; over the gap between two of its members
+  → slot at that index; a folded folder accepts on its header and does not
+  unfold; an empty folder's hint row is its slot. A top-level gap (between
+  top-level blocks, outside any folder) → slot «без группы» at that index.
+  The slot is one `div.st-sable-slot` (44 px, dashed accent border, muted
+  text «сюда» / "here") inserted where the card would land; one at a time.
+- **Full folder** (20 members): header gets `st-sable-full` and a badge
+  «полная» / "full", no slot, drop = cancel.
+- **Non-targets**: packs (`data-pack`), the People group
+  (`data-container="people"`) and person cards get `st-sable-dim` (50 %)
+  while a card is detached; no slot; a drop over them cancels.
+- **Auto-scroll**: while dragging, a pointer within 48 px of the card list's
+  top or bottom edge scrolls the list by up to 12 px per animation frame,
+  proportional to the depth into the band; it stops when the pointer leaves
+  the band or the drag ends.
+- **Cancel**: `pointercancel`, `lostpointercapture`, Escape, the pointer more
+  than 40 px left of the panel's left edge, a drop with no slot. The card
+  returns to its place (150 ms with effects on, instant with `off`); nothing
+  is written.
+- **Drop** = one `updateSettings({ folders, order })` built by a pure
+  function in `src/folders.js`:
+  `planDrop(settings, sectionId, { folderId, index })` where `folderId` is a
+  folder id or `null` (no folder) and `index` is the position among the
+  target block's members in grouped order (`Infinity` = end). It reuses
+  `moveToFolder` and then moves the id inside its block in `order`. Returns
+  `{ folders, order }`, or `null` for an illegal drop (full folder, unknown
+  ids, a pack member, a pack or people target). Before writing, the previous
+  `{ folders, order }` go to the undo pill with the text «Сюжет → Мир» /
+  "Story → World" (card title → folder title; «Без группы» / "No group" for
+  `null`).
+- Mouse runs the same code. Keyboard keeps the «В группу…» menu and ▲▼; the
+  menu is unchanged.
+- Tests: `planDrop` (into a folder at the end and at an index, out to no
+  folder at an index, full folder → `null`, pack member → `null`, an empty
+  folder gains its position); the undo pill (show, replace, timeout, restore,
+  with fake timers); a geometry helper `slotFor(rects, y)` (exported: given
+  the member rectangles of the hovered block and the pointer y, returns the
+  index) unit-tested. Real geometry is checked only in a real SillyTavern.
+
+## 25. Person card: pencil menu, edit form, delete, add
+
+Why (3 Oct 2026): editing a person without switching to the topics layout.
+Decision: a small pencil on the person card, a two-item menu, one form per
+person, and a batched write of the four NPC-keyed sections.
+
+### Runtime
+
+- `runtime.editSections(values)` with `values = { [sectionId]: value }`:
+  sanitises every value with `sanitizeSection`; if any is invalid, returns
+  `false` and writes nothing. Otherwise it replaces each section in the
+  current entry (creating the entry for the last character reply as
+  `editState` does), sets `meta.editedAt`, clears `stale`, cancels an
+  in-flight run once, records bond history once (§22), re-injects once,
+  saves once, publishes once. `editState(id, value)` becomes a thin wrapper
+  over `editSections({ [id]: value })`.
+
+### Drawer
+
+- The person card header gets a pencil button (36 px, `fa-pen`,
+  `aria-haspopup="menu"`) between the name/mood and the fold. A tap opens a
+  menu with the look and keyboard rules of the mode menu: «Редактировать» /
+  "Edit" and «Удалить» / "Delete". The footer hint «Редактирование: в
+  раскладке по темам» is removed.
+- `applyPersonDraft(sections, person, draft)` (pure, exported, tested):
+  `sections` = the current values of `npcs`, `thoughts`, `bonds`,
+  `dossiers`; `draft` = `{ npc?, thought?, bond?, dossier? }` (a sub-object
+  present = replace or add that part; `null` = remove it). Returns only the
+  sections that changed, each the old array with this person's item
+  replaced, appended, or removed. Matching is the people layout's: npcs,
+  thoughts and bonds by `id`, dossier by `name` (case-insensitive) or `id`.
+- **Edit form** replaces the card body (a keyed node like the section
+  editor) and is generated from the section schemas, sliced to this person,
+  with sub-headings carrying the section glyphs: Персонаж (presence, mood,
+  agenda first, then the other npcs fields), Тайна / На самом деле (plain
+  inputs with the caption «не идёт в промпт» / "not sent to the model"),
+  Мысль (textarea), Отношения (`toward`, reason, one number input per active
+  scale with that scale's range; `changes` read-only), Досье (role, look,
+  voice, hook). A part the person lacks shows a button «+ Досье» /
+  «+ Отношения» / «+ Мысль» that adds that sub-form prefilled with the
+  person's name and id; an orphan dossier card shows the dossier sub-form
+  and «+ Персонаж» / "+ Character" (adds an npcs row, `present: false`).
+  «Сохранить» / «Отмена» stick to the bottom of the card. Save →
+  `editSections(applyPersonDraft(...))`; `false` → an inline error, the form
+  stays. The form survives re-renders, keeps focus and draft; a fingerprint
+  of the four sections is taken when it opens, and when it changes the form
+  shows a bar «Данные обновились» / "Data changed" with «Перечитать» (rebuild
+  from the new data, drop the draft) and «Сохранить всё равно» / "Save
+  anyway". Several person forms may be open at once. Topics-layout editors
+  are unchanged.
+- **Delete**: one `editSections` call removing the person's items from the
+  four sections (dossier by the same match) and deleting that bond's history;
+  no two-tap confirmation; the undo pill (§24) shows «Maren удалена ·
+  Вернуть» / "Maren deleted · Undo" and restores the four previous values
+  through `editSections`. README says plainly that the side model may add
+  the character back when the text still mentions them.
+- **Add**: the People group footer gets «+ Человек» / "+ Person": a one-field
+  inline form (name, required, 60 chars) that appends an npcs row (id derived
+  from the name as the editor derives ids, `present: true`, other fields
+  empty) through `editSections`, then opens that person's edit form.
+
+## 26. Stat history and tap-to-jump
+
+Why (3 Oct 2026): bars in packs should get the same history line as bond
+scales, and a point should lead to the reply it came from, for people who
+re-read their chats.
+
+### Storage
+
+- `recordHistory` is generalised to `store.history[key][line]`: `key` is a
+  bond id (as today) or the id of a `stats` section (built-in pack sections
+  and custom blocks with shape `stats`); `line` is the bond scale key or the
+  stat item `key` (the model's exact string, trimmed, no other
+  normalisation). Only stat items with a numeric `max` are recorded. For a
+  stats section, lines whose key is absent from the freshly stored value are
+  deleted (a stat that disappears takes its line with it); bonds keep today's
+  rule. Same 12-point cap, same replace-on-same-`mesId`, same `pruneHistory`.
+  Switching a pack off in a chat does not touch history. Recording happens
+  where bond history is recorded in `run.js` and after `editSections` touches
+  a stats section.
+
+### Display
+
+- A stats row gets the same `sparkline(row, spec)` under its bar when it has
+  at least 2 points and `visual.sparklines` is on, accent tint only.
+- **Tap-to-jump** on every sparkline (bonds and stats): the sparkline is a
+  button (`role="button"`, `tabindex="0"`, aria-label «История» /
+  "History") with a transparent hit area of at least 36 px in height; a tap
+  picks the bar under the pointer (by x; keyboard: ←/→ move the pick, Enter
+  jumps), marks it `st-sable-spark-active`, and shows a label row under the
+  sparkline: «ответ #N · HP 40» / "reply #N · HP 40" (the stat or scale
+  title, the value, signed for signed scales). The chat scrolls to that
+  message when it is rendered:
+  `document.querySelector('#chat .mes[mesid="N"]')?.scrollIntoView({ block:
+  'center', behavior })` with `behavior` `'smooth'` unless effects are `off`;
+  when the message is not in the DOM the label adds «(не загружено)» /
+  "(not loaded)". A second tap on the same bar hides the label. The reply
+  panel and the digest ignore history.
+
+### Setting
+
+- Rename the checkbox to «Мини-графики под полосками» / "History sparklines
+  under bars"; its hint names bond scales and pack stats. No per-pack
+  setting.
+
+## 27. First-run hints, missing-profile status, mode legend, stale recompute
+
+Why (3 Oct 2026): a newcomer must learn three things from the panel itself,
+not the README: connect a model, understand the chip, write to the character.
+Pages get reloaded, so the hints need a «Больше не показывать».
+
+### Hints
+
+- Three small sequential popups inside the drawer
+  (`div.st-sable-hint[role="dialog"]`, glass, above the card list), one at
+  a time, each with a title, one or two lines, a «Дальше» / "Next" button
+  (the last says «Понятно» / "Got it") and a checkbox «Больше не
+  показывать» / "Don't show again":
+  1. «Проверь соединение» / "Check the connection": the side-model profile
+     select inline (same source and filter as the settings control); when
+     no chat-completion profile exists: «Создай профиль в Connection
+     Manager» / "Create a profile in Connection Manager".
+  2. «Выбери, что нравится» / "Pick what you like": «в промпт — модель это
+     видит · показ — только тебе · выкл — не обновляется» / "inject — the
+     model sees it · show — only you · off — not updated".
+  3. «Наслаждайся» / "Enjoy": «Напиши персонажу — после его ответа карточки
+     заполнятся» / "Write to the character; the cards fill in after their
+     reply".
+- State: `settings.hints = { done: false }` (normalised, default `false`).
+  Hints show when the drawer opens while `done` is false; the checkbox,
+  finishing the third hint, or the first successful run set `done: true`.
+  Settings → Actions gets «Показать подсказки снова» / "Show the hints
+  again" (sets `done: false`). Effects `off`: no animation.
+
+### Missing profile
+
+- When `settings.profileId` is empty, or the profile is missing or not
+  chat-completion, the status footer permanently shows «Нет профиля модели →
+  настроить» / "No model profile → set up" as a button that opens the
+  settings on the Connection group (the gear path), and the Run now control
+  is disabled with the same title. This is in addition to the existing
+  warnings after a failed run.
+
+### Mode legend
+
+- Every mode menu (`openModeMenu`, including the aggregate chips) ends with
+  a muted 12 px legend `div.st-sable-menu-legend` with the three lines of
+  hint 2.
+
+### Stale recompute
+
+- The `recomputeOnEdit` setting and checkbox are removed (the normaliser
+  still accepts and drops the key). After the latest reply is edited
+  (`entry.stale`), the status footer shows «Состояние устарело» / "State is
+  stale" with a button «⟳ Пересчитать» / "⟳ Recompute" that runs the
+  existing edit run (`run(mesId, { type: 'edit' })`); stale cards get
+  `st-sable-stale` (dimmed accent bar). The next character reply clears it
+  as today. README's Context paragraph is updated.
+
+## 28. Settings in one tier
+
+Why (3 Oct 2026): no hidden second tier. Groups stay on one level and say
+what they hold; the settings people touch during play live where they play.
+
+- **Folded group summaries.** Each settings group header shows a muted
+  summary line while the group is folded, from i18n keys
+  `group.<id>.summary`, e.g. «панель, карточки, фон, цвета карточек,
+  эффекты» / "panel, cards, background, card colours, effects". Hidden while
+  open.
+- **Period in the chip menu.** The mode menu gets a last row «Раз в N
+  ответов» / "Every N replies" with a number input (0–99) writing the same
+  period setting the Sections table writes (global, never a per-chat
+  override; the dossiers special `0` keeps its hint). The table keeps its
+  period column.
+- **Card colour in the card menu.** The footer of every card that has a
+  footer gets «Цвет…» / "Colour…", opening an inline row with the same
+  swatches and «auto» as Appearance → Cards → Card colours, writing
+  `visual.cardColors[id]` (send the full `visual` object, as today). The
+  settings block stays.
+- **Legacy import banner.** «Импорт из старого Sable» leaves the Actions
+  group. When `snapshot().canSeedLegacy` is true the drawer shows a banner
+  above the cards: «В этом чате есть данные старого Sable» / "This chat has
+  old Sable data" with «Импортировать» / "Import" (`seedLegacy()`) and
+  «Скрыть» / "Hide" (per chat: `chat_metadata.sableTrackers.legacyBannerHidden
+  = true`). Never automatic.
+- i18n ru + en; README.

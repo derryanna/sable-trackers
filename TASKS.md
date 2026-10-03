@@ -279,6 +279,63 @@ the adult guard and the empty-value rule. Content only: `src/packs/index.js`, i1
 Done when: `npm test` green with the new pack in every pack test, the fixture validates through `sanitizeSection`
 for every new section, the digest snapshot includes the four inject sections, the sheet lists three packs.
 
+## T22 — Drag between containers and the undo pill  [ ]
+SPEC §24 (3 Oct 2026, design round: «Undo хорош», «перенос — согласна»). One-level undo pill in the drawer
+(`undo.show(text, restore)`, 5 s, in memory, used by drops, folder delete (now one tap) and «Разложить по группам»);
+the handle drag detaches from its parent after 24 px of hysteresis and drops into user folders (header = end, gap =
+index, folded = header, empty = hint row), into top-level gaps (no folder), never into packs or the People group
+(dimmed, drop cancels); full folder badge; auto-scroll in 48 px bands; cancel on pointercancel / Escape / 40 px left of
+the panel / no slot. `planDrop(settings, id, { folderId, index })` + `slotFor(rects, y)` in `src/folders.js`, pure and
+tested; one `updateSettings({ folders, order })` per drop. Files: `src/folders.js`, `src/ui/drawer.js`, `style.css`,
+i18n ru + en, tests, README (groups paragraph), DESIGN-NOTES (≤ 6 lines).
+Done when: `npm test` green with `planDrop`, `slotFor` and undo-pill tests; `node --check` on changed files; the menu
+«В группу…» unchanged; no behaviour change in run/store/prompt.
+
+## T23 — Person card: pencil menu, edit form, delete, add  [ ]
+SPEC §25 (3 Oct 2026: «просто добавить карандашик маленький и выбрать удалить/редактировать»). Builds on T22 (the
+undo pill). `runtime.editSections(values)` batched all-or-nothing write (`editState` becomes a wrapper);
+`applyPersonDraft(sections, person, draft)` pure and tested; a 36 px pencil in the person card header with a two-item
+menu (Edit / Delete); the edit form generated from the four section schemas sliced to the person, with «+ Досье /
++ Отношения / + Мысль / + Персонаж» for missing parts, a «Данные обновились» bar on underlying change, sticky Save /
+Cancel; delete = one `editSections` + the undo pill; «+ Человек» in the People group footer. Remove the footer hint.
+Files: `src/run.js`, `src/ui/drawer.js` (or a new `src/ui/person.js` for the pure parts), `style.css`, i18n, tests,
+README (people layout paragraph), SPEC §13/§21 cross-notes.
+Done when: `npm test` green with `editSections` (invalid → false, nothing written; valid → one save, one history
+record), `applyPersonDraft` (replace / add / remove / orphan dossier / no change → {}), form build from fixtures,
+delete + undo round trip; `node --check`; topics-layout editors unchanged.
+
+## T24 — Stat history and tap-to-jump  [ ]
+SPEC §26 (3 Oct 2026: «стату привязывать к сообщению» for people who re-read). `recordHistory` generalised to
+`history[key][line]` for stats sections (items with numeric `max` only; lines absent from the fresh value are
+dropped); sparkline under stats bars; every sparkline becomes a button: tap picks a bar, shows «ответ #N · HP 40»,
+scrolls `#chat .mes[mesid="N"]` into view when rendered, «(не загружено)» otherwise; keyboard ←/→/Enter; checkbox
+renamed «Мини-графики под полосками». Files: `src/store.js`, `src/run.js`, `src/ui/drawer.js`, `style.css`, i18n,
+settings label, tests, README.
+Done when: `npm test` green with store tests (stats recorded, counters without max ignored, absent lines dropped,
+swipe replace, prune), a drawer test for the label and the active bar (jsdom; scrolling stubbed), the panel and the
+digest untouched.
+
+## T25 — First-run hints, missing-profile status, mode legend, stale recompute  [ ]
+SPEC §27 (3 Oct 2026: «мелкие всплывашки… проверь соединение, выбери что нравится и наслаждайся» + «галочка, чтобы
+не показывало больше»). Three sequential hint popups in the drawer with «Больше не показывать», `settings.hints.done`
+(set by the checkbox, the third hint, or the first successful run), «Показать подсказки снова» in Actions; a permanent
+«Нет профиля модели → настроить» status button + disabled Run now when no usable profile; a three-line legend at the
+bottom of every mode menu; `recomputeOnEdit` removed in favour of a «Состояние устарело · ⟳ Пересчитать» status
+button and `st-sable-stale` on stale cards. Files: `src/settings.js`, `src/run.js` (snapshot flags), `src/ui/drawer.js`,
+`src/ui/settings.js`, `style.css`, i18n, tests, README (setup steps + Context paragraph).
+Done when: `npm test` green with normaliser tests (`hints`, `recomputeOnEdit` dropped), drawer tests for the hint
+sequence and the status states (no profile / stale), the legend present in the menu; `node --check`.
+
+## T26 — Settings in one tier  [ ]
+SPEC §28 (3 Oct 2026: «один этаж, в заголовках перечислено содержимое, период в меню чипа, цвет в меню карточки,
+импорт плашкой»). Folded group summary lines (`group.<id>.summary`); «Раз в N ответов» row in the mode menu writing
+the global period; «Цвет…» in card footers with the Card colours swatches; the legacy import button leaves Actions
+and becomes a drawer banner when `canSeedLegacy`, with a per-chat «Скрыть» (`legacyBannerHidden`). Files:
+`src/ui/settings.js`, `src/ui/drawer.js`, `src/run.js` (banner flag), `style.css`, i18n, tests, README.
+Done when: `npm test` green with tests for the summary lines, the period row (writes `sections[id].period`), the
+colour row (writes the full `visual`), the banner (shown / hidden / imported); `node --check`; no change to prompt or
+storage beyond the banner flag.
+
 ## Notes from previous tasks
 (append here)
 - T20: `store.history[bondId][scale]` via `recordHistory(data, bonds, mesId, keys)` / `pruneHistory(data, keep)` (keep = a
