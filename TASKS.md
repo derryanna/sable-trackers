@@ -380,7 +380,7 @@ i18n ru + en, `test/fakes` + tests, README.
 Done when: `npm test` green with the retry, the no-payload second run, the cut and empty messages, the default; `node
 --check`; no change to the prompt text or the store shape.
 
-## T32 — Which state is injected: swipes, regenerations and lag  [ ]
+## T32 — Which state is injected: swipes, regenerations and lag  [x]
 SPEC §32 (4 Oct 2026 night: «при свайпе модель цепляется за старый трекер как за инструкцию; модель не работала, и
 весь старый стек инжектился»). `GENERATION_STARTED` handler: for `swipe` / `regenerate` / `continue` inject the
 state before the rewritten reply, set before prompts are combined, override cleared by the next message event;
@@ -594,3 +594,18 @@ Done when: `npm test` green with the swipe / normal / cleared-override tests, la
   step shows «Понятно»); the new third hint uses `hints.cards.title` / `hints.cards.text`, and «Наслаждайся» keeps its
   T25 keys `hints.3.*`. The settings block opens with `p.st-sable-settings-intro` (`settings.intro`), the first child of
   `.st-sable-settings-body`; muted style at the end of `style.css`.
+- T32: `lagOf(entry, chat, end = chat.length)` in `src/store.js` (0 without an entry; `end` is exclusive, the override
+  passes the rewritten reply's id). `src/run.js`: `MAX_INJECT_LAG = 1`; `GENERATION_STARTED` sets an in-memory
+  `rewriting` flag for `swipe` / `regenerate` / `continue` (false for every other type, dry runs included) and publishes;
+  `chooseInjected(store, ctx)` returns `{ injectedEntry, lag }` for `snapshot()` and `preview()`;
+  `MESSAGE_RECEIVED` / `MESSAGE_SWIPED` / `MESSAGE_DELETED` / `CHAT_CHANGED` clear the flag. `buildDigest` takes
+  `lag` and `asOf` (the entry's `mesId`, shown as «#N» like SillyTavern's message numbers) and prepends `lagNote`
+  only for lag 1; `injection()` returns '' above `MAX_INJECT_LAG` (the pending roll line goes too). UI: one
+  `div.st-sable-lag` right after the drawer header (hidden unless lag ≥ 2), `span.st-sable-status-lag` in the status
+  with its own ⟳ (`[data-control="lag-recompute"]`, `runtime.refresh()`), `div.st-sable-lag` first in the reply
+  panel; i18n `lagNote`, `lag.behind` under `// T32`. Behaviour change: after editing the latest reply the fallback
+  entry is one reply behind, so its injection now starts with the lag note (the edit test in `test/glue.test.mjs` was updated).
+  Unverified live: whether SillyTavern's `regenerate` deletes the last reply before or after `GENERATION_STARTED`
+  (before would make the override pick one entry too early; `MESSAGE_DELETED` after it is handled, since pruning
+  leaves the right entry latest). A stopped generation leaves the flag on until the next message event or the next
+  `GENERATION_STARTED`.

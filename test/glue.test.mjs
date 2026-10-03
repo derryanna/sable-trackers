@@ -42,8 +42,10 @@ test('edited state remains visible while injection and the next request use the 
     await fake.emit('MESSAGE_EDITED', id);
     assert.equal(runtime.snapshot().entry.stale, true);
     assert.equal(runtime.snapshot().injectedEntry?.mesId, earlier ? 0 : undefined);
-    assert.equal(injection(fake), expected);
-    assert.equal(runtime.preview().injection, expected);
+    // The fallback entry is one reply behind the chat, so it carries the lag note (SPEC §32).
+    const lagged = earlier ? `Состояние сцены на момент ответа #0 (на 1 ответ позже событий в чате; новые сообщения главнее)\n${expected}` : expected;
+    assert.equal(injection(fake), lagged);
+    assert.equal(runtime.preview().injection, lagged);
     assert.equal(fake.calls.requests.length, earlier ? 2 : 1);
     fake.respond(answer('Next')); await fake.emit('MESSAGE_RECEIVED', fake.add(), 'normal'); await runtime.idle();
     const previous = fake.calls.requests.at(-1)[1][2].content;

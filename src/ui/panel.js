@@ -1,5 +1,6 @@
 import { applyEffects, displayNode, signedNumber } from './drawer.js';
 import { bondScales, getSections } from '../sections.js';
+import { MAX_INJECT_LAG } from '../run.js';
 import { t } from '../i18n.js';
 
 /** A disposable DOM sibling, never part of the saved message text. */
@@ -35,6 +36,8 @@ export function createPanel(runtime, drawer, { document = globalThis.document,
     panel.setAttribute('aria-label', t('open', language));
     applyEffects(panel, view.settings.visual);
     const lines = [];
+    // State too far behind the chat (SPEC §32): not injected, and the panel says so first.
+    if (view.lag > MAX_INJECT_LAG) lines.push(node('div', 'lag', t('lag.behind', language).replace('{n}', view.lag)));
     if (view.modes.world !== 'off') lines.push(node('div', 'panel-world',
       [state.world?.time, state.world?.location, state.world?.weather].filter(Boolean).join(' · ')));
     if (view.modes.npcs !== 'off') lines.push(node('div', 'panel-npcs',

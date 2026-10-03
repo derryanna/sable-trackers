@@ -41,6 +41,14 @@ export function currentEntry(data, chat, before = Infinity, { skipStale = false 
     .sort((a, b) => a.mesId - b.mesId).at(-1);
 }
 
+/** How many character replies the entry is behind (SPEC §32): character messages after `entry.mesId` and before
+ *  `end` (default: the whole chat). The swipe / regenerate override passes the rewritten message's id as `end`.
+ *  0 without an entry: there is no state to be behind. */
+export function lagOf(entry, chat, end = chat.length) {
+  if (!entry) return 0;
+  return chat.slice(entry.mesId + 1, end).filter(message => message && !message.is_user && !message.is_system).length;
+}
+
 export function restoreCounters(data, entry) {
   data.turnsSince = structuredClone(entry?.turnsSince ?? {});
 }

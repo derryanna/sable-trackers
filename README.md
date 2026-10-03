@@ -80,6 +80,8 @@ The side model reads the previous enabled state, the last 4 messages by default,
 
 Only `inject` sections enter the main prompt, at depth 2 by default, with a digest capped at about 6000 characters. **Injection role** (system by default) is the role of that block: if the state block starts showing up in replies, try "user". Drawer token counts are estimates based on characters, not billing totals. The saved-state ring defaults to the last 3 messages per chat, every swipe of each included; this controls retained history, not model context length.
 
+**Which state is injected.** When you swipe, regenerate or continue the latest reply, the main model gets the state from *before* that reply, not the one computed from the text being replaced, so it never treats the old version as an instruction. A state one reply behind the chat (the update for the latest reply is still running, failed or was cancelled) is injected with a first line "Scene state as of reply #N (one reply behind the chat; newer messages take precedence)". A state two or more replies behind is not injected at all: the drawer status says **State is M replies behind** next to **⟳ Recompute**, and the drawer and the reply panel show the same note while the cards keep the old values.
+
 ## Troubleshooting
 
 - **No profile:** create a Connection Manager profile and select it in Sable settings. Reopen the settings block if the list is outdated. A deleted selection is shown as missing.
@@ -120,6 +122,8 @@ Sable Trackers хранит состояние сцены отдельно от 
 «Опасная зона» (в настройках, свёрнута по умолчанию): общие правила и инструкции каждой встроенной секции можно переписать, у каждого поля есть кнопка «По умолчанию», внизу — «Сбросить все инструкции». «Показать промпт» собирает в точности следующий запрос «Обновить сейчас», не отправляя его; «Копировать» кладёт его в буфер. «Журнал запросов» хранит последние пять запусков: запрос, сырой ответ, статус и время, с копированием, «Скачать журнал» (`sable-log.json`) и «Очистить». Схема JSON и формат ответа не меняются. Журнал живёт только в памяти, переживает смену чата и исчезает при перезагрузке.
 
 «Роль вставки» (по умолчанию «система») — роль блока состояния в промпте: если блок состояния начал появляться в ответах, попробуйте «пользователь».
+
+**Какое состояние уходит в промпт.** При свайпе, перегенерации или продолжении последнего ответа основная модель получает состояние *до* этого ответа, а не посчитанное по заменяемому тексту, и не цепляется за старую версию как за инструкцию. Состояние, отстающее от чата на один ответ (обновление для последнего ответа ещё идёт, упало или отменено), вставляется с первой строкой «Состояние сцены на момент ответа #N (на 1 ответ позже событий в чате; новые сообщения главнее)». Если отставание два ответа и больше, ничего не вставляется: в статусе панели — «Состояние отстаёт на M ответов» рядом с «⟳ Пересчитать», та же пометка видна в панели и под ответом, а карточки показывают старые значения.
 
 Если нет обновлений, проверьте профиль, режим chat-completion и включённые разделы. При пустом ответе проверьте модель, увеличьте лимит токенов и повторите обновление; думающая модель, которая ничего не вернула, обычно потратила лимит на размышления — держите «Размышления модели» на «мало» или «минимум». Групповые чаты не поддерживаются.
 

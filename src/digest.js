@@ -49,7 +49,9 @@ export function buildDigest(state = {}, modes = {}, options = {}) {
   const language = options.language ?? 'ru';
   const tr = key => t(key, language);
   const maxChars = Math.min(options.maxChars ?? 6000, 6000);
-  const lines = [`[${tr('digestHeader')}]`];
+  // A state one reply behind the chat says so first (SPEC §32); `asOf` is the message id it was computed for.
+  const lines = options.lag === 1 && options.asOf != null ? [tr('lagNote').replace('{n}', options.asOf)] : [];
+  lines.push(`[${tr('digestHeader')}]`);
   for (const id of orderedSectionIds(options.order, sections)) {
     if ((modeOf(id, modes) ?? sectionMap[id]?.defaultMode) !== 'inject' || state[id] == null) continue;
     const section = sectionMap[id], value = state[id];

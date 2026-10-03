@@ -2,6 +2,7 @@ import { getSections, groupedOrder, bondScales } from '../sections.js';
 import { dropIndex, moveToFolder, planDrop, slotFor } from '../folders.js';
 import { newCustomId } from './settings.js';
 import { t } from '../i18n.js';
+import { MAX_INJECT_LAG } from '../run.js';
 import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
 import { sanitizeSection } from '../parse.js';
 import { packScopeOf } from '../packs/index.js';
@@ -369,7 +370,10 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   hint.id = 'st-sable-hint'; hint.hidden = true;
   hint.setAttribute('role', 'dialog');
   hint.setAttribute('aria-labelledby', 'st-sable-hint-title');
-  drawer.append(rain, header, banner, hint, cards, hiddenRow, undo.element, status, sheet);
+  // State too far behind the chat (SPEC §32): one note under the title row while the cards keep the old state.
+  const lagNote = node('div', 'lag');
+  lagNote.hidden = true;
+  drawer.append(rain, header, lagNote, banner, hint, cards, hiddenRow, undo.element, status, sheet);
   // Edge pull tab: glued to the screen edge when closed, to the panel's left edge when open.
   const tab = button('', 'open', () => { if (drawer.hidden) open(tab); else hide(false); }, 'tab');
   tab.append(icon('wand-magic-sparkles'), icon('chevron-right'));
@@ -2116,6 +2120,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     refresh.disabled = !!view.profileIssue;
     if (view.profileIssue) { refresh.title = label('noProfile'); refresh.setAttribute('aria-label', label('noProfile')); }
     renderHint();
+    const behind = view.lag > MAX_INJECT_LAG ? label('lag.behind').replace('{n}', view.lag) : '';
+    lagNote.textContent = behind; lagNote.hidden = !behind;
     renderStatus();
     if (focusId && focusRole) cards.querySelector(`[data-section="${focusId}"] [data-control="${focusRole}"]`)?.focus();
     else if (focusPerson !== undefined && focusRole) [...cards.querySelectorAll('[data-person]')].find(card => card.dataset.person === focusPerson)
@@ -2157,6 +2163,15 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       recompute.disabled = !!view.running || !!view.profileIssue;
       stale.append(recompute);
       status.append(stale);
+    }
+    // Not injected while too far behind (SPEC §32): the note sits next to its own ⟳ for the latest reply.
+    if (view.lag > MAX_INJECT_LAG) {
+      const lag = node('span', 'status-lag', label('lag.behind').replace('{n}', view.lag));
+      const recompute = button(label('recompute'), 'recompute', () => { void runtime.refresh(); }, 'recompute');
+      recompute.dataset.control = 'lag-recompute';
+      recompute.disabled = !!view.running || !!view.profileIssue;
+      lag.append(recompute);
+      status.append(lag);
     }
     if (rollNote) status.append(node('span', 'roll-note', rollNote));
     // Enabled packs as small chips, so the cost of the chat is visible at a glance.
