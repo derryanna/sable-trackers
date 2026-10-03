@@ -326,3 +326,18 @@ Object.assign(STRINGS.ru, {
   'fx.speed': 'Скорость', 'fx.speed.slow': 'медленно', 'fx.speed.medium': 'средне', 'fx.speed.fast': 'быстро', 'fx.density': 'Плотность', 'fx.angle': 'Наклон',
   changed: 'изменилось',
 });
+
+Object.assign(STRINGS.en, {
+  'folders.move': 'Group…', 'folders.none': 'No group', 'folders.new': 'New group…', 'folders.default': 'Group',
+  'folders.edit': 'Edit group', 'folders.delete': 'Delete group', 'folders.confirmDelete': 'Tap again to delete',
+  'folders.empty': 'Empty. Add a card with Group…', 'folders.group': 'Group', 'folders.fold': 'Fold / unfold the group',
+  'folders.suggested': 'Suggested groups', 'folders.confirmSuggested': 'Tap again to replace the current groups',
+  'folders.world': 'World', 'folders.people': 'People', 'folders.story': 'Story',
+});
+Object.assign(STRINGS.ru, {
+  'folders.move': 'В группу…', 'folders.none': 'Без группы', 'folders.new': 'Новая группа…', 'folders.default': 'Группа',
+  'folders.edit': 'Редактировать группу', 'folders.delete': 'Удалить группу', 'folders.confirmDelete': 'Нажмите ещё раз, чтобы удалить',
+  'folders.empty': 'Пусто. Добавьте карточку через «В группу…»', 'folders.group': 'Группа', 'folders.fold': 'Свернуть / развернуть группу',
+  'folders.suggested': 'Разложить по группам', 'folders.confirmSuggested': 'Нажмите ещё раз: текущие группы будут заменены',
+  'folders.world': 'Мир', 'folders.people': 'Люди', 'folders.story': 'Сюжет',
+});

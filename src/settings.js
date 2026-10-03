@@ -1,5 +1,6 @@
 import { SECTIONS, SECTION_ORDER, getSections, getAllSections, normalizeCustomSections } from './sections.js';
 import { BUILTIN_PACKS, getPacks, normalizePacks } from './packs/index.js';
+import { normalizeFolders } from './folders.js';
 import { enabledPacks } from './store.js';
 import { COMMON_RULES } from './prompt.js';
 
@@ -44,7 +45,7 @@ export const DEFAULTS = {
   hideOff: true,
   prompts: { rules: null, sections: {}, packs: {} },
   packs: [], packDefaults: [], packScope: {},
-  order: SECTION_ORDER, customSections: [],
+  order: SECTION_ORDER, customSections: [], folders: [],
   groups: { connection: true },
   folded: {}, pinned: false, floatingPosition: null,
   sections: Object.fromEntries(SECTIONS.map(s => [s.id, { mode: s.defaultMode, period: s.period }])),
@@ -71,13 +72,14 @@ export function normalizeSettings(value = {}) {
   result.language = ['ru', 'en'].includes(result.language) ? result.language : 'ru';
   result.customSections = normalizeCustomSections(value.customSections);
   result.packs = normalizePacks(value.packs);
+  result.folders = normalizeFolders(value.folders, getSections(result));
   const packIds = getPacks(result).map(pack => pack.id);
   result.packDefaults = [...new Set(Array.isArray(value.packDefaults) ? value.packDefaults : [])].filter(id => packIds.includes(id));
   result.packScope = Object.fromEntries(packIds.filter(id => ['all', 'user', 'others'].includes(value.packScope?.[id])).map(id => [id, value.packScope[id]]));
   const all = getAllSections({ ...result, prompts: {} });
   const ids = all.map(section => section.id);
-  // Fold keys are section ids plus `pack:<id>` for the drawer's pack groups (SPEC §15).
-  const foldKeys = [...ids, ...packIds.map(id => `pack:${id}`)];
+  // Fold keys are section ids plus pack and folder container keys (SPEC §15/§18).
+  const foldKeys = [...ids, ...packIds.map(id => `pack:${id}`), ...result.folders.map(folder => `folder:${folder.id}`)];
   result.folded = Object.fromEntries(foldKeys.filter(id => typeof value.folded?.[id] === 'boolean').map(id => [id, value.folded[id]]));
   result.groups = { ...DEFAULTS.groups, ...Object.fromEntries(GROUP_IDS
     .filter(id => typeof value.groups?.[id] === 'boolean').map(id => [id, value.groups[id]])) };

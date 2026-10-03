@@ -223,6 +223,24 @@ export function createSettings(runtime, { document = globalThis.document,
   }
   sectionsGroup.append(table, text('p', 'st-sable-settings-hint', 'periodHint'));
 
+  let foldersArmed = false;
+  const suggested = button(sectionsGroup, () => label(foldersArmed ? 'folders.confirmSuggested' : 'folders.suggested'), 'folder-tree', () => {
+    if (view.settings.folders.length && !foldersArmed) {
+      foldersArmed = true; suggested.classList.add('st-sable-armed'); applyLabels(labels); return;
+    }
+    foldersArmed = false; suggested.classList.remove('st-sable-armed');
+    const taken = new Set(view.settings.folders.map(folder => folder.id));
+    const folders = [['world', 'fa-globe', ['world', 'offscreen', 'threads']],
+      ['people', 'fa-users', ['npcs', 'thoughts', 'bonds', 'dossiers']],
+      ['story', 'fa-book', ['story', 'planner', 'banlist']]].map(([key, icon, members]) => {
+        const id = newCustomId(taken, crypto, 'f_'); taken.add(id);
+        return { id, title: label(`folders.${key}`), icon, members };
+      });
+    runtime.updateSettings({ folders });
+  });
+  suggested.dataset.control = 'suggested-folders';
+  suggested.addEventListener('blur', () => { foldersArmed = false; suggested.classList.remove('st-sable-armed'); applyLabels(labels); });
+
   // Custom blocks (SPEC §11): every write sends the full array.
   const customGroup = group('custom', 'group.custom');
   const customList = node('div', 'st-sable-custom-list');

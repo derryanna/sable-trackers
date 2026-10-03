@@ -186,7 +186,7 @@ one or two tongue-in-cheek sentences in a voice picked for the moment: sports co
 headline, dating show, trailer). Both keep the adult guard, neither uses `{{scope}}`, so the pack's group chip reads
 «смешано» until the user aligns the modes. Validation: tests, headless Chromium render of the real-ST Danger zone.
 
-## T16 — Folders: user groups of cards  [ ]
+## T16 — Folders: user groups of cards  [x]
 SPEC §18 (3 Oct 2026, maintainer: «создавать из существующих группы, как в Дискорде»). `settings.folders`
 (`{ id: f_…, title, icon, members }`, normalised, max 12, members = built-in or custom section ids, one folder
 per section, fold keys `folder:<id>`), `groupedOrder(order, sections, packs, folders)`, `runtime.setFolderMode`,
@@ -197,6 +197,16 @@ group button «Разложить по группам» (Мир / Люди / С�
 at the end of the target block. Done when: the tests of SPEC §18 pass (normaliser, groupedOrder with folders,
 setFolderMode, the drawer flows above, the suggested layout), every existing test stays green, `dev/phone.html`
 and `dev/preview.html` still load, README ru + en describe folders, SPEC §6 mentions them.
+
+Done: normalized folders, shared pack/folder containers, membership menu and pure move helper, retained inline folder
+editors, aggregate modes, folds, hideOff, bounded pointer/keyboard moves and suggested groups. Decisions: existing
+title/icon/save/cancel labels are reused; full folders and creation at the 12-folder cap are disabled in the menu;
+selecting the current folder is a no-op; a first member gives an empty folder the card's current position. Suggested
+groups replace only the folder array, leaving raw order intact. Membership preserves explicit disabled-pack positions
+without adding absent pack cards. Folder menus scroll at 240px and wrap long titles for narrow screens. The phone
+fixture shares the preview's two folders. Validation: 198 tests, changed-JavaScript syntax checks and diff whitespace
+checks pass; the actual preview module loads in jsdom with both folders. Browser discovery returned no connected
+browser, so real-browser/Android visual verification remains manual. No dependencies, commit or push.
 
 ## Notes from previous tasks
 (append here)

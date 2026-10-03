@@ -29,7 +29,7 @@ export const BUILTIN_PACKS = Object.freeze([
 const text = (value, max) => typeof value === 'string' ? value.trim().slice(0, max).trim() : '';
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
 // The same FA class rule as custom icons; emoji must be a single grapheme.
-function icon(value) {
+export function icon(value) {
   const valueText = text(value, 100);
   if (/^fa-[a-z0-9-]+(?:\s+fa-[a-z0-9-]+)*$/.test(valueText)) return valueText;
   const parts = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(valueText)];

@@ -213,7 +213,8 @@ Re-inject on CHAT_CHANGED and after every merge.
   `visual.icons`: Font Awesome by default, emoji on request.
 - Enabled packs (§15) are one **group** each: a container with the same header row (handle,
   pack glyph + title, an aggregate mode chip, fold) and the pack's cards nested inside; built-in
-  and custom cards stay flat.
+  and custom cards stay flat unless placed in a folder.
+- User folders (§18) group existing built-in and custom cards with a shared fold and mode chip.
 - Status line at the bottom: last run time, ok/error, token estimate
   (chars/4 if the API gives no usage).
 - Renders with plain DOM + template strings. No framework. Escape all

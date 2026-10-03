@@ -1,4 +1,6 @@
 import { getSections, groupedOrder, BOND_SCALES } from '../sections.js';
+import { moveToFolder } from '../folders.js';
+import { newCustomId } from './settings.js';
 import { t } from '../i18n.js';
 import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
 import { sanitizeSection } from '../parse.js';
@@ -171,35 +173,44 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   let freshCards = new Set(), lastEntryKey, rolling = null, rolled = null;
   const cleanups = [];
   const label = key => t(key, view.settings.language);
-  // Enabled packs add their cards as one group each (SPEC §15): `settings.order` stays flat, the drawer reads it grouped.
+  // Packs and folders share containers (SPEC §15/§18); the stored order stays flat.
   const sections = () => getSections(view.settings, view.packs?.enabled ?? []);
   const enabled = () => view.packs?.enabled ?? [];
-  const grouped = () => groupedOrder(view.settings.order, sections(), enabled());
-  const packKey = packId => `pack:${packId}`;
-  /** The enabled pack a section belongs to, or null for a flat card. */
-  const packOf = (id, list = sections()) => { const section = list.find(item => item.id === id); return section?.pack && enabled().includes(section.pack) ? section.pack : null; };
-  /** The grouped order with every pack block collapsed into one `pack:<id>` token: the top-level items of the list. */
+  const grouped = () => groupedOrder(view.settings.order, sections(), enabled(), view.settings.folders);
+  let containerList = [];
+  const containers = () => containerList;
+  const describeContainers = () => [
+    ...(view.packs?.available ?? []).filter(pack => enabled().includes(pack.id)).map(pack => ({ kind: 'pack', id: pack.id,
+      key: `pack:${pack.id}`, title: packTitle(pack.title).text, adult: packTitle(pack.title).adult, glyph: () => packGlyph(pack),
+      members: sections().filter(s => s.pack === pack.id).map(s => s.id), target: mode => runtime.setPackMode(pack.id, mode) })),
+    ...(view.settings.folders ?? []).map(folder => ({ ...folder, kind: 'folder', key: `folder:${folder.id}`, adult: false,
+      glyph: () => glyphNode(document, folder.icon || (view.settings.visual?.icons === 'emoji' ? '📁' : 'fa-folder')),
+      target: mode => runtime.setFolderMode(folder.id, mode) })),
+  ];
+  const containerOf = id => containers().find(group => group.members.includes(id));
+  const groupNode = key => [...cards.children].find(group => group.dataset.container === key);
+  /** Collapse each positioned container to its key; empty folders have no order token. */
   function tokens() {
-    const result = [], list = sections();
-    for (const id of grouped()) { const pack = packOf(id, list), token = pack ? packKey(pack) : id; if (result.at(-1) !== token) result.push(token); }
+    const result = [];
+    for (const id of grouped()) { const token = containerOf(id)?.key ?? id; if (result.at(-1) !== token) result.push(token); }
     return result;
   }
-  /** Moves a flat card or a whole pack block one step among the top-level items (the group handle and its ↑/↓). */
+  /** Move a flat card or a container block one step among top-level items. */
   function moveToken(token, delta) {
     const list = tokens(), index = list.indexOf(token), target = index + delta;
     if (index < 0 || target < 0 || target >= list.length) return;
     [list[index], list[target]] = [list[target], list[index]];
-    const order = grouped(), all = sections();
-    runtime.updateSettings({ order: list.flatMap(item => item.startsWith('pack:') ? order.filter(id => packOf(id, all) === item.slice(5)) : [item]) });
+    const order = grouped();
+    runtime.updateSettings({ order: list.flatMap(item => item.includes(':') ? order.filter(id => containerOf(id)?.key === item) : [item]) });
   }
-  /** Moves a member one step inside its own pack block; the rest of the order is untouched. */
+  /** Move a member inside its own container; the rest of the order is untouched. */
   function moveMember(id, delta) {
-    const all = sections(), pack = packOf(id, all), order = grouped(), block = order.filter(item => packOf(item, all) === pack);
+    const pack = containerOf(id)?.key, order = grouped(), block = order.filter(item => containerOf(item)?.key === pack);
     const index = block.indexOf(id), target = index + delta;
     if (target < 0 || target >= block.length) return;
     [block[index], block[target]] = [block[target], block[index]];
     let cursor = 0;
-    runtime.updateSettings({ order: order.map(item => (packOf(item, all) === pack ? block[cursor++] : item)) });
+    runtime.updateSettings({ order: order.map(item => (containerOf(item)?.key === pack ? block[cursor++] : item)) });
   }
   const node = (tag, className, text) => displayNode(document, view, tag, className, text);
   const listen = (target, type, handler) => {
@@ -416,40 +427,41 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   // A card chip writes one section; a group chip (SPEC §15) writes every member of the pack in one go.
   const cardTarget = id => ({ current: view.modes[id], apply: mode => runtime.setMode(id, mode),
     gone: () => !cards.querySelector(`[data-section="${id}"]`) });
-  const groupTarget = pack => ({ current: groupState(pack).mode, apply: mode => runtime.setPackMode(pack.id, mode),
-    gone: () => !cards.querySelector(`.st-sable-group[data-pack="${pack.id}"]`) });
+  const groupTarget = pack => ({ current: groupState(pack).mode, apply: pack.target,
+    gone: () => !groupNode(pack.key) });
   /** target = { current: the checked mode (null when mixed), apply(mode), gone(): the chip's card or group left the list }. */
-  function openModeMenu(chip, wrap, target) {
+  function openModeMenu(chip, wrap, target, entries = ['inject', 'show', 'off'].map(mode => ({ value: mode, text: label(mode) }))) {
     if (modeMenu?.chip === chip) { closeModeMenu(); return; }
     closeModeMenu(false);
     const popup = node('div', 'mode-menu');
     popup.setAttribute('role', 'menu');
     popup.setAttribute('aria-label', chip.getAttribute('aria-label'));
-    const choices = ['inject', 'show', 'off'].map(mode => {
+    const choices = entries.map(({ value: mode, text, disabled }) => {
       const item = button('', mode, () => {
         closeModeMenu();
         target.apply(mode);
         // Switching off can remove the chip; keep keyboard focus on the reveal control.
         if (target.gone()) hiddenToggle.focus();
       }, 'mode-option');
-      item.dataset.mode = mode;
+      item.dataset.mode = mode; item.disabled = !!disabled;
+      item.title = text; item.setAttribute('aria-label', text);
       item.setAttribute('role', 'menuitemradio');
       item.setAttribute('aria-checked', String(target.current === mode));
       item.tabIndex = -1;
       const check = icon('check'); check.style.visibility = target.current === mode ? 'visible' : 'hidden';
-      item.append(check, document.createTextNode(label(mode)));
+      item.append(check, document.createTextNode(text));
       popup.append(item);
       return item;
     });
     popup.addEventListener('keydown', event => {
-      const index = choices.indexOf(document.activeElement);
+      const available = choices.filter(item => !item.disabled), index = available.indexOf(document.activeElement);
       if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
         event.preventDefault();
-        const target = event.key === 'Home' ? 0 : event.key === 'End' ? 2
-          : (index + (event.key === 'ArrowDown' ? 1 : 2)) % 3;
-        choices[target].focus();
+        const target = event.key === 'Home' ? 0 : event.key === 'End' ? available.length - 1
+          : (index + (event.key === 'ArrowDown' ? 1 : available.length - 1)) % available.length;
+        available[target]?.focus();
       } else if (['Enter', ' '].includes(event.key)) {
-        event.preventDefault(); choices[index]?.click();
+        event.preventDefault(); available[index]?.click();
       } else if (event.key === 'Tab') closeModeMenu();
     });
     // The open card and, for a member, its group let the menu extend past their edges (style.css).
@@ -458,7 +470,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     wrap.append(popup);
     for (const host of hosts) host.classList.add('st-sable-menu-open');
     chip.setAttribute('aria-expanded', 'true');
-    (choices.find(item => item.dataset.mode === target.current) ?? choices[0]).focus();
+    (choices.find(item => item.dataset.mode === target.current && !item.disabled) ?? choices.find(item => !item.disabled))?.focus();
   }
   /** The mode chip of a card or a group header: `mode` null shows «mixed». */
   function modeChip(name, mode, target) {
@@ -864,7 +876,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
       event.preventDefault();
       // A member moves inside its group only; a flat card steps over whole groups.
-      if (packOf(id)) moveMember(id, event.key === 'ArrowUp' ? -1 : 1); else moveToken(id, event.key === 'ArrowUp' ? -1 : 1);
+      if (containerOf(id)) moveMember(id, event.key === 'ArrowUp' ? -1 : 1); else moveToken(id, event.key === 'ArrowUp' ? -1 : 1);
     });
     const title = node('h3', 'card-title');
     const glyph = sectionGlyph(document, section, view.settings.visual?.icons);
@@ -897,6 +909,13 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     edit.setAttribute('aria-pressed', String(editors.has(id)));
     edit.dataset.control = 'edit';
     footer.append(edit);
+    if (!section.pack) {
+      const wrap = node('div', 'mode-wrap'), move = button('', 'folders.move', () => openFolderMenu(id, move, wrap), 'edit');
+      move.dataset.control = 'folder'; move.setAttribute('aria-haspopup', 'menu'); move.setAttribute('aria-expanded', 'false');
+      move.append(icon('folder-plus'), document.createTextNode(label('folders.move')));
+      move.addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); openFolderMenu(id, move, wrap); } });
+      wrap.append(move); footer.append(wrap);
+    }
     return footer;
   }
   function buildCard(section) {
@@ -932,26 +951,27 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   // Pack groups (SPEC §15): one container per enabled pack, keyed by pack id and kept across renders; its header is
   // rebuilt like a card header (handle, glyph + title, aggregate mode chip, fold) and its body holds the member cards.
   function groupState(pack) {
-    const modes = new Set(sections().filter(section => section.pack === pack.id).map(section => view.modes[section.id]));
-    return { mode: modes.size === 1 ? [...modes][0] : null, folded: !!view.settings.folded[packKey(pack.id)] };
+    const modes = new Set(pack.members.map(id => view.modes[id]));
+    return { mode: modes.size === 1 ? [...modes][0] : null, folded: !!view.settings.folded[pack.key] };
   }
   function buildGroupHeader(pack) {
-    const { mode, folded } = groupState(pack), { text, adult } = packTitle(pack.title), key = packKey(pack.id);
+    const { mode, folded } = groupState(pack), { title: text, adult, key } = pack;
     const heading = node('div', 'card-header'); heading.classList.add('st-sable-group-header');
     const handle = button('', 'reorder', () => {}, 'handle'); handle.dataset.control = 'handle';
     handle.append(icon('grip-vertical'));
-    handle.addEventListener('pointerdown', event => beginDrag(event, { pack: pack.id }));
+    handle.addEventListener('pointerdown', event => beginDrag(event, { container: pack.key }));
     handle.addEventListener('keydown', event => {
       if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
       event.preventDefault();
       moveToken(key, event.key === 'ArrowUp' ? -1 : 1);
     });
+    handle.disabled = !pack.members.length;
     const title = node('h3', 'card-title'); title.classList.add('st-sable-group-title');
-    const glyph = packGlyph(pack); glyph.classList.add('st-sable-card-icon');
+    const glyph = pack.glyph(); glyph.classList.add('st-sable-card-icon');
     title.append(glyph, node('span', 'card-label', text));
     if (adult) title.append(node('span', 'adult', label('packs.adult')));
     const wrap = modeChip(text, mode, groupTarget(pack));
-    const fold = button('', 'packs.fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [key]: !folded } }), 'fold');
+    const fold = button('', pack.kind === 'folder' ? 'folders.fold' : 'packs.fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [key]: !folded } }), 'fold');
     fold.append(icon('chevron-down'));
     fold.dataset.control = 'fold'; fold.setAttribute('aria-expanded', String(!folded));
     fold.setAttribute('aria-controls', `st-sable-group-body-${pack.id}`);
@@ -960,7 +980,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     return heading;
   }
   function buildGroup(pack) {
-    const group = node('section', 'group'); group.dataset.pack = pack.id;
+    const group = node('section', 'group'); group.dataset[pack.kind] = pack.id; group.dataset.container = pack.key;
     const body = node('div', 'group-body'); body.id = `st-sable-group-body-${pack.id}`;
     group.append(buildGroupHeader(pack), body);
     return group;
@@ -969,7 +989,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const { mode, folded } = groupState(pack);
     group.dataset.mode = mode ?? 'mixed';
     group.classList.toggle('st-sable-off', mode === 'off');
-    group.setAttribute('aria-label', `${label('packs.group')}: ${packTitle(pack.title).text}`);
+    group.setAttribute('aria-label', `${label(pack.kind === 'folder' ? 'folders.group' : 'packs.group')}: ${pack.title}`);
     group.firstElementChild.replaceWith(buildGroupHeader(pack));
     group.lastElementChild.hidden = folded;
   }
@@ -984,6 +1004,69 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const card = buildCard(section);
     old.replaceWith(card);
     if (role) card.querySelector(`[data-control="${role}"]`)?.focus();
+  }
+
+  const folderEditors = new Map();
+  function openFolderMenu(id, chip, wrap) {
+    const folders = view.settings.folders, current = folders.find(folder => folder.members.includes(id))?.id;
+    const entries = folders.map(folder => ({ value: folder.id, text: folder.title,
+      disabled: folder.members.length >= 20 && folder.id !== current }));
+    if (current) entries.push({ value: 'none', text: label('folders.none') });
+    entries.push({ value: 'new', text: label('folders.new'), disabled: folders.length >= 12 });
+    openModeMenu(chip, wrap, { current, gone: () => !cards.querySelector(`[data-section="${id}"]`), apply: value => {
+      if (value !== 'new') { runtime.updateSettings(moveToFolder(view.settings, id, value === 'none' ? null : value)); return; }
+      const folder = { id: newCustomId(new Set(folders.map(item => item.id)), win.crypto, 'f_'),
+        title: `${label('folders.default')} ${folders.length + 1}`, icon: '', members: [] };
+      folderEditors.set(folder.id, createFolderEditor(folder));
+      runtime.updateSettings(moveToFolder({ ...view.settings, folders: [...folders, folder] }, id, folder.id));
+      folderEditors.get(folder.id)?.querySelector('input')?.focus();
+    } }, entries);
+  }
+  function folderFooter(folder) {
+    const footer = node('div', 'card-footer');
+    const edit = button('', 'folders.edit', () => {
+      if (folderEditors.has(folder.id)) folderEditors.delete(folder.id);
+      else folderEditors.set(folder.id, createFolderEditor(folder));
+      render(view);
+      folderEditors.get(folder.id)?.querySelector('input')?.focus();
+    }, 'edit');
+    edit.dataset.control = 'folder-edit'; edit.setAttribute('aria-pressed', String(folderEditors.has(folder.id)));
+    edit.append(icon('pen'), document.createTextNode(label('folders.edit'))); footer.append(edit); return footer;
+  }
+  function createFolderEditor(folder) {
+    const form = node('form', 'editor'); form.dataset.folderEditor = folder.id;
+    const title = node('input', 'input'), glyph = node('input', 'input');
+    title.type = glyph.type = 'text'; title.name = 'title'; glyph.name = 'icon';
+    title.maxLength = 40; title.required = true; title.value = folder.title; glyph.value = folder.icon ?? '';
+    glyph.title = label('custom.iconHint');
+    for (const [input, key] of [[title, 'custom.title'], [glyph, 'custom.icon']]) {
+      const row = node('label', 'editor-field'); row.append(node('span', 'editor-label', label(key)), input); form.append(row);
+    }
+    form.append(node('p', 'editor-note', label('custom.iconHint')));
+    const actions = node('div', 'editor-actions');
+    const save = button(label('edit.save'), 'edit.save', () => {
+      if (!title.value.trim()) { title.focus(); return; }
+      folderEditors.delete(folder.id);
+      runtime.updateSettings({ folders: view.settings.folders.map(item => item.id === folder.id
+        ? { ...item, title: title.value, icon: glyph.value } : item) });
+    }, 'editor-save');
+    form.addEventListener('submit', event => { event.preventDefault(); save.click(); });
+    const cancel = button(label('edit.cancel'), 'edit.cancel', () => { folderEditors.delete(folder.id); render(view); }, 'editor-cancel');
+    let armed = false;
+    const remove = button(label('folders.delete'), 'folders.delete', () => {
+      if (armed) {
+        folderEditors.delete(folder.id);
+        runtime.updateSettings({ folders: view.settings.folders.filter(item => item.id !== folder.id) }); return;
+      }
+      armed = true; remove.textContent = label('folders.confirmDelete'); remove.setAttribute('aria-label', remove.textContent);
+      remove.classList.add('st-sable-armed');
+    }, 'editor-remove');
+    remove.dataset.control = 'folder-delete';
+    remove.addEventListener('blur', () => {
+      armed = false; remove.textContent = label('folders.delete'); remove.setAttribute('aria-label', remove.textContent);
+      remove.classList.remove('st-sable-armed');
+    });
+    actions.append(save, cancel, remove); form.append(actions); return form;
   }
 
   // Manual editing: schema-driven fields, so built-in and custom sections share one editor.
@@ -1124,9 +1207,10 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     drag = undefined;
     const focused = document.activeElement;
     const focusId = focused?.closest('[data-section]')?.dataset.section;
-    const focusPack = focused?.closest('.st-sable-group')?.dataset.pack;
+    const focusPack = focused?.closest('.st-sable-group')?.dataset.container;
     const focusRole = focused?.dataset.control;
     view = next;
+    containerList = describeContainers();
     drawer.lang = view.settings.language;
     seed.hidden = !view.canSeedLegacy;
     seed.textContent = label('seedLegacy');
@@ -1149,9 +1233,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     // Cards persist across renders (SPEC §16): keyed rows keep their nodes, so bars slide instead of jumping. Pack groups
     // (SPEC §15) persist too, keyed by pack id; a hidden member stays out of its group, an empty group leaves the list.
     const existing = new Map([...cards.querySelectorAll('.st-sable-card')].map(card => [card.dataset.section, card]));
-    const groups = new Map([...cards.children].filter(child => child.classList.contains('st-sable-group')).map(group => [group.dataset.pack, group]));
+    const groups = new Map([...cards.children].filter(child => child.classList.contains('st-sable-group')).map(group => [group.dataset.container, group]));
     const members = new Map();
-    for (const id of groupedOrder(view.settings.order, list, packIds)) {
+    for (const id of groupedOrder(view.settings.order, list, packIds, view.settings.folders)) {
       const section = list.find(item => item.id === id), editor = editors.get(id);
       if (editor && view.modes[id] === 'off') editors.delete(id);
       if (view.settings.hideOff && !revealOff && view.modes[id] === 'off') continue;
@@ -1166,16 +1250,25 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         if (updateCard(card, section)) changedCards.add(id);
       } else card = buildCard(section);
       allCards.push(card);
-      const packId = section.pack && packIds.includes(section.pack) ? section.pack : null;
-      if (!packId) { ordered.push(card); continue; }
-      if (!members.has(packId)) {
-        const pack = view.packs.available.find(item => item.id === packId), group = groups.get(packId) ?? buildGroup(pack);
+      const pack = containerOf(id);
+      if (!pack) { ordered.push(card); continue; }
+      if (!members.has(pack.key)) {
+        const group = groups.get(pack.key) ?? buildGroup(pack);
         refreshGroup(group, pack);
-        members.set(packId, { group, items: [] });
-        ordered.push(group);
+        members.set(pack.key, { group, pack, items: [] }); ordered.push(group);
       }
-      members.get(packId).items.push(card);
+      members.get(pack.key).items.push(card);
     }
+    for (const pack of containers().filter(group => group.kind === 'folder' && !group.members.length)) {
+      const group = groups.get(pack.key) ?? buildGroup(pack); refreshGroup(group, pack);
+      members.set(pack.key, { group, pack, items: [node('p', 'folder-empty', label('folders.empty'))] }); ordered.push(group);
+    }
+    for (const [id] of folderEditors) if (!view.settings.folders.some(folder => folder.id === id)) folderEditors.delete(id);
+    for (const { pack, items } of members.values()) if (pack.kind === 'folder') {
+      const editor = folderEditors.get(pack.id); if (editor) items.unshift(editor);
+      items.push(folderFooter(pack));
+    }
+
     const settle = (parent, items) => {
       for (const child of [...parent.children]) if (!items.includes(child)) dropRow(child);
       let cursor = parent.firstElementChild;
@@ -1210,7 +1303,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     refresh.firstElementChild.classList.toggle('fa-spin', !!view.running && drawer.dataset.stSableEffects !== 'off');
     renderStatus();
     if (focusId && focusRole) cards.querySelector(`[data-section="${focusId}"] [data-control="${focusRole}"]`)?.focus();
-    else if (focusPack && focusRole) cards.querySelector(`.st-sable-group[data-pack="${focusPack}"] > .st-sable-group-header [data-control="${focusRole}"]`)?.focus();
+    else if (focusPack && focusRole) groupNode(focusPack)?.querySelector(`[data-control="${focusRole}"]`)?.focus();
   }
 
   function renderStatus() {
@@ -1248,17 +1341,17 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     }
   }
 
-  /** target: { section } for a card (a member moves inside its group only) or { pack } for a whole group. */
+  /** target: { section } for a card or { container } for a whole group. */
   function beginDrag(event, target) {
-    if (event.button !== 0 || drag) return;
+    if (event.currentTarget.disabled || event.button !== 0 || drag) return;
     event.preventDefault();
     drag = { ...target, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
-  const dragged = () => (drag.pack ? cards.querySelector(`.st-sable-group[data-pack="${drag.pack}"]`) : cards.querySelector(`.st-sable-card[data-section="${drag.section}"]`));
+  const dragged = () => (drag.container ? groupNode(drag.container) : cards.querySelector(`.st-sable-card[data-section="${drag.section}"]`));
   // Section ids in list order: top-level cards, groups expanded to their members.
   const shownIds = () => [...cards.children].flatMap(child => (child.classList.contains('st-sable-group')
-    ? [...child.lastElementChild.children].map(card => card.dataset.section) : [child.dataset.section]));
+    ? [...child.lastElementChild.children].map(card => card.dataset.section).filter(Boolean) : [child.dataset.section]));
   const endDrag = () => cards.querySelector('.st-sable-dragging')?.classList.remove('st-sable-dragging');
   listen(document, 'pointermove', event => {
     if (!drag || event.pointerId !== drag.pointerId) return;
@@ -1268,9 +1361,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     card.classList.add('st-sable-dragging');
     // Geometry works with pointer capture and touch; no HTML drag/drop API. The parent bounds the move: the list for a
     // flat card or a group, the group body for a member.
-    const others = [...parent.children].filter(item => item !== card);
+    const others = [...parent.children].filter(item => item !== card && (item.dataset.section || (item.dataset.container && !item.querySelector('.st-sable-handle').disabled)));
     const before = others.find(item => { const rect = item.getBoundingClientRect(); return event.clientY < rect.top + rect.height / 2; });
-    parent.insertBefore(card, before ?? null);
+    parent.insertBefore(card, before ?? (parent.classList.contains('st-sable-group-body') ? parent.querySelector(':scope > .st-sable-card-footer') : parent.querySelector(':scope > .st-sable-group:has(.st-sable-folder-empty)')));
     const rect = cards.getBoundingClientRect();
     if (event.clientY < rect.top + 40) cards.scrollTop -= 20;
     else if (event.clientY > rect.bottom - 40) cards.scrollTop += 20;
@@ -1283,7 +1376,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       // Hidden cards keep their slots; the saved order is regrouped so pack blocks stay contiguous.
       const visible = shownIds(), ids = new Set(visible);
       const order = grouped().map(id => (ids.has(id) ? visible.shift() : id));
-      runtime.updateSettings({ order: groupedOrder(order, sections(), enabled()) });
+      runtime.updateSettings({ order: groupedOrder(order, sections(), enabled(), view.settings.folders) });
     }
   });
   listen(document, 'pointercancel', () => {

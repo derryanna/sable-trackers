@@ -219,7 +219,7 @@
 @media (prefers-reduced-motion: reduce) { .st-sable-drawer, .st-sable-tab[aria-expanded="true"] { animation: none; } .st-sable-drawer * { transition: none !important; } }
 
 /* Manual editor: schema-driven fields inside the card body; full-width inputs, 36px targets. */
-.st-sable-card-footer { display: flex; justify-content: flex-end; padding: 0 8px 6px; }
+.st-sable-card-footer { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; padding: 0 8px 6px; }
 .st-sable-card-footer[hidden] { display: none; }
 .st-sable-edit { width: auto; min-width: 36px; padding: 0 10px; font-size: 11px; opacity: .7; gap: 6px; }
 .st-sable-edit[aria-pressed="true"], .st-sable-edit:hover { opacity: 1; }
@@ -623,6 +623,18 @@
 @container (max-width: 480px) {
   .st-sable-pack > .st-sable-custom-summary > .st-sable-pack-desc { flex-basis: 100%; white-space: normal; }
 }
+
+/* Folder forms share the card editor; empty containers stay editable. */
+.st-sable-drawer [data-folder] > .st-sable-group-body > .st-sable-editor { padding: 10px; }
+.st-sable-drawer .st-sable-folder-empty { padding: 10px; opacity: .65; }
+.st-sable-drawer .st-sable-handle:disabled { cursor: default; opacity: .3; }
+.st-sable-drawer .st-sable-card-footer button { min-height: 36px; }
+.st-sable-drawer [data-folder] .st-sable-editor-remove { width: auto; }
+.st-sable-drawer [data-folder] .st-sable-mode { height: 36px; min-height: 36px; }
+.st-sable-drawer [data-folder] .st-sable-handle { width: 36px; min-width: 36px; }
+.st-sable-drawer .st-sable-card-footer .st-sable-mode-menu { max-width: min(280px, 75vw); max-height: 240px; overflow-y: auto; overflow-wrap: anywhere; white-space: normal; }
+.st-sable-drawer .st-sable-card:has(.st-sable-card-footer [role="menu"]):last-child,
+.st-sable-drawer .st-sable-group:has(.st-sable-card-footer [role="menu"]):last-child { margin-bottom: 250px; }
 
 /* Pack groups (SPEC §15): one container per enabled pack among the flat cards, a card-like border a touch stronger
    than a card's, the same header row (handle, glyph + title, aggregate mode chip, fold) and the member cards nested

@@ -284,6 +284,19 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     return true;
   }
 
+  function setFolderMode(folderId, mode, chatOnly = loadSettings(getContext()).perChatOverrides) {
+    const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
+    const folder = settings.folders.find(item => item.id === folderId);
+    if (!folder || (!(mode === null && chatOnly) && !['inject', 'show', 'off'].includes(mode))) return false;
+    const ids = folder.members;
+    if (chatOnly) {
+      for (const id of ids) { if (mode === null) delete data.modeOverride[id]; else data.modeOverride[id] = mode; }
+      void saveStore(ctx);
+    } else saveSettings(ctx, { sections: Object.fromEntries(ids.map(id => [id, { mode }])) });
+    publish();
+    return true;
+  }
+
   function setPack(id, on) {
     const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
     if (!getPacks(settings).some(pack => pack.id === id)) return false;
@@ -385,7 +398,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
     idle: () => active?.promise ?? Promise.resolve(),
     preview, clearLog() { log = []; publish(); },
-    snapshot, publish, updateSettings, setMode, setPackMode, setPack, seedLegacy, editState, rollDice,
+    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setPack, seedLegacy, editState, rollDice,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },
   };

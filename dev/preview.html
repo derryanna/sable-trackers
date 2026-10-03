@@ -14,6 +14,10 @@ const state = await (await fetch('../fixtures/state-full.json')).json();
 const packs = await fetch('../fixtures/state-packs.json').then(r => (r.ok ? r.json() : null)).catch(() => null);
 if (packs) Object.assign(state, packs.state ?? packs);
 const fake = createFakeST(); fake.add();
+fake.ctx.extensionSettings.sableTrackers.folders = [
+  { id: 'f_00000001', title: 'Мир', icon: 'fa-globe', members: ['world', 'offscreen', 'threads'] },
+  { id: 'f_00000002', title: 'Люди', icon: 'fa-users', members: ['npcs', 'thoughts', 'bonds', 'dossiers'] },
+];
 fake.ctx.chatMetadata.sableTrackers = { ring: [{ mesId: 0, swipeId: 0, turn: 14, state }],
   lastRun: { at: Date.now() - 60000, ok: true, ms: 2400, inTok: 3100, outTok: 900 }, ...(packs ? { packs: ['combat', 'intimacy'] } : {}) };
 const q = new URLSearchParams(location.search);
