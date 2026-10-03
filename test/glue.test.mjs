@@ -253,7 +253,7 @@ test('reply builds bounded cleaned request, stores parsed state and injects with
   fake.respond({ content: answer('Dome') });
   await fake.emit('MESSAGE_RECEIVED', id, 'normal'); await fake.runtime.idle();
   const [profile, messages, maxTokens, custom, override] = fake.calls.requests[0];
-  assert.equal(profile, 'side'); assert.equal(maxTokens, 3000);
+  assert.equal(profile, 'side'); assert.equal(maxTokens, 8000);
   assert.deepEqual({ ...custom, signal: undefined }, { stream: false, extractData: true, includePreset: false, signal: undefined });
   assert.ok(custom.signal instanceof AbortSignal);
   // Reasoning cap (SPEC §8): low by default, as ST's reasoning_effort plus the OpenRouter-style body for custom endpoints.

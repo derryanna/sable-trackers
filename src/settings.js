@@ -40,7 +40,7 @@ export const BG_IMAGE_MAX_LENGTH = 900 * 1024;
 export const REASONING_LEVELS = Object.freeze(['auto', 'low', 'min']);
 export const DEFAULTS = {
   enabled: true, profileId: '', language: 'ru', messages: 4,
-  cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3, role: 'system', reasoning: 'low',
+  cardChars: 6000, loreChars: 4000, maxTokens: 8000, depth: 2, keep: 3, role: 'system', reasoning: 'low',
   perChatOverrides: false, showPanel: true, showFloatingButton: true,
   hideOff: true, spoilers: true, layout: 'topics',
   prompts: { rules: null, sections: {}, packs: {} },

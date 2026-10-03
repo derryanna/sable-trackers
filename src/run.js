@@ -3,7 +3,7 @@ import { getSections, bondScales } from './sections.js';
 import { roll } from './packs/dice.js';
 import { getPacks } from './packs/index.js';
 import { buildPrompt } from './prompt.js';
-import { parseStateOutput, sanitizeSection } from './parse.js';
+import { parseStateOutput, sanitizeSection, outputProblem } from './parse.js';
 import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
@@ -21,11 +21,16 @@ export function profileIssue(ctx, settings) {
   return !settings.profileId || !profile ? 'profileRequired' : profile.mode !== 'cc' ? 'profileUnsupported' : null;
 }
 const isGroup = ctx => ctx.groupId !== undefined && ctx.groupId !== null && ctx.groupId !== '';
+// A request error that looks like the endpoint refusing the reasoning parameters (SPEC §31).
+export const isParameterRejection = error => error?.name !== 'AbortError' && (Number(error?.status) === 400
+  || /unsupported parameter|invalid request for this model|reasoning/i.test(String(error?.message ?? error ?? '')));
 
 /** Runtime shared by event wiring and future UI. No browser globals at import time. */
 export function createRuntime(getContext = () => globalThis.SillyTavern.getContext(), { random = () => globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32 } = {}) {
   let active, lore = [], lastFingerprint, warnedProfile = false;
   let log = [], lastLogAt = 0, armed = null;
+  // Profiles whose endpoint rejected the reasoning payload; for this page session only (SPEC §31).
+  const noReasoning = new Set();
   const listeners = new Set();
   const bindings = [];
   const cancel = () => { if (active) { active.record?.('dropped'); active.controller.abort(); active = undefined; publish(); } };
@@ -176,8 +181,21 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       request.record = record;
       active = request;
       publish();
-      const result = await ctx.ConnectionManagerRequestService.sendRequest(settings.profileId, built.messages, settings.maxTokens,
-        { stream: false, extractData: true, includePreset: false, signal: request.controller.signal }, reasoningPayload(settings));
+      const send = payload => ctx.ConnectionManagerRequestService.sendRequest(settings.profileId, built.messages, settings.maxTokens,
+        { stream: false, extractData: true, includePreset: false, signal: request.controller.signal }, payload);
+      const payload = noReasoning.has(settings.profileId) ? {} : reasoningPayload(settings);
+      let result;
+      try {
+        result = await send(payload);
+      } catch (error) {
+        // One retry without the reasoning payload; a second failure falls through to the error handling below.
+        if (!Object.keys(payload).length || !ownsRequest() || !isParameterRejection(error)) throw error;
+        noReasoning.add(settings.profileId);
+        entry.retried = 'no-reasoning';
+        entry.warnings = [t('reasoningRejected', settings.language)];
+        try { console.warn('Sable Trackers: reasoning parameters rejected, retrying without them', error); } catch {}
+        result = await send({});
+      }
       entry.response = typeof result === 'string' ? result : result?.content ?? '';
       entry.outChars = entry.response.length;
       if (!ownsRequest()) { record('dropped'); publish(); return; }
@@ -190,8 +208,17 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         return;
       }
       const parsed = parseStateOutput(result, built.requestedSections, sections);
-      entry.warnings = parsed.warnings; entry.validSections = parsed.validSections;
+      entry.warnings = [...entry.warnings, ...parsed.warnings]; entry.validSections = parsed.validSections;
       for (const warning of parsed.warnings) console.warn(`Sable Trackers: ${warning}`);
+      const problem = outputProblem(result, parsed);
+      if (problem) {
+        // Specific reasons reach both the log entry and the status footer (SPEC §31).
+        const error = new Error(problem === 'cut' ? t('cutOutput', settings.language).replace('{n}', settings.maxTokens)
+          : t('emptyOutput', settings.language));
+        error.shown = true;
+        record('invalid', error);
+        throw error;
+      }
       if (!parsed.ok || !parsed.validSections.length) { record('invalid'); throw new Error(t('invalidOutput', settings.language)); }
       const state = mergeState(previousState, parsed, { sections, requestedSections: built.requestedSections,
         meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
@@ -211,7 +238,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       if (request && (!ownsRequest() || error?.name === 'AbortError')) { record('dropped'); settle(); return; }
       record(request && !stillCurrent() ? 'dropped' : 'failed', error);
       loadStore(getContext()).lastRun = { mesId, ok: false, at: Date.now(), ms: Date.now() - started,
-        error: t(request && !stillCurrent() ? 'runDropped' : 'runFailed', settings.language) };
+        error: request && !stillCurrent() ? t('runDropped', settings.language) : error?.shown ? error.message : t('runFailed', settings.language) };
       try { console.warn('Sable Trackers: request failed', error); } catch {}
       settle();
       await saveStore(getContext());
