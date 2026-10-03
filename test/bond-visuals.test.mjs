@@ -115,7 +115,7 @@ test('drawer sparklines: absent under 2 points, bar count and heights, friction 
   assert.equal(spark('tension'), null, 'one point is not a line');
   assert.equal(spark('affection'), null, 'no history');
   const trust = spark('trust');
-  assert.equal(trust.getAttribute('aria-hidden'), 'true');
+  assert.equal(trust.getAttribute('role'), 'button', 'a button since SPEC §26');
   assert.equal(trust.textContent, '');
   assert.equal(trust.parentElement, row('trust').querySelector('summary'), 'inside the summary, so a closed row shows it');
   assert.deepEqual([...trust.children].map(bar => bar.style.height), ['8%', '50%', '100%', '25%']);
@@ -200,7 +200,7 @@ test('settings: sparklines checkbox, built-in signed checkboxes and the custom s
   const fire = element => element.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
   const spark = ui.element.querySelector('input[name="sparklines"]');
   assert.ok(spark.checked);
-  assert.equal(spark.parentElement.textContent, 'Мини-графики под шкалами');
+  assert.equal(spark.parentElement.textContent, 'Мини-графики под полосками');
   spark.checked = false; fire(spark);
   assert.equal(runtime.snapshot().settings.visual.sparklines, false);
   const group = ui.element.querySelector('[data-group="scales"]');

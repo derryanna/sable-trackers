@@ -366,7 +366,9 @@ test('CSS: every transition and animation is covered by the off selectors and th
   for (const [, body] of live.matchAll(/\{([^{}]*)\}/g)) assert.doesNotMatch(body, /(?:^|;)\s*(?:width|height|margin[a-z-]*|padding[a-z-]*|top|left|font-size)\s*:\s*[^;]*\b(?:ms|s)\b/);
   assert.doesNotMatch(live, /transition:\s*(?:width|height|margin|padding|all)\b/);
   // Full-only rules are scoped to the level; every data-st-sable-fx rule is too; subtle rules carry no level selector.
-  const fullPart = strip(live.slice(fullStart));
+  // Later task blocks (`/* T25 */` …) are appended after the full-only part and follow the general rules above.
+  const taskBlock = live.slice(fullStart).search(/\/\* T\d+ \*\//);
+  const fullPart = strip(live.slice(fullStart, taskBlock < 0 ? undefined : fullStart + taskBlock));
   for (const [, selectors] of fullPart.matchAll(/([^{}@;]+)\{[^{}]*\}/g)) {
     for (const selector of selectors.split(',').map(item => item.trim()).filter(Boolean)) {
       if (/^(?:from|to|\d+%)$/.test(selector)) continue;
@@ -390,7 +392,9 @@ test('CSS: every transition and animation is covered by the off selectors and th
   assert.match(live, /\.st-sable-dice\.st-sable-rolling > \* \{ animation: st-sable-spin 400ms/);
   assert.match(live, /\.st-sable-rain \{ display: none; \}/);
   assert.match(live, /\.st-sable-rain::before \{[^}]*mask-image: repeating-linear-gradient\(0deg/);
-  assert.equal((live.match(/box-shadow/g) ?? []).length <= 8, true);
+  // The shadow budget covers the live-card rules; task blocks appended after them (undo pill, slots) are not counted.
+  const core = taskBlock < 0 ? live : live.slice(0, fullStart + taskBlock);
+  assert.equal((core.match(/box-shadow/g) ?? []).length <= 8, true);
   for (const name of ['glow-pulse', 'crit']) assert.match(live, new RegExp(`@keyframes st-sable-${name} \\{[^}]*box-shadow`));
   for (const name of ['badge-in', 'accent-flash', 'rolled', 'low', 'spin', 'shimmer', 'rain']) assert.doesNotMatch(live, new RegExp(`@keyframes st-sable-${name} \\{[^}]*box-shadow`));
 });

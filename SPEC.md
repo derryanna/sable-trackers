@@ -350,6 +350,8 @@ The drawer editor is generated from the schema, so built-in and custom sections 
 
 An open editor keeps its node, draft and focus across runtime renders (only its header refreshes). It warns when its section changed underneath. Opening, cancelling and editing rows touch only that card.
 
+`editState` is a wrapper over `runtime.editSections(values)` (§25), the batched all-or-nothing write that the person card form uses.
+
 ## 14. Danger zone
 
 Settings contain `prompts: { rules: null, sections: {} }`. Rules replace `COMMON_RULES` (up to 4000 characters); built-in section ids map to replacement instructions (up to 2000 characters). Values are trimmed; empty or default values are removed, unknown ids dropped. Normalization is idempotent. Partial patches merge section overrides; `null` removes one. Custom blocks keep their own instructions. `getPromptTexts(settings, sections = SECTIONS)` returns effective `{ rules, sections: { [id]: instructions } }`. The language line, output envelope, key list and JSON schema remain fixed.
@@ -839,11 +841,9 @@ or the digest.
      NPC by `name` (case-insensitive) or `id`.
   A dossier with no matching NPC gets its own person card at the end of the
   group with the dossier fields only.
-- Footer: «Редактировать» opens the npcs editor row for this NPC? No: v1
-  keeps the schema-driven editors per section. The person card footer shows
-  a muted hint «Редактирование: в раскладке по темам» / "Editing: in the
-  topics layout" and the «В группу…» button is absent (person cards are not
-  reorderable members).
+- Footer: the «В группу…» button is absent (person cards are not
+  reorderable members). Editing from the card: see §25 (the pencil menu
+  replaced the old footer hint «Редактирование: в раскладке по темам»).
 - Change flags, the title dot, crit glow and card colours (`visual.cardColors`
   keyed `person:<id>` is out of scope; person cards take the npcs card colour
   if set) keep working through the keyed rows.
@@ -855,8 +855,8 @@ or the digest.
 
 ### Non-goals
 
-Editing from a person card, per-person colours, reordering people, the
-reply panel (unchanged).
+Per-person colours, reordering people, the reply panel (unchanged).
+Editing from a person card is §25.
 
 ## 22. Bond visuals: history sparklines and signed custom scales
 
@@ -938,27 +938,31 @@ and more explicit, that users enable on top of the first or alone.
    begun (`[]` before that); cautious estimates labelled in `note`; set to 0
    right after an explicit climax (the base pack counts them); never invent
    a climax. No `delta`.
-2. `contact` — kv, `fa-circle-nodes`, cap 6, inject. «Контакт» / "Contact".
+2. `wetness` — stats, `fa-droplet`, cap 8, inject. «Влажность» / "Wetness".
+   Added by §23a; see there.
+3. `contact` — kv, `fa-circle-nodes`, cap 6, inject. «Контакт» / "Contact".
    Keys `Name · penetration` → `depth · orifice` only when both are
    established in the text; `Name · release` → `amount · where` for an
    explicit release event, cleared when the scene moves on; omit unknown
    entries; never estimate amounts.
-3. `zones` — kv, `fa-hand-dots`, cap 10, show. «Зоны» / "Zones". Keys
+4. `zones` — kv, `fa-hand-dots`, cap 10, show. «Зоны» / "Zones". Keys
    `Name · zone` → state (marks, soreness, sensitivity) only when described;
    preserved until a change is established; invent nothing.
-4. `kinks` — tags, `fa-heart-circle-plus`, cap 12, inject. «Кинки» /
+5. `kinks` — tags, `fa-heart-circle-plus`, cap 12, inject. «Кинки» /
    "Kinks". Short participant-labelled tags of preferences and fetishes,
    added only from shown enjoyment or an explicit statement; persistent
    across scenes; removed only when the text contradicts them.
-5. `limits` — tags, `fa-heart-circle-xmark`, cap 8, inject. «Антикинки» /
+6. `limits` — tags, `fa-heart-circle-xmark`, cap 8, inject. «Антикинки» /
    "Dislikes". Short participant-labelled tags of what a participant
    disliked or refused, from shown discomfort or explicit refusal;
    persistent; removed only when contradicted.
-6. `experience` — list, `fa-book-open`, cap 10, show. «Опыт» / "Experience".
+7. `experience` — list, `fa-book-open`, cap 10, show. «Опыт» / "Experience".
    Short entries «Name: first X, positive (why)» / «Name: after Y avoids Z»,
    appended only for a new explicit experience; older entries kept; the
    oldest dropped first past the cap.
-7. `after` — text, `fa-mug-hot`, show. «После» / "Afterglow". Compact state
+8. `cum` — kv, `fa-vial`, cap 8, inject. «Семя» / "Cum". Added by §23a; see
+   there.
+9. `after` — text, `fa-mug-hot`, show. «После» / "Afterglow". Compact state
    after the act per participant: closeness or distance, soreness, mood;
    empty while the act continues or when nothing happened.
 
@@ -1229,3 +1233,95 @@ what they hold; the settings people touch during play live where they play.
   «Скрыть» / "Hide" (per chat: `chat_metadata.sableTrackers.legacyBannerHidden
   = true`). Never automatic.
 - i18n ru + en; README.
+
+## 29. Folder colours
+
+Why (3 Oct 2026, her first try of 0.4): «Цвет…» on cards is fun, but a group
+cannot be coloured, which looks odd next to coloured cards.
+
+- `settings.folders[i].color`: a hex colour (`#rrggbb`, normalised like a
+  `visual.cardColors` entry; absent or invalid = automatic). `normalizeFolders`
+  keeps it; `moveToFolder`, `planDrop` and the folder editor preserve it.
+- A folder with a colour tints its group the way `applyCardColor` tints a
+  card: the header glyph and title, the left accent bar of the group
+  container, its border and the aggregate chip take the colour; member cards
+  keep their own colours (a member without one stays on the shared accent,
+  not the folder's). The People group and packs are unchanged (packs keep
+  their section colours).
+- The colour lives only in the folder editor form («Редактировать группу» /
+  "Edit group"): a colour input with «auto» next to the icon field, written
+  with the rest of the form on Save as `updateSettings({ folders })` with the
+  whole array; Cancel discards it. The folder footer has no «Цвет…» button.
+- Tests: normaliser keeps/drops `color`; the editor writes the array on Save
+  and Cancel discards; the group gets the tint attributes; «auto» removes the
+  field.
+
+## 23a. Intimacy+ additions (3 Oct 2026)
+
+Her screenshot list for the thorough adult block asked for two things §23
+left out: how much semen, and how wet she is. Both go into `intimacy_plus`:
+
+- `wetness` — shape `stats`, glyph `fa-droplet`, cap 8, mode `inject`,
+  period 1, title «Влажность» / "Wetness". Instruction (adult guard first,
+  `[]` until arousal is shown in the text): stable key `Name · wetness` per
+  tracked participant whose arousal the text shows as wetness, integer 0–100
+  with `max: 100`, cautious estimates from described signs labelled estimate
+  in `note`, preserved without new evidence, moved only for shown events,
+  never equated with consent, never invented.
+- `cum` — shape `kv`, glyph `fa-vial`, cap 8, mode `inject`, period 1, title
+  «Семя» / "Cum". Instruction (adult guard first, `[]` until an explicit
+  release has happened): one entry per participant who released, key = the
+  name, value = where it went, how many times, and the amount when the text
+  states or clearly implies it (ml or a plain word), cumulative within the
+  scene, reset only when the text establishes a new scene or clean-up;
+  count only explicit events; invent nothing. The Intimacy pack's counters
+  (climaxes, minutes, ml) stay as they are; this card is the explicit
+  where-and-how-much view.
+- Order inside the pack: climax, wetness, contact, zones, kinks, limits,
+  experience, cum, after. i18n ru + en, fixtures (synthetic), tests (shape
+  and cap list, digest snapshot with the new inject sections, fixture
+  validates through `sanitizeSection`), README pack paragraph, SPEC §23
+  section list.
+
+## 30. Card colour moves into the card editor
+
+Why (3 Oct 2026, her phone): the footer «Цвет…» plus its inline colour row
+made one card huge; she asked to take it out of the footer and put it into
+the editor.
+
+- Remove the «Цвет…» footer control (`[data-control="color"]`) and the
+  inline colour row from every card footer, section and person cards alike.
+- The section editor (the form behind the pen «Редактировать», SPEC §13)
+  gets a last row before Save / Cancel: «Цвет карточки» / "Card colour" with
+  the same `input[type=color]` and «auto» as Appearance → Cards → Card
+  colours, writing `visual.cardColors[sectionId]` (full `visual` object) on
+  change, previewing on input; «auto» removes the entry. The colour write is
+  immediate and independent of the form's Save (settings, not state); Cancel
+  closes the form and keeps the colour. The README says so in one sentence.
+- The person form (SPEC §25) gets no colour row; person cards take the
+  `npcs` card colour as before, set from the topics layout.
+- Folder colour: only in the folder editor form (SPEC §29 as amended: no
+  footer button).
+- Tests: the footer has no colour control; the editor row writes the full
+  `visual`; «auto» removes the entry; the T26 tests move accordingly.
+
+## 27a. Fourth hint: everything is changed in the cards
+
+Why (3 Oct 2026, her words after the first evening with 0.4): one more
+onboarding step saying that the cards themselves are where things change,
+and a short line in the settings saying the same.
+
+- The hint sequence of §27 becomes four steps: 1 «Проверь соединение»,
+  2 «Выбери, что нравится», 3 **«Всё меняется в карточках»** / "Everything
+  changes in the cards", 4 «Наслаждайся». Step 3 text: «Режим — чип на
+  карточке, период — в его меню, поля и цвет — карандаш, порядок и группы —
+  ручка» / "Mode: the chip on a card · period: in its menu · fields and
+  colour: the pen · order and groups: the handle". Counters read 1/4…4/4;
+  the checkbox and `settings.hints.done` rules are unchanged.
+- The settings block gets one muted line at its top, above the first group:
+  «Коротко: режим, период, цвет, правка и порядок меняются прямо в карточках
+  панели. Здесь — всё остальное.» / "In short: mode, period, colour, editing
+  and order are changed in the panel's cards. Everything else is here."
+  (`p.st-sable-settings-intro`, i18n `settings.intro`).
+- Tests: the hint sequence has four steps with the new third title; the
+  settings block starts with the intro line.

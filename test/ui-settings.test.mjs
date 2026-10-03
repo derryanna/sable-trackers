@@ -38,18 +38,31 @@ function setup(t, profileEvent = false, host = 'extensions_settings2') {
   return { dom, fake, runtime, ui, calls, query, change, input, button };
 }
 
-test('Context offers localized automatic edit recomputation, off by default', t => {
-  const { query, change, runtime, calls } = setup(t);
-  const input = query('[data-group="context"] input[name="recomputeOnEdit"]');
-  assert.equal(input.checked, false);
-  assert.equal(input.parentElement.textContent, 'Recompute after editing a reply');
-  assert.equal(input.parentElement.title, 'One side-model request after every edit of the latest reply.');
-  change('[name="recomputeOnEdit"]', true);
-  assert.deepEqual(calls.patches.at(-1), { recomputeOnEdit: true });
+test('Context has no recompute checkbox; Actions shows the hints again; Run now needs a usable profile', t => {
+  const { query, runtime, calls, button, fake } = setup(t);
+  assert.equal(query('input[name="recomputeOnEdit"]'), null);
+  const again = query('[data-control="hints-again"]');
+  assert.ok(query('[data-group="actions"]').contains(again));
+  assert.equal(again.textContent, 'Show the hints again');
+  assert.equal(again.disabled, true, 'nothing to show again while the hints are still on');
+  runtime.updateSettings({ hints: { done: true } });
+  assert.equal(again.disabled, false);
+  again.click();
+  assert.deepEqual(calls.patches.at(-1), { hints: { done: false } });
+  assert.equal(runtime.snapshot().settings.hints.done, false);
+  const runNow = button('Run now');
+  assert.equal(runNow.disabled, false);
+  assert.equal(runNow.hasAttribute('title'), false);
+  for (const profileId of ['', 'text', 'gone']) {
+    runtime.updateSettings({ profileId });
+    assert.equal(runNow.disabled, true, profileId);
+    assert.equal(runNow.title, 'No model profile → set up');
+  }
   runtime.updateSettings({ language: 'ru' });
-  assert.equal(input.checked, true);
-  assert.equal(input.parentElement.textContent, 'Пересчитывать после правки ответа');
-  assert.equal(input.parentElement.title, 'Один запрос вспомогательной модели после каждой правки последнего ответа.');
+  assert.equal(runNow.title, 'Нет профиля модели → настроить');
+  runtime.updateSettings({ profileId: 'side' });
+  assert.equal(runNow.disabled, false);
+  assert.equal(fake.ctx.extensionSettings.sableTrackers.profileId, 'side');
 });
 
 test('settings groups normalize known boolean flags idempotently and merge partial patches', () => {
@@ -199,7 +212,7 @@ test('settings changes use runtime patches and modes; reset restores global mode
   assert.deepEqual(calls.modes[1], ['world', null, true]);
   assert.deepEqual(runtime.snapshot().store.modeOverride, {});
   assert.equal(query('[data-section="world"] [name="mode"]').value, 'inject');
-  assert.ok(buttons.find(b => b.textContent.startsWith('Import')).disabled);
+  assert.equal(buttons.find(b => b.textContent.startsWith('Import')), undefined, 'the legacy import moved to the drawer banner (SPEC §28)');
   buttons.find(b => b.textContent === 'Run now').click(); assert.equal(calls.refresh, 1);
   change('[name="language"]', 'ru');
   assert.equal(query('[name="enabled"]').parentElement.textContent, 'Включено');
@@ -227,16 +240,15 @@ test('drawer gear opens Extensions and expands the settings block', t => {
   assert.deepEqual([opened, expanded, scrolled], [1, 1, 1]);
 });
 
-test('legacy button follows eligibility and invokes runtime import', async t => {
+test('the legacy import is no longer in Settings → Actions (SPEC §28: a drawer banner instead)', async t => {
   const { fake, runtime, query, calls } = setup(t);
   fake.ctx.chat.push(JSON.parse(await readFile(new URL('../fixtures/legacy-message.json', import.meta.url), 'utf8')));
   runtime.publish();
-  const button = [...query('.inline-drawer-content').querySelectorAll('button')].find(b => b.textContent.startsWith('Import'));
-  assert.equal(button.disabled, false);
-  button.click();
-  assert.equal(calls.seed, 1);
-  await runtime.seedLegacy();
-  assert.equal(button.disabled, true);
+  assert.equal(runtime.snapshot().canSeedLegacy, true);
+  const buttons = [...query('.inline-drawer-content').querySelectorAll('button')];
+  assert.equal(buttons.find(b => b.textContent.startsWith('Import from')), undefined);
+  assert.equal(query('[data-group="actions"] .fa-file-import'), null);
+  assert.equal(calls.seed, 0);
 });
 
 test('custom blocks: add writes the full array with a new c_ id, edits patch it, two taps delete', t => {

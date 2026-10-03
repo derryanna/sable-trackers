@@ -61,7 +61,8 @@ test('people group replaces the four cards in place; person cards present first,
   assert.equal(card('story').nextElementSibling, group()); assert.equal(group().nextElementSibling, card('planner'));
   assert.deepEqual(persons(), ['maren', 'tomas', 'Stranger']);
   assert.equal(ui.element.querySelectorAll('[data-person] [data-control="handle"], [data-person] [data-control="folder"]').length, 0);
-  assert.match(query('[data-person="maren"] .st-sable-card-footer').textContent, /в раскладке по темам/);
+  // The footer hint gave way to the pencil menu (SPEC §25).
+  assert.doesNotMatch(query('[data-person="maren"] .st-sable-card-footer').textContent, /в раскладке по темам/);
 });
 
 test('person card: fields, spoiler, thought, bond rows with a custom title, dossier matched case-insensitively', t => {

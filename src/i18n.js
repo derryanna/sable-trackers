@@ -8,7 +8,7 @@ const STRINGS = {
     'pack.intimacy.title': 'Intimacy (18+)', 'pack.intimacy.desc': 'Tracks established adult scenes (18+): arousal, stamina, counters and marks, plus achievements and a cheeky commentator.',
     'pack.intimacy.scene': 'Intimacy scene', 'pack.intimacy.arousal': 'Arousal', 'pack.intimacy.counters': 'Counters', 'pack.intimacy.marks': 'Marks',
     'pack.intimacy.achievements': 'Achievements', 'pack.intimacy.commentary': 'Commentator',
-    'pack.intimacy_plus.title': 'Intimacy+ (18+)', 'pack.intimacy_plus.desc': 'Explicit, deeper adult tracking (18+): climax build-up, contact and release, zones, kinks, dislikes, experience, afterglow. Works alone or with Intimacy.',
+    'pack.intimacy_plus.title': 'Intimacy+ (18+)', 'pack.intimacy_plus.desc': 'Explicit, deeper adult tracking (18+): climax build-up, wetness, contact and release, zones, kinks, dislikes, experience, cum, afterglow. Works alone or with Intimacy.',
     'pack.intimacy_plus.climax': 'Climax', 'pack.intimacy_plus.contact': 'Contact', 'pack.intimacy_plus.zones': 'Zones', 'pack.intimacy_plus.kinks': 'Kinks',
     'pack.intimacy_plus.limits': 'Dislikes', 'pack.intimacy_plus.experience': 'Experience', 'pack.intimacy_plus.after': 'Afterglow',
     'shape.stats': 'Stats', 'shape.tags': 'Tags',
@@ -40,7 +40,7 @@ const STRINGS = {
     'pack.intimacy.title': 'Интим (18+)', 'pack.intimacy.desc': 'Отслеживает сцену взрослых участников (18+): возбуждение, силы, счётчики и следы, плюс ачивки и ехидный комментатор.',
     'pack.intimacy.scene': 'Интимная сцена', 'pack.intimacy.arousal': 'Возбуждение', 'pack.intimacy.counters': 'Счётчики', 'pack.intimacy.marks': 'Следы',
     'pack.intimacy.achievements': 'Ачивки', 'pack.intimacy.commentary': 'Комментатор',
-    'pack.intimacy_plus.title': 'Интим+ (18+)', 'pack.intimacy_plus.desc': 'Откровенно и глубже (18+): шкала оргазма, проникновение и финал, зоны, кинки, антикинки, опыт, после. Работает отдельно или вместе с «Интимом».',
+    'pack.intimacy_plus.title': 'Интим+ (18+)', 'pack.intimacy_plus.desc': 'Откровенно и глубже (18+): шкала оргазма, влажность, проникновение и финал, зоны, кинки, антикинки, опыт, семя, после. Работает отдельно или вместе с «Интимом».',
     'pack.intimacy_plus.climax': 'Оргазм', 'pack.intimacy_plus.contact': 'Контакт', 'pack.intimacy_plus.zones': 'Зоны', 'pack.intimacy_plus.kinks': 'Кинки',
     'pack.intimacy_plus.limits': 'Антикинки', 'pack.intimacy_plus.experience': 'Опыт', 'pack.intimacy_plus.after': 'После',
     'shape.stats': 'Показатели', 'shape.tags': 'Метки',
@@ -106,8 +106,6 @@ Object.assign(STRINGS.en, {
   messages: 'Recent messages', cardChars: 'Card characters', loreChars: 'Lore characters',
   maxTokens: 'Max output tokens', depth: 'Injection depth', keep: 'Saved states', role: 'Injection role',
   'role.system': 'system', 'role.user': 'user', 'role.assistant': 'assistant',
-  recomputeOnEdit: 'Recompute after editing a reply',
-  'hint.recomputeOnEdit': 'One side-model request after every edit of the latest reply.',
   perChatOverrides: 'Mode changes apply to this chat only', showPanel: 'Show reply panel', showFloatingButton: 'Edge tab',
   mode: 'Mode', period: 'Update period (replies)', resetOverrides: 'Reset overrides for this chat', runNow: 'Run now',
   chooseProfile: 'Select a connection profile', notCC: 'not chat-completion', missingProfile: 'Selected profile is missing',
@@ -121,8 +119,6 @@ Object.assign(STRINGS.ru, {
   messages: 'Последних сообщений', cardChars: 'Карточка, символов', loreChars: 'Лор, символов',
   maxTokens: 'Токенов ответа', depth: 'Глубина вставки', keep: 'Хранить состояний', role: 'Роль вставки',
   'role.system': 'система', 'role.user': 'пользователь', 'role.assistant': 'ассистент',
-  recomputeOnEdit: 'Пересчитывать после правки ответа',
-  'hint.recomputeOnEdit': 'Один запрос вспомогательной модели после каждой правки последнего ответа.',
   perChatOverrides: 'Менять режимы только для этого чата', showPanel: 'Панель под ответом', showFloatingButton: 'Язычок сбоку',
   mode: 'Режим', period: 'Период обновления (ответов)', resetOverrides: 'Сбросить режимы этого чата', runNow: 'Обновить сейчас',
   chooseProfile: 'Выберите профиль подключения', notCC: 'не chat-completion', missingProfile: 'Выбранный профиль отсутствует',
@@ -388,4 +384,125 @@ Object.assign(STRINGS.en, {
 Object.assign(STRINGS.ru, {
   layout: 'Раскладка панели', 'layout.topics': 'по темам', 'layout.people': 'по персонажам',
   people: 'Люди', 'field.role': 'Роль', 'people.hint': 'Редактирование: в раскладке по темам',
+});
+
+// T22
+Object.assign(STRINGS.en, {
+  'undo.restore': 'Undo', 'undo.deleted': 'Group “{name}” deleted', 'undo.suggested': 'Cards laid out in groups',
+  'drag.here': 'here', 'drag.full': 'full',
+});
+Object.assign(STRINGS.ru, {
+  'undo.restore': 'Вернуть', 'undo.deleted': 'Группа «{name}» удалена', 'undo.suggested': 'Карточки разложены по группам',
+  'drag.here': 'сюда', 'drag.full': 'полная',
+});
+// T24
+// Stat history and tap-to-jump (SPEC §26); the sparkline checkbox is renamed here.
+Object.assign(STRINGS.en, {
+  'visual.sparklines': 'History sparklines under bars',
+  'visual.sparklinesHint': 'Up to 12 recent values under bond scales and pack stats. Tap a bar to see its reply and jump to it in the chat.',
+  'spark.history': 'History', 'spark.reply': 'reply', 'spark.notLoaded': '(not loaded)',
+});
+Object.assign(STRINGS.ru, {
+  'visual.sparklines': 'Мини-графики под полосками',
+  'visual.sparklinesHint': 'До 12 последних значений под шкалами отношений и статами паков. Нажмите на столбик — покажет ответ и прокрутит к нему чат.',
+  'spark.history': 'История', 'spark.reply': 'ответ', 'spark.notLoaded': '(не загружено)',
+});
+// T25
+// First-run hints, missing-profile status, mode legend and stale recompute (SPEC §27).
+Object.assign(STRINGS.en, {
+  'hints.label': 'Hint', 'hints.next': 'Next', 'hints.done': 'Got it', 'hints.never': "Don't show again",
+  'hints.again': 'Show the hints again',
+  'hints.1.title': 'Check the connection', 'hints.1.text': 'The side model that fills the cards:',
+  'hints.1.none': 'Create a profile in Connection Manager',
+  'hints.2.title': 'Pick what you like', 'hints.3.title': 'Enjoy',
+  'hints.3.text': 'Write to the character; the cards fill in after their reply',
+  'legend.inject': 'inject — the model sees it', 'legend.show': 'show — only you', 'legend.off': 'off — not updated',
+  noProfile: 'No model profile → set up', staleState: 'State is stale', recompute: '⟳ Recompute',
+});
+Object.assign(STRINGS.ru, {
+  'hints.label': 'Подсказка', 'hints.next': 'Дальше', 'hints.done': 'Понятно', 'hints.never': 'Больше не показывать',
+  'hints.again': 'Показать подсказки снова',
+  'hints.1.title': 'Проверь соединение', 'hints.1.text': 'Вспомогательная модель, которая заполняет карточки:',
+  'hints.1.none': 'Создай профиль в Connection Manager',
+  'hints.2.title': 'Выбери, что нравится', 'hints.3.title': 'Наслаждайся',
+  'hints.3.text': 'Напиши персонажу — после его ответа карточки заполнятся',
+  'legend.inject': 'в промпт — модель это видит', 'legend.show': 'показ — только тебе', 'legend.off': 'выкл — не обновляется',
+  noProfile: 'Нет профиля модели → настроить', staleState: 'Состояние устарело', recompute: '⟳ Пересчитать',
+});
+// T26: settings in one tier (SPEC §28): folded group summaries, the period row in the mode menu, the card colour row
+// and the legacy import banner.
+Object.assign(STRINGS.en, {
+  'group.connection.summary': 'on/off, model profile, language, reasoning',
+  'group.context.summary': 'messages, card, lore, tokens, depth, role',
+  'group.sections.summary': 'layout, modes, periods, order, folders',
+  'group.scales.summary': 'built-in scales, custom scales, −100…+100',
+  'group.custom.summary': 'your own cards and their instructions',
+  'group.visual.summary': 'panel, cards, background, card colours, effects',
+  'group.actions.summary': 'run now, chat overrides, reply panel, floating button',
+  'group.packs.summary': 'packs, defaults for new chats, import and export',
+  'group.danger.summary': 'instructions, request preview, log',
+  'menu.period': 'Every N replies', 'menu.periodDossiers': 'Dossiers check for new NPCs on every reply.',
+  'card.color': 'Colour…', 'card.colorLabel': 'Card colour',
+  'legacy.banner': 'This chat has old Sable data', 'legacy.import': 'Import', 'legacy.hide': 'Hide',
+});
+// T26
+Object.assign(STRINGS.ru, {
+  'group.connection.summary': 'включение, профиль модели, язык, рассуждения',
+  'group.context.summary': 'сообщения, карточка, лор, токены, глубина, роль',
+  'group.sections.summary': 'раскладка, режимы, периоды, порядок, группы',
+  'group.scales.summary': 'встроенные шкалы, свои шкалы, −100…+100',
+  'group.custom.summary': 'свои карточки и их инструкции',
+  'group.visual.summary': 'панель, карточки, фон, цвета карточек, эффекты',
+  'group.actions.summary': 'обновить, режимы чата, панель под ответом, кнопка',
+  'group.packs.summary': 'наборы, включение в новых чатах, импорт и экспорт',
+  'group.danger.summary': 'инструкции, предпросмотр запроса, журнал',
+  'menu.period': 'Раз в N ответов', 'menu.periodDossiers': 'Досье проверяют новых NPC каждый ответ.',
+  'card.color': 'Цвет…', 'card.colorLabel': 'Цвет карточки',
+  'legacy.banner': 'В этом чате есть данные старого Sable', 'legacy.import': 'Импортировать', 'legacy.hide': 'Скрыть',
+});
+// T23
+// Person card editing (SPEC §25): the pencil menu, the edit form, delete with undo and «+ Person».
+Object.assign(STRINGS.en, {
+  'person.menu': 'Person actions', 'person.delete': 'Delete', 'person.deleted': '{name} deleted',
+  'person.character': 'Character', 'person.secret': 'Secret / Actually', 'person.notSent': 'not sent to the model',
+  'person.thought': 'Thought', 'person.bond': 'Bond', 'person.dossier': 'Dossier',
+  'person.addCharacter': '+ Character', 'person.addDossier': '+ Dossier', 'person.addBond': '+ Bond', 'person.addThought': '+ Thought',
+  'person.removePart': 'Remove', 'person.changed': 'Data changed', 'person.reread': 'Reload', 'person.saveAnyway': 'Save anyway',
+  'person.add': '+ Person', 'person.name': 'Name', 'person.addSave': 'Add',
+});
+Object.assign(STRINGS.ru, {
+  'person.menu': 'Действия с персонажем', 'person.delete': 'Удалить', 'person.deleted': 'Удалено: {name}',
+  'person.character': 'Персонаж', 'person.secret': 'Тайна / На самом деле', 'person.notSent': 'не идёт в промпт',
+  'person.thought': 'Мысль', 'person.bond': 'Отношения', 'person.dossier': 'Досье',
+  'person.addCharacter': '+ Персонаж', 'person.addDossier': '+ Досье', 'person.addBond': '+ Отношения', 'person.addThought': '+ Мысль',
+  'person.removePart': 'Убрать', 'person.changed': 'Данные обновились', 'person.reread': 'Перечитать', 'person.saveAnyway': 'Сохранить всё равно',
+  'person.add': '+ Человек', 'person.name': 'Имя', 'person.addSave': 'Добавить',
+});
+// T28
+// Intimacy+ additions (SPEC §23a): wetness and cum.
+Object.assign(STRINGS.en, {
+  'pack.intimacy_plus.wetness': 'Wetness', 'pack.intimacy_plus.cum': 'Cum',
+});
+Object.assign(STRINGS.ru, {
+  'pack.intimacy_plus.wetness': 'Влажность', 'pack.intimacy_plus.cum': 'Семя',
+});
+// T27
+// Folder colours (SPEC §29): the colour field of the folder editor.
+Object.assign(STRINGS.en, {
+  'folders.color': 'Colour', 'folders.colorLabel': 'Group colour',
+});
+Object.assign(STRINGS.ru, {
+  'folders.color': 'Цвет', 'folders.colorLabel': 'Цвет группы',
+});
+// T30
+// Fourth hint and the settings intro line (SPEC §27a).
+Object.assign(STRINGS.en, {
+  'hints.cards.title': 'Everything changes in the cards',
+  'hints.cards.text': 'Mode: the chip on a card · period: in its menu · fields and colour: the pen · order and groups: the handle',
+  'settings.intro': 'In short: mode, period, colour, editing and order are changed in the panel\'s cards. Everything else is here.',
+});
+Object.assign(STRINGS.ru, {
+  'hints.cards.title': 'Всё меняется в карточках',
+  'hints.cards.text': 'Режим — чип на карточке, период — в его меню, поля и цвет — карандаш, порядок и группы — ручка',
+  'settings.intro': 'Коротко: режим, период, цвет, правка и порядок меняются прямо в карточках панели. Здесь — всё остальное.',
 });

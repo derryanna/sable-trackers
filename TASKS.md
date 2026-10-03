@@ -279,7 +279,7 @@ the adult guard and the empty-value rule. Content only: `src/packs/index.js`, i1
 Done when: `npm test` green with the new pack in every pack test, the fixture validates through `sanitizeSection`
 for every new section, the digest snapshot includes the four inject sections, the sheet lists three packs.
 
-## T22 — Drag between containers and the undo pill  [ ]
+## T22 — Drag between containers and the undo pill  [x]
 SPEC §24 (3 Oct 2026, design round: «Undo хорош», «перенос — согласна»). One-level undo pill in the drawer
 (`undo.show(text, restore)`, 5 s, in memory, used by drops, folder delete (now one tap) and «Разложить по группам»);
 the handle drag detaches from its parent after 24 px of hysteresis and drops into user folders (header = end, gap =
@@ -291,7 +291,7 @@ i18n ru + en, tests, README (groups paragraph), DESIGN-NOTES (≤ 6 lines).
 Done when: `npm test` green with `planDrop`, `slotFor` and undo-pill tests; `node --check` on changed files; the menu
 «В группу…» unchanged; no behaviour change in run/store/prompt.
 
-## T23 — Person card: pencil menu, edit form, delete, add  [ ]
+## T23 — Person card: pencil menu, edit form, delete, add  [x]
 SPEC §25 (3 Oct 2026: «просто добавить карандашик маленький и выбрать удалить/редактировать»). Builds on T22 (the
 undo pill). `runtime.editSections(values)` batched all-or-nothing write (`editState` becomes a wrapper);
 `applyPersonDraft(sections, person, draft)` pure and tested; a 36 px pencil in the person card header with a two-item
@@ -304,7 +304,7 @@ Done when: `npm test` green with `editSections` (invalid → false, nothing writ
 record), `applyPersonDraft` (replace / add / remove / orphan dossier / no change → {}), form build from fixtures,
 delete + undo round trip; `node --check`; topics-layout editors unchanged.
 
-## T24 — Stat history and tap-to-jump  [ ]
+## T24 — Stat history and tap-to-jump  [x]
 SPEC §26 (3 Oct 2026: «стату привязывать к сообщению» for people who re-read). `recordHistory` generalised to
 `history[key][line]` for stats sections (items with numeric `max` only; lines absent from the fresh value are
 dropped); sparkline under stats bars; every sparkline becomes a button: tap picks a bar, shows «ответ #N · HP 40»,
@@ -315,7 +315,7 @@ Done when: `npm test` green with store tests (stats recorded, counters without m
 swipe replace, prune), a drawer test for the label and the active bar (jsdom; scrolling stubbed), the panel and the
 digest untouched.
 
-## T25 — First-run hints, missing-profile status, mode legend, stale recompute  [ ]
+## T25 — First-run hints, missing-profile status, mode legend, stale recompute  [x]
 SPEC §27 (3 Oct 2026: «мелкие всплывашки… проверь соединение, выбери что нравится и наслаждайся» + «галочка, чтобы
 не показывало больше»). Three sequential hint popups in the drawer with «Больше не показывать», `settings.hints.done`
 (set by the checkbox, the third hint, or the first successful run), «Показать подсказки снова» in Actions; a permanent
@@ -326,7 +326,7 @@ button and `st-sable-stale` on stale cards. Files: `src/settings.js`, `src/run.j
 Done when: `npm test` green with normaliser tests (`hints`, `recomputeOnEdit` dropped), drawer tests for the hint
 sequence and the status states (no profile / stale), the legend present in the menu; `node --check`.
 
-## T26 — Settings in one tier  [ ]
+## T26 — Settings in one tier  [x]
 SPEC §28 (3 Oct 2026: «один этаж, в заголовках перечислено содержимое, период в меню чипа, цвет в меню карточки,
 импорт плашкой»). Folded group summary lines (`group.<id>.summary`); «Раз в N ответов» row in the mode menu writing
 the global period; «Цвет…» in card footers with the Card colours swatches; the legacy import button leaves Actions
@@ -336,8 +336,92 @@ Done when: `npm test` green with tests for the summary lines, the period row (wr
 colour row (writes the full `visual`), the banner (shown / hidden / imported); `node --check`; no change to prompt or
 storage beyond the banner flag.
 
+## T27 — Folder colours  [x]
+SPEC §29 (3 Oct 2026, her feedback on 0.4: «нельзя менять цвет групп, что странно»). `settings.folders[i].color`
+(hex, normalised, preserved by every folder write), the group tinted like a coloured card (glyph, title, accent bar,
+border, aggregate chip; members keep their own colours), a colour input with «auto» in the folder editor only (no footer
+button; scope changed after the first try), written on Save, «auto» removes the field. Files: `src/folders.js`, `src/ui/drawer.js`,
+`style.css`, i18n, tests, README (groups paragraph).
+Done when: `npm test` green with normaliser + footer + tint tests; `node --check`; no change to run/store/prompt.
+
+## T28 — Intimacy+ additions: wetness and cum  [x]
+SPEC §23a (3 Oct 2026, from her screenshot list that §23 left out). Two new sections in `intimacy_plus`: `wetness`
+(stats 0–100, inject, «Влажность») and `cum` (kv, inject, «Семя»), both behind the adult guard, explicit facts only,
+ordered climax · wetness · contact · zones · kinks · limits · experience · cum · after. Content only:
+`src/packs/index.js`, i18n ru + en, fixtures, tests (shape/cap list, digest snapshot, fixture through
+`sanitizeSection`), README pack paragraph, SPEC §23 list.
+Done when: `npm test` green with the pack tests updated for nine sections; `node --check`.
+
+## T29 — Card colour moves into the card editor  [x]
+SPEC §30 (3 Oct 2026, her phone: «убираем цвет, теперь огромная одна секция… может добавить в редактор?»). Remove the
+«Цвет…» footer control and inline row from section and person card footers; add a «Цвет карточки» row with the colour
+input and «auto» as the last row of the section editor before Save / Cancel (immediate write of the full `visual`,
+preview on input, independent of Save). Files: `src/ui/drawer.js`, `style.css`, i18n, tests (move the T26 colour tests
+to the editor), README (one sentence).
+Done when: `npm test` green; no `[data-control="color"]` in any footer; the editor row writes `visual.cardColors[id]`;
+`node --check`.
+
+## T30 — Fourth hint and the settings intro line  [x]
+SPEC §27a (3 Oct 2026: «ещё пункт в онбординг, что в карточках можно поменять, а в самих настройках коротко»). The
+hint sequence grows to four (new third step «Всё меняется в карточках» with the chip / menu / pen / handle line,
+counters 1/4…4/4), and the settings block opens with one muted intro line (`settings.intro`). Files:
+`src/ui/drawer.js` (hints), `src/ui/settings.js`, `style.css` (if needed), i18n ru + en, tests (hints sequence, settings
+intro), README (one sentence).
+Done when: `npm test` green with the four-step hint test and the intro test; `node --check`.
+
 ## Notes from previous tasks
 (append here)
+- T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and
+  `dropIndex(settings, id, folderId, anchorId)` in `src/folders.js`; `createUndoPill(document, label, timers?)` and
+  `UNDO_MS` exported from `src/ui/drawer.js`; the drawer API gains `undo` (`ui.undo.show(text, restore)`), which §25
+  person delete should reuse. Decisions: the slot stores the card it sits before (`anchor`), and `dropIndex` converts
+  it to the `planDrop` index, so hidden cards, disabled packs in `order` and the People view do not shift the drop; a
+  flat card's "parent box" is the top level, so it detaches when the pointer is 24 px deep inside a group (anywhere on a
+  folded or empty one), while a member detaches 24 px outside its folder; a detached card stays in place (no ghost
+  following the finger) and a drop that changes nothing writes nothing. «Разложить по группам» lives in the settings
+  block, where the drawer's pill is out of sight, so the settings get their own pill instance under the button (same
+  factory). Folder delete restores the fold state too. `lostpointercapture` first tries to re-capture (moving the card
+  in the DOM may drop capture while the finger is down) and cancels only if that fails. The `folders.confirmDelete` /
+  `folders.confirmSuggested` strings are unused now but left in `src/i18n.js` to keep parallel merges trivial; delete
+  them in a cleanup. `test/effects.test.mjs` now ends the full-only CSS part at `/* End of full-only rules. */`, so
+  later blocks appended to `style.css` may carry subtle-level rules. Real geometry (touch on Android Chrome, the 24 px
+  feel, auto-scroll speed) is unverified outside jsdom.
+- T25: `settings.hints = { done }` (normalised to a boolean, default false); `normalizeSettings` deletes `recomputeOnEdit`, so
+  the stored key disappears on the next load. `profileIssue(ctx, settings)` (exported from `src/run.js`) returns null or
+  the i18n key `profileRequired` / `profileUnsupported`; the snapshot carries it as `profileIssue` plus `profiles`
+  (`{ id, name, cc }`, the hint's select source). `execute` uses it for the existing warnings and, after the first `ok`
+  run, saves `hints: { done: true }`. `edited()` only marks the entry stale and saves; the drawer status offers «⟳
+  Пересчитать» (`[data-control="recompute"]`, `runtime.run(entry.mesId, { type: 'edit' })`, disabled while running or
+  without a profile). Drawer: `div.st-sable-hint[role=dialog]` sits between the legacy button and the cards; the step
+  (0–2) is in memory and restarts when `done` goes back to false; controls `hint-profile` / `hint-never` / `hint-next`.
+  The gear handler is now `openSettings(group)`: with a group it first writes `groups[group] = true` (the settings UI
+  opens the details on render), then calls `onSettings(group)` or the Extensions-tab path, scrolling to that group.
+  The status setup button is `[data-control="setup"]` (`st-sable-status-setup`); the ↻ header button is disabled with
+  the same title while `profileIssue` is set, like Run now in Settings → Actions (next to it: «Показать подсказки снова»,
+  `[data-control="hints-again"]`, disabled while the hints are still on). Decisions: the status «outdated» span was
+  renamed `st-sable-status-stale` (cards now own `st-sable-stale`); the legend is appended only when every menu entry
+  is a mode, so the folder picker that reuses `openModeMenu` has none; mode-menu tests now select
+  `[role="menuitemradio"]` instead of the popup's children; `test/effects.test.mjs` ends the full-only CSS part at the
+  first `/* T<n> */` marker so later task blocks can be appended after it.
+- T26: folded settings groups carry `span.st-sable-group-note[data-group-summary]` as the summary's last child (after the
+  chevron; CSS wraps it to a second line), `hidden` while the group is open, text from `group.<id>.summary`. The mode menu
+  takes an optional `target.period()` → `{ value, hint, write(n) }`; only card chips pass it (`cardTarget` → `periodOf(id)`),
+  so group chips and the «В группу…» menu have no row. The row is `label.st-sable-mode-period` after the options (input
+  `[data-control="period"]`, 0–99, values over 99 clamp, invalid text writes nothing); a custom block writes its
+  `customSections` entry, built-ins and pack sections `sections[id].period`; dossiers add `p.st-sable-mode-period-hint`.
+  The typed period is committed by `closeModeMenu` however the menu closes (Enter, change, a tap outside, a mode choice);
+  Escape restores it; a render triggered elsewhere commits it after the render. Keyboard: arrows still cycle the options
+  only, Tab from an option focuses the input, Shift+Tab goes back. «Цвет…» (`[data-control="color"]`) is the last footer
+  control of section and person cards; the open set is in memory, keyed by section id or `person:<id>`; the inline
+  `.st-sable-color-row` holds `input[type=color][name="cardColors.<id>"]` (preview on input, write on change) and
+  `[data-control="color-auto"]`; person cards write `cardColors.npcs`. Folder footers get no colour (folders have none).
+  The drawer's old `.st-sable-legacy-button` became `.st-sable-legacy-banner` (`[data-control="legacy-import"]`,
+  `[data-control="legacy-hide"]`); `runtime.hideLegacyBanner()` sets `chat_metadata.sableTrackers.legacyBannerHidden`,
+  exposed as `snapshot().legacyBannerHidden`. The Settings → Actions import button is gone (the `seedLegacy` i18n key and
+  the old `.st-sable-legacy-button` CSS are now unused and were left in place to keep the diff small). The `/* T26 */` CSS
+  block sits right before `/* Full: every rule below`, not at the very end: `test/effects.test.mjs` requires every rule
+  after that marker to be full-scoped. Existing tests adjusted: the scales group title is read from `summary > h4`, the
+  mode menu test counts `.st-sable-mode-option`s, the drawer and settings import tests now describe the banner.
 - T20: `store.history[bondId][scale]` via `recordHistory(data, bonds, mesId, keys)` / `pruneHistory(data, keep)` (keep = a
   chat length or a Set of mesIds) and `HISTORY_POINTS = 12` in `src/store.js`; `run.js` records after a parsed run result is
   stored (not on a skipped run with no due sections) and after `editState('bonds')`, prunes in `deleted`. A point is
@@ -355,6 +439,13 @@ storage beyond the banner flag.
   current value («Maren: +5 Trust → −40»), since the panel shows only deltas; the bond score column is 2.6em (was 2.1em)
   with `white-space: nowrap` so «−100» fits. The custom scale row's empty space came from `flex: 1 1 12em` on the hint
   field inside a column flex container (a 12em height); only the title grows now, inside the key/title line, gaps 8 px.
+- T28: `wetness` (stats) and `cum` (kv) sit in `intimacy_plus` as climax · wetness · contact · zones · kinks · limits ·
+  experience · cum · after; both carry `{{scope}}`, the adult guard and "Return [] until …" like `climax`. The pack
+  rules' empty-arrays list and the ru/en pack descriptions name the two new cards; the new title keys live at the end
+  of `src/i18n.js` under `// T28`. Decisions: `cum` keys are the bare participant name (SPEC §23a), not `Name · …`;
+  its value format is "where · N times · amount", with the amount only when stated or clearly implied. The fixture
+  adds Maren (wetness) and Tomas (cum) beside the Guard and the Traveller; the digest snapshot gains WETNESS and CUM.
+  The Intimacy pack is unchanged (asserted in the new §23a test).
 - T21: `intimacy_plus` follows `intimacy` in `BUILTIN_PACKS`; content only, no drawer or settings code changed (the
   machinery groups by `section.pack`, so the underscore in the id is harmless). Decisions: the pack rules name the empty
   value per section like the base pack does; `contact` may write `none` for an entry only when the text establishes there
@@ -413,3 +504,71 @@ storage beyond the banner flag.
 - Visual base colour (branch `visual-base`): `visual.base` / `visual.text` (null = automatic) with `normalizeHex` in `src/settings.js`. `src/ui/drawer.js` exports `luminance`, `inkFor` (black/white by higher WCAG contrast, crossover L ≈ 0.179, not 0.5, so pastel light bases get black ink) and `visualColors`. `applyVisual` sets base/ink/accent-ink/text variables and `data-st-sable-tone` on the drawer and the tab, and removes them when automatic. The default accent is no longer set inline (the CSS fallback follows the ink). The `inject` chip is now a solid accent fill with accent-ink text and a 1px ink border. Only the drawer and tab use ink; the reply panel and the settings block still follow the theme.
 - Manual editing + FA markers (branch `edit-state`): `sanitizeSection` exported from `parse.js`. `runtime.editState(id, value)` sanitizes, replaces the section in the current entry (or creates one for the last character reply), sets `meta.editedAt`, clears `stale`, cancels an in-flight run, re-injects and saves. The drawer has a schema-driven editor behind the pen button in each card header (SPEC §13). Cards are now built per section (`buildCard`/`buildHeader`), and render() reconciles instead of `replaceChildren`, so an open editor keeps its node, draft and focus. The drag grip is 28px wide to give titles room. Story seeds/timers and world meta markers follow `visual.icons`; `panel.js` has no emoji markers.
 - T10: ring entries are now capped per message (`keep` messages × ≤ 6 swipes), so `ring.length` can exceed `keep`; use `SWIPES_PER_MESSAGE` from `src/store.js` in size estimates. `settings.role` maps through `ROLES` (`src/settings.js`) to 0/1/2 in `publish()`; the clearing call carries the same role. Whether `user` actually stops a given main model from echoing the block is unverified live (hand-off §6 question 1 is still open).
+- T24: `recordStatHistory(data, sectionId, items, mesId)` in `src/store.js` writes `history[sectionId][itemKey]` (key
+  trimmed; only items with a finite numeric `max`; lines whose key is absent from `items` are deleted, an empty section
+  key goes; a non-array value or a missing mesId writes nothing). `run.js` calls it for every enabled `custom` section
+  of shape `stats` (built-in pack sections and custom blocks) right after the bond `recordHistory`, and in `editState`
+  for such a section. `editSections` (T23) did not exist on this branch: when it lands, call `recordStatHistory` for each
+  stats section it touches (same rule as `editState`). The drawer now passes `{ mesId, value }` points as `spec.history`
+  (was bare values) and `sparkline()` keeps the pick per row key in a Map per chat store (a WeakMap on `view.store`), so
+  a pick survives re-renders and new points (matched by mesId) but not a chat switch; a pruned point clears it. The
+  sparkline is `role="button"`, `tabindex=0`, aria-label `spark.history`; the label is `div.st-sable-spark-label`
+  (`aria-live="polite"`) right after it inside the summary (grid row 3, columns 2…4), and both swallow the click so the
+  row does not fold. A die (stats `%` rows) is inserted before the sparkline so it keeps the first column. ←/→ with no
+  pick start at the newest bar and only move the label; Enter (and Space) jump. The 36 px hit area is real layout
+  (`height: 36px; padding: 10px 0; margin-top: -7px`, the top padding sitting in the empty space under the bar). The
+  `visual.sparklines` label and the new `visual.sparklinesHint` are overridden in the `// T24` block at the end of
+  `src/i18n.js` (the old values on the Round 3 lines are dead). `test/effects.test.mjs` now ends the "Full" CSS block
+  at the first `/* T<n> */` marker, so task blocks appended at the end of `style.css` are not read as full-only rules.
+- T23: `runtime.editSections(values, { history }?)` in `src/run.js`: all-or-nothing (an unknown section, an invalid value or
+  `{}` → false, nothing written), then one cancel, one `Object.assign` into the current entry (created as `editState` did),
+  `meta.editedAt`, `stale` cleared, one `recordHistory` when `bonds` is in the batch, `recordStatHistory` for every
+  touched stats section, one publish, one save. The optional `history = { [bondId]: lines | null }` drops (null) or puts
+  back (object) a bond's history; person delete and its undo use it. `editState(id, value)` = `editSections({ [id]: value })`.
+  Pure helpers in `src/ui/person.js`: `applyPersonDraft`, `deriveId` (the sanitizer's id rule), `newPersonId` (adds
+  `_2`, `_3`… against the existing npcs ids), `personFingerprint`, `dossierMatches`, `PERSON_SECTIONS`. Draft parts:
+  `bond` may be an array (all of the person's bonds, which keep the place of the first); an absent key leaves a part
+  alone. Drawer: the pencil is `[data-control="person-menu"]` inside `div.st-sable-mode-wrap.st-sable-person-menu`;
+  `openModeMenu` takes `target.actions` (plain `menuitem`s, entries carry `glyph`), used only by the pencil. Forms are a
+  Map keyed by the card's person id (cleared on a chat switch), `div.st-sable-editor.st-sable-person-form[data-person-form]`
+  with `[data-part]` sub-forms (`npc` twice: Персонаж and Тайна, `thought`, `bond-<n>`, `dossier`); inputs carry
+  `data-control="person-<part>-<field>"` (bond scales `person-bond-<n>-<scale>`), `name` = the field. Controls:
+  `person-save`, `person-cancel`, `person-reread`, `person-save-anyway`, `person-add-npc|dossier|bond|thought`; People
+  footer: `person-add`, `person-name`, `person-add-save`, `person-add-cancel` (`.st-sable-people-footer`, one node kept
+  across renders). Decisions: Save sends only the parts that differ from the form as it opened (so «Сохранить» and
+  «Сохранить всё равно» are the same write on top of the newer data; a part left alone keeps what the side model wrote
+  meanwhile); an untouched form closes without a write. Sub-forms other than Персонаж have ✕ (drops that part, its «+»
+  returns). Thought / bond / dossier names follow the NPC name typed in the form; an emptied thought removes it. «+
+  Отношения» prefills `toward: '{{user}}'`. A bond-only card (no NPC) also offers «+ Персонаж» (id = the bond id). The
+  SPEC's «reason» for Отношения has no field of its own in the bond schema: the reasons are shown inside the read-only
+  `changes` line. Secret and truth are forced to one-line inputs (their 500 limit would give a textarea). The topics
+  editor's score inputs still clamp signed scales to 0–100 (pre-existing, left alone: "topics editors unchanged"); the
+  person form uses each scale's own range. The ru pill text follows the SPEC literally («{name} удалена»), which reads
+  wrong for male names; a neutral wording is a follow-up. `people.hint` is unused now but left in `src/i18n.js`. Sticky
+  Save / Cancel needs `overflow: clip` on the card and the People group while a form is open (`:has`). Real Android
+  feel (sticky bar over the keyboard, menu position near the screen edge) is unverified outside headless Chromium.
+- T29: the footer «Цвет…» (`colorControls`, `[data-control="color"]`) is gone from section and person cards; the
+  person card footer is now empty and hidden by `.st-sable-card-footer:empty`. `colorRow(colorId, name)` in
+  `src/ui/drawer.js` builds `div.st-sable-editor-field.st-sable-editor-color[data-card-color]` (label «Цвет карточки» =
+  the existing `card.colorLabel`, then `.st-sable-color-row` with `input[type=color][name="cardColors.<id>"]` and
+  `[data-control="color-auto"]`), appended by `createEditor` right before `.st-sable-editor-actions`. It reads the
+  current colour from `runtime.snapshot()` on every write (the editor node outlives renders) and re-syncs the input and
+  `aria-pressed` itself; Cancel leaves the written colour alone. No new i18n keys: `card.color` («Цвет…» / "Colour…") is
+  now unused but kept (the T26 i18n test lists it); the `.st-sable-person > .st-sable-card-footer > .st-sable-color-row`
+  rule is dead CSS left in place. Tests: `test/settings-tier.test.mjs` (two T26 footer tests replaced by editor ones).
+- T27: `normalizeFolders` keeps `color` via `normalizeHex` (imported from `src/settings.js`; the import cycle is safe,
+  neither module calls the other at load) and omits the key when absent or invalid; `moveToFolder` / `planDrop` already
+  spread each folder, so they preserve it. Drawer: `applyGroupColor(group, color)` sets `--st-sable-folder-accent` and
+  `--st-sable-folder-accent-ink-rgb` plus `data-st-sable-tinted="1"` on the folder `section.st-sable-group` (from
+  `refreshGroup`; packs and People pass nothing). The colour is not put on `--st-sable-accent` of the group, so member
+  cards keep the shared accent; the `/* T27 */` CSS remaps `--st-sable-accent` only on the group's `::before` and its
+  header (glyph, title, aggregate chip and its menu), and mixes the border. Scope change from the maintainer: no
+  «Цвет…» in the folder footer; the colour lives only in the folder editor: `input[name=color]`
+  (`[data-control="folder-color"]`) and «auto» (`[data-control="folder-color-auto"]`) after the icon field, previewed on
+  the group while editing, written with the form on Save (`updateSettings({ folders })`, whole array; «auto» drops the
+  key), discarded by Cancel (its re-render restores the tint). `colorControls` is unchanged from T26.
+  Real rendering of `color-mix(…, currentColor)` on the title is unverified outside jsdom.
+- T30: the hint steps are driven by `HINT_KEYS = ['1', '2', 'cards', '3']` in `src/ui/drawer.js` (counter `n/4`, the last
+  step shows «Понятно»); the new third hint uses `hints.cards.title` / `hints.cards.text`, and «Наслаждайся» keeps its
+  T25 keys `hints.3.*`. The settings block opens with `p.st-sable-settings-intro` (`settings.intro`), the first child of
+  `.st-sable-settings-body`; muted style at the end of `style.css`.

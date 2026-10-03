@@ -5,7 +5,7 @@ import { FX_DEFAULTS, FX_RANGES, FX_SPEEDS, GROUP_IDS, LAYOUTS, REASONING_LEVELS
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
 import { BUILTIN_PACKS, packScopeOf } from '../packs/index.js';
 import { copyPack, exportPack, importPack } from '../packs/io.js';
-import { applyVisual, glyphNode, inkFor, packTitle, sectionGlyph } from './drawer.js';
+import { applyVisual, createUndoPill, glyphNode, inkFor, packTitle, sectionGlyph } from './drawer.js';
 
 const CONTEXT_KEYS = ['messages', 'cardChars', 'loreChars', 'maxTokens', 'depth', 'keep'];
 const ZERO_ALLOWED = new Set(['cardChars', 'loreChars', 'depth']);
@@ -102,15 +102,20 @@ export function createSettings(runtime, { document = globalThis.document,
   toggle.append(text('b', '', 'settingsTitle'), node('div', 'inline-drawer-icon fa-solid fa-circle-chevron-down down'));
   const content = node('div', 'inline-drawer-content st-sable-settings-body');
   drawer.append(toggle, content); element.append(drawer); host.append(element);
+  // One muted line above the first group (SPEC §27a): what is changed in the cards instead.
+  content.append(text('p', 'st-sable-settings-intro', 'settings.intro'));
   const groups = new Map();
   function group(id, key) {
     const section = node('details', 'st-sable-settings-group st-sable-group'); section.dataset.group = id;
     const summary = node('summary', 'st-sable-group-summary'), heading = node('h4', 'st-sable-settings-heading');
     const glyphs = { connection: 'plug', context: 'align-left', sections: 'list', scales: 'sliders', custom: 'puzzle-piece', visual: 'palette', actions: 'bolt', packs: 'box-open', danger: 'triangle-exclamation' };
     heading.append(icon(glyphs[id]), text('span', '', key));
-    summary.append(heading, icon('chevron-right')); section.append(summary);
+    // What the group holds (SPEC §28), shown under the heading while the group is folded.
+    const note = text('span', 'st-sable-group-note', `group.${id}.summary`); note.dataset.groupSummary = id;
+    summary.append(heading, icon('chevron-right'), note); section.append(summary);
     if (id === 'danger') section.classList.add('st-sable-danger');
     section.addEventListener('toggle', () => {
+      note.hidden = section.open;
       if (section.open !== !!runtime.snapshot().settings.groups?.[id]) runtime.updateSettings({ groups: { [id]: section.open } });
     });
     groups.set(id, section); content.append(section);
@@ -152,10 +157,6 @@ export function createSettings(runtime, { document = globalThis.document,
     const role = options(select(contextGrid, 'role'), ROLES, value => `role.${value}`);
     bind(labels, role.parentElement, 'hint.role', 'title');
   }
-
-  checkbox(context, 'recomputeOnEdit');
-  bind(labels, controls.get('recomputeOnEdit').parentElement, 'hint.recomputeOnEdit', 'title');
-  context.append(text('p', 'st-sable-settings-hint', 'hint.recomputeOnEdit'));
 
   // All sections follow drawer order; custom shape editing stays in Custom blocks.
   const sectionsGroup = group('sections', 'group.sections');
@@ -226,12 +227,11 @@ export function createSettings(runtime, { document = globalThis.document,
   sectionsGroup.append(table, text('p', 'st-sable-settings-hint', 'periodHint'));
   checkbox(sectionsGroup, 'spoilers');
 
-  let foldersArmed = false;
-  const suggested = button(sectionsGroup, () => label(foldersArmed ? 'folders.confirmSuggested' : 'folders.suggested'), 'folder-tree', () => {
-    if (view.settings.folders.length && !foldersArmed) {
-      foldersArmed = true; suggested.classList.add('st-sable-armed'); applyLabels(labels); return;
-    }
-    foldersArmed = false; suggested.classList.remove('st-sable-armed');
+  // One tap (SPEC §24): the previous folders and order go to an undo pill under the button (the drawer's pill is out of
+  // sight while the settings are open).
+  const suggestedUndo = createUndoPill(document, label);
+  const suggested = button(sectionsGroup, () => label('folders.suggested'), 'folder-tree', () => {
+    const previous = structuredClone({ folders: view.settings.folders, order: view.settings.order });
     const taken = new Set(view.settings.folders.map(folder => folder.id));
     const folders = [['world', 'fa-globe', ['world', 'offscreen', 'threads']],
       ['people', 'fa-users', ['npcs', 'thoughts', 'bonds', 'dossiers']],
@@ -240,9 +240,10 @@ export function createSettings(runtime, { document = globalThis.document,
         return { id, title: label(`folders.${key}`), icon, members };
       });
     runtime.updateSettings({ folders });
+    suggestedUndo.show(label('undo.suggested'), () => runtime.updateSettings(previous));
   });
   suggested.dataset.control = 'suggested-folders';
-  suggested.addEventListener('blur', () => { foldersArmed = false; suggested.classList.remove('st-sable-armed'); applyLabels(labels); });
+  sectionsGroup.append(suggestedUndo.element);
 
   // Bond scales (SPEC §20): built-ins switch off one by one, custom scales are rows; every write sends the whole object.
   const scalesGroup = group('scales', 'group.scales');
@@ -594,6 +595,10 @@ export function createSettings(runtime, { document = globalThis.document,
   choice('icons', 'icons');
   visualCheck('accentBar');
   visualCheck('sparklines');
+  // SPEC §26: the same line under pack stats; a tap on it jumps to the reply.
+  bind(labels, visualChecks.get('sparklines').parentElement, 'visual.sparklinesHint', 'title');
+  const sparkHint = text('p', 'st-sable-settings-hint', 'visual.sparklinesHint'); sparkHint.dataset.hint = 'sparklines';
+  visualGrid.append(sparkHint);
 
   // Effects (SPEC §16): the level select, then one row per composable effect, shown only at «full». Knobs preview on
   // input and persist on change through the same visual path; a null colour means automatic.
@@ -757,8 +762,10 @@ export function createSettings(runtime, { document = globalThis.document,
   // Actions.
   const actions = group('actions', 'group.actions');
   const actionButtons = node('div', 'st-sable-settings-buttons'); actions.append(actionButtons);
-  button(actionButtons, 'runNow', 'rotate', () => { void runtime.refresh(); });
-  const seed = button(actionButtons, 'seedLegacy', 'file-import', () => { void runtime.seedLegacy(); });
+  const runNow = button(actionButtons, 'runNow', 'rotate', () => { void runtime.refresh(); });
+  // First-run hints (SPEC §27): the drawer shows them again on its next opening.
+  const hintsAgain = button(actionButtons, 'hints.again', 'circle-question', () => runtime.updateSettings({ hints: { done: false } }));
+  hintsAgain.dataset.control = 'hints-again';
   const reset = button(actionButtons, 'resetOverrides', 'arrow-rotate-left', () => {
     for (const id of Object.keys(runtime.snapshot().store.modeOverride)) runtime.setMode(id, null, true);
   });
@@ -1077,6 +1084,7 @@ export function createSettings(runtime, { document = globalThis.document,
     for (const id of GROUP_IDS) {
       const section = groups.get(id), open = !!view.settings.groups?.[id];
       if (section && section.open !== open) section.open = open;
+      if (section) section.querySelector('.st-sable-group-note').hidden = section.open;
     }
     for (const [key, input] of controls) {
       if (input.type === 'checkbox') input.checked = !!view.settings[key];
@@ -1096,7 +1104,10 @@ export function createSettings(runtime, { document = globalThis.document,
       setValue(input, visual[key] ?? fallback);
       auto.setAttribute('aria-pressed', String(!visual[key]));
     }
-    seed.disabled = !view.canSeedLegacy;
+    // Without a usable chat-completion profile Run now cannot work (SPEC §27); the title says why.
+    runNow.disabled = !!view.profileIssue;
+    if (view.profileIssue) runNow.title = label('noProfile'); else runNow.removeAttribute('title');
+    hintsAgain.disabled = !view.settings.hints?.done;
     reset.disabled = !Object.keys(view.store.modeOverride).length;
     refillProfiles();
     forced = undefined;
@@ -1107,7 +1118,7 @@ export function createSettings(runtime, { document = globalThis.document,
   render(view);
   const unsubscribe = runtime.subscribe(next => render(next));
   return { element, dispose() {
-    unsubscribe();
+    unsubscribe(); suggestedUndo.hide();
     if (event) ctx.eventSource.removeListener(event, refillProfiles);
     else toggle.removeEventListener('click', refillProfiles);
     element.remove();

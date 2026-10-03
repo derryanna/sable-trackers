@@ -31,6 +31,9 @@
     { "key": "Guard · climax", "value": 10, "max": 100, "unit": "", "note": "estimate" },
     { "key": "Traveller · climax", "value": 5, "max": 100, "unit": "", "note": "estimate" }
   ],
+  "intimacy_plus_wetness": [
+    { "key": "Maren · wetness", "value": 15, "max": 100, "unit": "", "note": "estimate" }
+  ],
   "intimacy_plus_contact": [
     { "key": "Guard · penetration", "value": "none · paused" },
     { "key": "Traveller · release", "value": "none · paused" }
@@ -42,5 +45,8 @@
   "intimacy_plus_kinks": ["Guard · hair stroking", "Traveller · slow pace"],
   "intimacy_plus_limits": ["Guard · being rushed", "Traveller · loud noise"],
   "intimacy_plus_experience": ["Traveller: first slow dance, positive (felt safe)", "Guard: after a rushed evening avoids haste"],
+  "intimacy_plus_cum": [
+    { "key": "Tomas", "value": "on the sheets · 1 time" }
+  ],
   "intimacy_plus_after": "Guard: close, calm, leaning on the Traveller's shoulder. Traveller: relaxed, quiet."
 }

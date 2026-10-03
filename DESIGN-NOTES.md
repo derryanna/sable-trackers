@@ -9,3 +9,10 @@
 - **Bonds.** Each row is label | bar | number | delta. The bars are `role="meter"` divs, because the native `<meter>` looks different in every browser. Friction scales (suspicion, fear, grudge, tension) get a warm tint. A row with a change is a `<summary>`: tap it to see the reason.
 - **Planner / ban list / status.** The planner is a numbered list with a «не забыть» note. The ban list is chips with the example in italics. The status is one quiet 11 px line with an ok/error dot.
 - **Motion and stability.** The panel and the tab slide in over 140 ms, and nothing else animates. Reduced-motion settings are respected. A re-render keeps the scroll position and any rows the user unfolded, so nothing jumps.
+
+# Design notes: drag between groups (T22)
+
+- **Attached, then detached.** A member sorts live inside its folder until the pointer is 24 px outside the folder's box; a flat card sorts among the top-level blocks until it is 24 px deep inside a group (anywhere on a folded or empty one). Back home, plain sorting resumes.
+- **Detached = a slot, not a ghost.** The card stays in place, lifted; one dashed 44 px slot marks the landing spot, computed by `slotFor` over the hovered block's rectangles. Packs, the People group and person cards dim; a full folder shows a badge and no slot.
+- **One write per drop.** The slot records `{ folderId, anchor }` (the card it sits before); `dropIndex` turns the anchor into the index `planDrop` expects, so hidden cards, disabled packs and the People view never shift the position. The previous `{ folders, order }` go to the 5 s undo pill.
+- **Cancel = re-render.** Every cancel path drops the marks and re-renders the saved order; the card gets a 150 ms settle (none at effects off). Auto-scroll is a rAF loop, 12 px per frame at most, inside 48 px bands.

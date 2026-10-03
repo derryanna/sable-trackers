@@ -59,8 +59,8 @@ test('folder membership menu moves and leaves cards, keyboard and close rules ma
   runtime.setPack('combat', true); assert.equal(control(card('combat_scene'), 'folder'), null);
 });
 
-test('new folder opens focused editor; draft persists, rename and icon save, cancel and two-tap delete', t => {
-  const { choose, runtime, group, query, control, document, card } = setup(t);
+test('new folder opens focused editor; draft persists, rename and icon save, cancel, one-tap delete and undo', t => {
+  const { choose, runtime, group, query, control, document, card, members } = setup(t);
   choose('story', 'new');
   const created = runtime.snapshot().settings.folders.at(-1), id = created.id;
   assert.equal(created.title, 'Группа 2'); assert.deepEqual(created.members, ['story']);
@@ -73,12 +73,18 @@ test('new folder opens focused editor; draft persists, rename and icon save, can
   control(group(id), 'folder-edit').click(); query(`[data-folder-editor="${id}"] .st-sable-editor-cancel`).click();
   assert.equal(query(`[data-folder-editor="${id}"]`), null);
   control(group(id), 'folder-edit').click();
-  const remove = query(`[data-folder-editor="${id}"] [data-control="folder-delete"]`);
-  remove.focus(); remove.click(); assert.match(remove.textContent, /ещё раз/); assert.ok(group(id));
-  title.focus(); remove.dispatchEvent(new document.defaultView.Event('blur')); remove.click(); assert.ok(group(id));
-  const order = runtime.snapshot().settings.order; remove.click();
+  control(group(id), 'fold').click();
+  const before = structuredClone(runtime.snapshot().settings), order = before.order;
+  query(`[data-folder-editor="${id}"] [data-control="folder-delete"]`).click();
   assert.equal(group(id), null); assert.equal(card('story').parentElement, query('.st-sable-cards'));
   assert.deepEqual(runtime.snapshot().settings.order, order);
+  const pill = query('.st-sable-undo');
+  assert.equal(pill.hidden, false); assert.equal(pill.getAttribute('role'), 'status');
+  assert.equal(pill.querySelector('.st-sable-undo-text').textContent, 'Группа «Renamed» удалена');
+  pill.querySelector('[data-control="undo"]').click();
+  assert.equal(pill.hidden, true); assert.ok(group(id)); assert.deepEqual(members(id), ['story']);
+  assert.deepEqual(runtime.snapshot().settings.folders, before.folders); assert.deepEqual(runtime.snapshot().settings.order, order);
+  assert.equal(runtime.snapshot().settings.folded[`folder:${id}`], true);
 });
 
 test('empty folders render last with disabled handles and editors; hideOff counts and reveals nested cards', t => {
@@ -101,29 +107,36 @@ test('folder keyboard and pointer movement stays bounded and preserves member no
   assert.equal(group(), container); assert.equal(card('threads'), threads); assert.equal(card('world'), world);
   const at = (target, type, y) => { const event = new dom.window.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: 10, clientY: y });
     Object.defineProperty(event, 'pointerId', { value: 1 }); target.dispatchEvent(event); };
-  const stub = parent => [...parent.children].forEach((item, i) => { item.getBoundingClientRect = () => ({ top: i * 100, height: 100 }); });
+  // The folder's own box bounds the member drag (SPEC §24: a member detaches 24 px outside it).
+  const stub = parent => { [...parent.children].forEach((item, i) => { item.getBoundingClientRect = () => ({ top: i * 100, height: 100 }); });
+    group().getBoundingClientRect = () => ({ top: 0, bottom: 400, height: 400 }); };
   const drag = (grip, y, end = 'pointerup') => { at(grip, 'pointerdown', 25); at(document, 'pointermove', y); at(document, end, y); };
   control(group(), 'folder-edit').click(); const editor = group().querySelector('[data-folder-editor]');
   stub(group().lastElementChild); drag(control(world, 'handle'), 30);
   assert.deepEqual(members(), ['world', 'threads']); assert.equal(group().lastElementChild.firstElementChild, editor);
-  stub(group().lastElementChild); drag(control(world, 'handle'), 5000, 'pointercancel'); assert.deepEqual(members(), ['world', 'threads']);
-  stub(group().lastElementChild); drag(control(world, 'handle'), 5000); assert.deepEqual(members(), ['threads', 'world']);
+  stub(group().lastElementChild); drag(control(world, 'handle'), 390, 'pointercancel'); assert.deepEqual(members(), ['world', 'threads']);
+  stub(group().lastElementChild); drag(control(world, 'handle'), 390); assert.deepEqual(members(), ['threads', 'world']);
   assert.ok(group().lastElementChild.lastElementChild.classList.contains('st-sable-card-footer'));
   stub(query('.st-sable-cards')); drag(control(group(), 'handle'), 30); assert.equal(query('.st-sable-cards').firstElementChild, group());
   assert.equal(runtime.snapshot().settings.order.includes(undefined), false);
 });
 
-test('suggested folders create localized presets, preserve order, and replace only after two taps with blur disarming', t => {
-  const { settingsUi, runtime, document } = setup(t, { folders: [] });
+test('suggested folders create localized presets, preserve order, replace in one tap and undo through the pill', t => {
+  const { settingsUi, runtime } = setup(t, { folders: [] });
   const button = settingsUi.element.querySelector('[data-control="suggested-folders"]'), order = runtime.snapshot().settings.order;
   button.click(); assert.deepEqual(runtime.snapshot().settings.folders.map(f => f.title), ['Мир', 'Люди', 'Сюжет']);
   assert.deepEqual(runtime.snapshot().settings.folders.map(f => f.members), [['world', 'offscreen', 'threads'], ['npcs', 'thoughts', 'bonds', 'dossiers'], ['story', 'planner', 'banlist']]);
   assert.deepEqual(runtime.snapshot().settings.order, order);
+  const pill = settingsUi.element.querySelector('.st-sable-undo');
+  assert.equal(pill.hidden, false); assert.equal(pill.textContent, 'Карточки разложены по группамВернуть');
   const previous = runtime.snapshot().settings.folders;
-  runtime.updateSettings({ language: 'en' }); button.focus(); button.click(); assert.match(button.textContent, /Tap again/);
-  button.dispatchEvent(new document.defaultView.Event('blur')); assert.match(button.textContent, /Suggested groups/);
-  button.click(); assert.deepEqual(runtime.snapshot().settings.folders, previous);
+  runtime.updateSettings({ language: 'en' }); assert.match(button.textContent, /Suggested groups/);
   button.click(); assert.deepEqual(runtime.snapshot().settings.folders.map(f => f.title), ['World', 'People', 'Story']);
+  assert.notDeepEqual(runtime.snapshot().settings.folders, previous);
+  assert.equal(pill.querySelector('[data-control="undo"]').textContent, 'Undo');
+  pill.querySelector('[data-control="undo"]').click();
+  assert.deepEqual(runtime.snapshot().settings.folders, previous); assert.deepEqual(runtime.snapshot().settings.order, order);
+  assert.equal(pill.hidden, true);
 });
 
 test('folder menu enforces folder and member caps and navigates past disabled choices', t => {
@@ -158,4 +171,59 @@ test('preview module and phone iframe fixture load with two folders', async () =
     loaded?.ui.dispose(); loaded?.runtime.dispose(); dom.window.close();
     for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; }
   }
+});
+
+// T27: folder colours (SPEC §29).
+test('the folder footer has no colour control; member cards have none in their footer either (SPEC §30)', t => {
+  const { group } = setup(t);
+  const footer = group().querySelector('.st-sable-group-body > .st-sable-card-footer');
+  assert.deepEqual([...footer.querySelectorAll('button')].map(item => item.dataset.control), ['folder-edit']);
+  assert.equal(footer.querySelector('input[type="color"]'), null);
+  assert.equal(group().querySelector('.st-sable-card[data-section="world"] .st-sable-card-footer [data-control="color"]'), null);
+});
+
+test('a coloured folder tints its group, not its members; packs and the People group stay untinted', t => {
+  const { group, card, runtime, query } = setup(t, { folders: [{ ...folder(a, ['world', 'threads']), color: '#cc3366' }],
+    visual: { cardColors: { threads: '#11aa22' } } });
+  assert.equal(group().dataset.stSableTinted, '1');
+  assert.equal(group().style.getPropertyValue('--st-sable-folder-accent'), '#cc3366');
+  assert.ok(group().style.getPropertyValue('--st-sable-folder-accent-ink-rgb'));
+  assert.equal(group().style.getPropertyValue('--st-sable-accent'), '');
+  assert.equal(card('world').dataset.stSableTinted, undefined); assert.equal(card('world').style.getPropertyValue('--st-sable-accent'), '');
+  assert.equal(card('threads').style.getPropertyValue('--st-sable-accent'), '#11aa22');
+  runtime.updateSettings({ layout: 'people' });
+  assert.equal(query('[data-container="people"]').dataset.stSableTinted, undefined);
+  assert.equal(group().dataset.stSableTinted, '1');
+});
+
+test('the folder editor colour: next to the icon, previewed, written with Save as the whole array, discarded by Cancel, «auto» removes it', t => {
+  const { group, control, runtime, query } = setup(t, { folders: [folder(a, ['world', 'threads']), folder(b, ['story'], 'Story')] });
+  const open = () => { control(group(), 'folder-edit').click(); return query(`[data-folder-editor="${a}"]`); };
+  const pick = (editor, value) => {
+    const swatch = editor.querySelector('[name="color"]'); swatch.value = value;
+    swatch.dispatchEvent(new swatch.ownerDocument.defaultView.Event('input', { bubbles: true }));
+  };
+  let editor = open();
+  const fields = [...editor.querySelectorAll('.st-sable-editor-field')];
+  const iconAt = fields.findIndex(field => field.querySelector('[name="icon"]'));
+  assert.ok(fields[iconAt + 1].querySelector('input[type="color"][name="color"]'));
+  assert.equal(control(editor, 'folder-color-auto').getAttribute('aria-pressed'), 'true');
+  pick(editor, '#663399');
+  assert.equal(group().style.getPropertyValue('--st-sable-folder-accent'), '#663399');
+  editor.querySelector('.st-sable-editor-cancel').click();
+  assert.equal('color' in runtime.snapshot().settings.folders[0], false); assert.equal(group().dataset.stSableTinted, undefined);
+  const writes = [], update = runtime.updateSettings;
+  runtime.updateSettings = patch => { writes.push(patch); return update(patch); };
+  editor = open(); pick(editor, '#224466'); editor.querySelector('.st-sable-editor-save').click();
+  assert.equal(writes.length, 1); assert.deepEqual(Object.keys(writes[0]), ['folders']);
+  assert.deepEqual(writes[0].folders.map(item => item.id), [a, b]);
+  assert.deepEqual(runtime.snapshot().settings.folders, [{ ...folder(a, ['world', 'threads']), color: '#224466' }, folder(b, ['story'], 'Story')]);
+  assert.equal(group().dataset.stSableTinted, '1');
+  editor = open(); editor.querySelector('[name="title"]').value = 'Renamed'; editor.querySelector('.st-sable-editor-save').click();
+  assert.equal(runtime.snapshot().settings.folders[0].color, '#224466'); assert.equal(runtime.snapshot().settings.folders[0].title, 'Renamed');
+  editor = open(); control(editor, 'folder-color-auto').click();
+  assert.equal(group().dataset.stSableTinted, undefined);
+  editor.querySelector('.st-sable-editor-save').click();
+  assert.equal('color' in runtime.snapshot().settings.folders[0], false); assert.equal(group().dataset.stSableTinted, undefined);
+  runtime.updateSettings = update;
 });

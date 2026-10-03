@@ -8,11 +8,18 @@ import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
 import { ROLES, loadSettings, saveSettings, effectiveModes, reasoningPayload } from './settings.js';
-import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries, recordHistory, pruneHistory } from './store.js';
+import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries, recordHistory, recordStatHistory, pruneHistory } from './store.js';
 
 export const LOG_LIMIT = 5;
 const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue', 'edit']);
 const characterMessage = message => message && !message.is_user && !message.is_system;
+// Stats sections with history (SPEC §26): built-in pack sections and custom blocks of shape `stats`.
+const isStats = section => !!section?.custom && section.shape === 'stats';
+// The selected side-model profile (SPEC §27): null when usable, else the i18n key of the problem.
+export function profileIssue(ctx, settings) {
+  const profile = ctx.extensionSettings.connectionManager?.profiles?.find(p => p.id === settings.profileId);
+  return !settings.profileId || !profile ? 'profileRequired' : profile.mode !== 'cc' ? 'profileUnsupported' : null;
+}
 const isGroup = ctx => ctx.groupId !== undefined && ctx.groupId !== null && ctx.groupId !== '';
 
 /** Runtime shared by event wiring and future UI. No browser globals at import time. */
@@ -34,6 +41,11 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         description: p.builtin ? t(p.description, settings.language) : p.description, builtin: !!p.builtin, scope: p.scope, scopeDefault: p.scopeDefault })) },
       running: active ? { mesId: active.mesId, swipeId: active.swipeId, startedAt: active.startedAt } : null,
       canSeedLegacy: !store.ring.length && !!seedFromLegacy(ctx.chat),
+      // Connection Manager profiles for the hint's select (the settings control uses the same source and filter).
+      profileIssue: profileIssue(ctx, settings),
+      profiles: (ctx.extensionSettings.connectionManager?.profiles ?? []).map(p => ({ id: p.id, name: p.name ?? p.id, cc: p.mode === 'cc' })),
+      // The drawer's import banner (SPEC §28) is dismissed per chat.
+      legacyBannerHidden: store.legacyBannerHidden === true,
       name1: ctx.name1, name2: ctx.name2 };
   }
 
@@ -129,9 +141,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       const fingerprint = JSON.stringify([ctx.getCurrentChatId(), mesId, swipeId, message.mes]);
       if (!force && fingerprint === lastFingerprint) return;
       cancel();
-      const profile = ctx.extensionSettings.connectionManager?.profiles?.find(p => p.id === settings.profileId);
-      if (!profile) { warn('profileRequired', settings); return; }
-      if (profile.mode !== 'cc') { warn('profileUnsupported', settings); return; }
+      const issue = profileIssue(ctx, settings);
+      if (issue) { warn(issue, settings); return; }
       warnedProfile = false;
       lastFingerprint = fingerprint;
       const { base, turn, sections, counters, dueSections, built } = prepare(mesId, force);
@@ -187,10 +198,13 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       for (const id of parsed.validSections) counters[id] = 0;
       putEntry(current, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
       recordHistory(current, state.bonds, mesId, bondScales(settings).map(scale => scale.key));
+      for (const section of sections) if (isStats(section)) recordStatHistory(current, section.id, state[section.id], mesId);
       const content = typeof result === 'string' ? result : result.content;
       current.lastRun = { mesId, ok: true, at: Date.now(), ms: Date.now() - started,
         inTok: Math.ceil(built.messages.reduce((sum, m) => sum + m.content.length, 0) / 4), outTok: Math.ceil(content.length / 4) };
       record('ok');
+      // The first successful run ends the first-run hints (SPEC §27).
+      if (!settings.hints.done) saveSettings(getContext(), { hints: { done: true } });
       settle();
       await saveStore(getContext());
     } catch (error) {
@@ -240,9 +254,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const data = loadStore(ctx), entry = findEntry(data, mesId, ctx.chat[mesId].swipe_id ?? 0);
     if (entry) entry.stale = true;
     publish();
-    const saved = saveStore(ctx);
-    if (loadSettings(ctx).recomputeOnEdit) void run(mesId, { type: 'edit' });
-    return saved;
+    // No automatic request: the drawer's stale status offers «⟳ Recompute» (SPEC §27).
+    return saveStore(ctx);
   }
 
   function chatChanged() {
@@ -342,12 +355,19 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     void run(id, { type });
   }
 
-  /** Manual edit: replace one section in the current state. Returns false when nothing could be saved. */
-  function editState(id, value) {
+  /** Manual edit of several sections at once (SPEC §25): `values = { [sectionId]: value }`, all or nothing. Every value
+   *  goes through the section schema; an unknown section or an invalid value returns false and writes nothing.
+   *  `history` (optional) = `{ [bondId]: lines | null }`: null drops that bond's history (person delete), an object puts
+   *  it back (undo). One cancel, one history record, one publish, one save. */
+  function editSections(values, { history } = {}) {
     const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
-    const section = getSections(settings, enabledPacks(data, settings)).find(item => item.id === id);
-    const cleaned = sanitizeSection(section, value);
-    if (!section || cleaned === undefined) return false;
+    if (!values || typeof values !== 'object' || Array.isArray(values) || !Object.keys(values).length) return false;
+    const registry = getSections(settings, enabledPacks(data, settings)), cleaned = {};
+    for (const [id, value] of Object.entries(values)) {
+      const section = registry.find(item => item.id === id), result = sanitizeSection(section, value);
+      if (!section || result === undefined) return false;
+      cleaned[id] = result;
+    }
     let entry = currentEntry(data, ctx.chat);
     if (!entry) {
       const mesId = lastCharacterId(ctx);
@@ -360,14 +380,26 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     }
     // The user's edit wins over a side-model reply that was computed from the old state.
     cancel(); lastFingerprint = undefined;
-    entry.state[id] = cleaned;
+    Object.assign(entry.state, cleaned);
     entry.state.meta = { ...entry.state.meta, editedAt: Date.now() };
     delete entry.stale;
-    if (id === 'bonds') recordHistory(data, cleaned, entry.mesId, bondScales(settings).map(scale => scale.key));
+    if (history && typeof history === 'object') {
+      for (const [id, lines] of Object.entries(history)) {
+        if (lines && typeof lines === 'object') (data.history ??= {})[id] = structuredClone(lines);
+        else if (data.history) delete data.history[id];
+      }
+    }
+    if (cleaned.bonds) recordHistory(data, cleaned.bonds, entry.mesId, bondScales(settings).map(scale => scale.key));
+    for (const id of Object.keys(cleaned)) {
+      if (isStats(registry.find(item => item.id === id))) recordStatHistory(data, id, cleaned[id], entry.mesId);
+    }
     publish();
     void saveStore(ctx);
     return true;
   }
+
+  /** Manual edit of one section (SPEC §13): a wrapper over editSections. */
+  const editState = (id, value) => editSections({ [id]: value });
 
   async function seedLegacy() {
     const ctx = getContext(), data = loadStore(ctx);
@@ -382,6 +414,16 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     putEntry(data, { mesId, swipeId, turn, state, turnsSince: {} }, loadSettings(ctx).keep);
     publish();
     await saveStore(ctx);
+    return true;
+  }
+
+  /** «Скрыть» on the legacy import banner (SPEC §28): one per-chat flag, nothing else changes. */
+  function hideLegacyBanner() {
+    const ctx = getContext(), data = loadStore(ctx);
+    if (data.legacyBannerHidden === true) return false;
+    data.legacyBannerHidden = true;
+    publish();
+    void saveStore(ctx);
     return true;
   }
 
@@ -405,7 +447,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
     idle: () => active?.promise ?? Promise.resolve(),
     preview, clearLog() { log = []; publish(); },
-    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setSectionsMode, setPack, seedLegacy, editState, rollDice,
+    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setSectionsMode, setPack, seedLegacy, hideLegacyBanner, editState, editSections, rollDice,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },
   };

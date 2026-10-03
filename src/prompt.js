@@ -60,6 +60,7 @@ export function buildPrompt(options = {}) {
     const speaker = message.name || (message.is_user ? options.userName : options.characterName) || (message.is_user ? 'User' : 'Character');
     return `[${speaker}] ${cleanMessage(message.mes)}`;
   }).join('\n');
+  const userName = options.name1 ?? options.userName ?? 'User', charName = options.characterName ?? options.name2 ?? 'Character';
   const card = clip(options.card ?? '', settings.cardChars ?? 6000);
   const persona = clip(options.persona ?? '', 1500);
   const loreValue = Array.isArray(options.lore) ? options.lore.map(entry => entry?.content ?? '').filter(Boolean).join('\n') : options.lore;
@@ -67,7 +68,15 @@ export function buildPrompt(options = {}) {
   return {
     messages: [
       { role: 'system', content: system },
-      { role: 'user', content: `CARD:\n${card}\n\nPERSONA:\n${persona}\n\nLORE (activated last turn):\n${lore}` },
+      // Who is who, by name: a cheap side model otherwise reads the card as the user (3 Oct 2026).
+      { role: 'user', content: `CHARACTER CARD (${charName}: the AI's character, an NPC, not the user):
+${card}
+
+USER PERSONA (${userName}: the user's own character, the one the world.pc fields describe):
+${persona}
+
+LORE (activated last turn):
+${lore}` },
       { role: 'user', content: `PREVIOUS STATE:\n${JSON.stringify(previous)}${names}` },
       { role: 'user', content: `LAST MESSAGES:\n${chat}` },
     ],

@@ -56,18 +56,19 @@ test('panel follows newest character, survives ST replacement, opens drawer and 
   fake.ctx.chatMetadata = {}; await fake.emit('CHAT_CHANGED'); assert.equal(query(), null);
 });
 
-test('drawer import is visible only with legacy and empty ring; opening never seeds', async t => {
+test('drawer import banner is visible only with legacy and empty ring; opening never seeds', async t => {
   const dom = new JSDOM('<body></body>'), fake = createFakeST();
   fake.ctx.chat.push(structuredClone(fixture));
   const runtime = createRuntime(fake.getContext); runtime.start();
   const drawer = createDrawer(runtime, { document: dom.window.document });
   t.after(() => { drawer.dispose(); runtime.dispose(); dom.window.close(); });
-  const button = drawer.element.querySelector('.st-sable-legacy-button');
-  assert.equal(button.hidden, false);
+  const banner = drawer.element.querySelector('.st-sable-legacy-banner');
+  const button = banner.querySelector('[data-control="legacy-import"]');
+  assert.equal(banner.hidden, false);
   drawer.open(); assert.equal(runtime.snapshot().store.ring.length, 0);
   button.click(); await Promise.resolve();
   assert.equal(runtime.snapshot().store.ring.length, 1);
-  assert.equal(button.hidden, true);
+  assert.equal(banner.hidden, true);
   fake.ctx.chat = []; fake.ctx.chatMetadata = {}; await fake.emit('CHAT_CHANGED');
-  assert.equal(button.hidden, true);
+  assert.equal(banner.hidden, true);
 });
