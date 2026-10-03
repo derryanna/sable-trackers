@@ -347,7 +347,7 @@ test('settings: the Packs group folds, lists packs with defaults, scope and copi
   assert.equal(combat.querySelector('.st-sable-adult').hidden, true);
   assert.equal(intimacy.querySelector('.st-sable-custom-name').textContent, 'Intimacy');
   assert.equal(intimacy.querySelector('.st-sable-adult').hidden, false);
-  assert.equal(intimacy.querySelector('.st-sable-pack-desc').textContent, 'Tracks established adult scenes (18+), arousal, stamina, counters and marks.');
+  assert.equal(intimacy.querySelector('.st-sable-pack-desc').textContent, 'Tracks established adult scenes (18+): arousal, stamina, counters and marks, plus achievements and a cheeky commentator.');
   assert.equal(combat.querySelector('[name="packs.default"]').parentElement.textContent, 'On in new chats');
   assert.equal(combat.querySelector('[name="packs.default"]').checked, false);
   change('[data-pack="combat"] [name="packs.default"]', true);
@@ -416,12 +416,17 @@ test('settings: the Packs group folds, lists packs with defaults, scope and copi
   const danger = sq('[data-group="danger"]');
   assert.ok(danger.querySelector('[data-prompt-section="combat_stats"]'), 'built-in pack sections are listed');
   assert.ok(danger.querySelector('[data-prompt-section="intimacy_marks"]'));
+  assert.equal(danger.querySelector('[data-prompt-section="combat_stats"]').closest('[data-prompt-pack]').dataset.promptPack, 'combat', 'pack sections nest under their pack');
+  assert.equal(danger.querySelector('[data-prompt-pack="combat"] .st-sable-prompt-pack-body > :first-child').dataset.promptRules, 'combat', 'the pack rules row comes first');
+  assert.equal(danger.querySelector('[data-prompt-section="world"]').closest('[data-prompt-pack]'), null, 'built-in sections stay flat');
   assert.equal(danger.querySelector(`[data-prompt-section="${copy.id}_stats"]`), null, 'user pack sections keep their own instructions');
   assert.equal(danger.querySelector('[data-prompt-section="combat_stats"] summary span:last-of-type').textContent, 'Combat stats');
   assert.equal(danger.querySelector('[name="prompts.combat_stats"]').value, BUILTIN_PACKS[0].sections[1].instructions);
   change('[name="prompts.combat_stats"]', 'Stats override');
   assert.deepEqual(calls.patches.at(-1), { prompts: { sections: { combat_stats: 'Stats override' } } });
   const packField = danger.querySelector('[data-prompt-pack="combat"]');
+  assert.equal(packField.querySelector('[data-pack-changed]').hidden, false, 'a member override shows on the group');
+  assert.equal(danger.querySelector('[data-prompt-pack="intimacy"] [data-pack-changed]').hidden, true);
   assert.ok(packField.querySelector('summary .fa-hand-fist'));
   assert.equal(packField.querySelector('summary > span:nth-of-type(2)').textContent, 'Combat');
   assert.equal(packField.querySelector('summary .st-sable-adult').hidden, true);
@@ -441,6 +446,7 @@ test('settings: the Packs group folds, lists packs with defaults, scope and copi
   button('[data-group="danger"]', 'Reset all instructions').click();
   button('[data-group="danger"]', 'Tap again to reset all instructions').click();
   assert.deepEqual(runtime.snapshot().settings.prompts, { rules: null, sections: {}, packs: {} });
+  assert.equal(packField.querySelector('[data-pack-changed]').hidden, true, 'reset clears the group badge');
   runtime.updateSettings({ language: 'ru' });
   assert.equal(group.querySelector('summary h4').textContent, 'Наборы');
   assert.equal(combat.querySelector('.st-sable-custom-name').textContent, 'Бой');
@@ -537,7 +543,7 @@ test('groupedOrder: pack blocks are contiguous at the first member, keep their r
   assert.deepEqual(groupedOrder(['world', 'combat_stats', 'threads', 'combat_scene'], sections, ['combat']).slice(0, 6),
     ['world', 'combat_stats', 'combat_scene', 'combat_effects', 'combat_odds', 'threads'], 'placed where the first member appears, relative order kept');
   const absent = groupedOrder(['intimacy_marks', 'banlist'], sections, ['combat', 'intimacy']);
-  assert.deepEqual(absent.slice(0, 5), ['intimacy_marks', 'intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'banlist']);
+  assert.deepEqual(absent.slice(0, 7), ['intimacy_marks', 'intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_achievements', 'intimacy_commentary', 'banlist']);
   assert.deepEqual(absent.slice(-4), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds'], 'a pack with no entry goes to the end');
   assert.deepEqual(groupedOrder(['combat_odds', 'world'], sections, []).slice(0, 2), ['combat_odds', 'world'], 'packs not listed stay flat');
   assert.deepEqual(groupedOrder(['combat_odds', 'world', 'combat_scene'], sections, [{ id: 'combat' }]).slice(0, 5),
@@ -566,7 +572,7 @@ test('groups: one container per enabled pack with the pack title, a four-control
   assert.equal(intimacy.querySelector('.st-sable-group-header .st-sable-card-label').textContent, 'Интим');
   assert.equal(intimacy.querySelector('.st-sable-group-header .st-sable-adult').textContent, '18+');
   assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']);
-  assert.deepEqual(members('intimacy'), ['intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks']);
+  assert.deepEqual(members('intimacy'), ['intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks', 'intimacy_achievements', 'intimacy_commentary']);
   assert.equal(card('world').parentElement, query('.st-sable-cards'), 'built-ins stay flat');
   assert.equal(card('combat_stats').parentElement, combat.querySelector('.st-sable-group-body'));
   assert.equal(card('combat_stats').querySelector('[data-control="mode"]').textContent, 'в промпт', 'members keep their own chip');
@@ -706,7 +712,7 @@ test('order: the group handle moves the block among flat cards, a member handle 
   assert.deepEqual(shown().slice(-3), ['pack:combat', 'banlist', 'pack:intimacy'], 'the whole block steps over a card');
   assert.equal(document.activeElement, handle(), 'focus follows the group handle');
   const order = runtime.snapshot().settings.order;
-  assert.deepEqual(order.slice(-9), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds', 'banlist', 'intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks'], 'flat, contiguous block');
+  assert.deepEqual(order.slice(-11), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds', 'banlist', 'intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks', 'intimacy_achievements', 'intimacy_commentary'], 'flat, contiguous block');
   assert.equal(order.length, new Set(order).size);
   key(group('intimacy').querySelector('.st-sable-group-header [data-control="handle"]'), 'ArrowUp');
   assert.deepEqual(shown().slice(-3), ['pack:combat', 'pack:intimacy', 'banlist'], 'blocks step over each other');
@@ -723,7 +729,7 @@ test('order: the group handle moves the block among flat cards, a member handle 
   for (let i = 0; i < 4; i++) key(member('combat_scene'), 'ArrowDown');
   assert.deepEqual(members('combat'), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene'], 'the last member cannot leave the group downwards');
   assert.deepEqual(shown().slice(-4), ['planner', 'banlist', 'pack:combat', 'pack:intimacy'], 'the rest of the order is untouched');
-  assert.deepEqual(runtime.snapshot().settings.order.slice(-8), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene', 'intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks']);
+  assert.deepEqual(runtime.snapshot().settings.order.slice(-10), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene', 'intimacy_scene', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks', 'intimacy_achievements', 'intimacy_commentary']);
   // Touch drag (beginDrag) at both levels: the group among the flat cards, a member inside its group.
   const stub = parent => { for (const [index, item] of [...parent.children].entries()) item.getBoundingClientRect = () => ({ top: index * 100, height: 100 }); };
   const at = (target, type, y) => {

@@ -96,19 +96,22 @@ test('packs registry preserves the default list and appends enabled packs in reg
   assert.deepEqual(combat.slice(normal.length).map(s => s.id), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']);
   assert.equal(combat.at(-1).custom, true); assert.equal(combat.at(-1).pack, 'combat');
   assert.deepEqual(getSections(settings, ['intimacy', 'combat']).slice(normal.length).map(s => s.id), all.slice(SECTIONS.length).map(s => s.id));
-  assert.equal(getAllSections(settings).length, normal.length + 9);
+  assert.equal(getAllSections(settings).length, normal.length + 11);
   assert.ok(isPackSectionId('p_0123abcd_stock', settings));
   assert.ok(!isPackSectionId('p_deadbeef_stock', settings));
   assert.ok(!isPackSectionId('combat_unknown', settings));
   assert.deepEqual(all.slice(SECTIONS.length).map(s => [s.id, s.shape, s.schema.max]), [
     ['combat_scene', 'text', 600], ['combat_stats', 'stats', 12], ['combat_effects', 'tags', 10], ['combat_odds', 'kv', 6],
     ['intimacy_scene', 'text', 600], ['intimacy_arousal', 'stats', 8], ['intimacy_counters', 'stats', 8], ['intimacy_marks', 'tags', 10],
+    ['intimacy_achievements', 'tags', 8], ['intimacy_commentary', 'text', 600],
   ]);
   for (const p of BUILTIN_PACKS) {
     assert.equal(p.scope, true);
     for (const lang of ['ru', 'en']) for (const key of [p.title, p.description, ...p.sections.map(s => s.title)]) assert.notEqual(t(key, lang), key);
-    assert.ok(p.sections.every(s => s.mode === 'inject' && s.period === 1));
+    assert.ok(p.sections.every(s => ['inject', 'show'].includes(s.mode) && s.period === 1));
   }
+  assert.deepEqual(BUILTIN_PACKS.flatMap(p => p.sections.filter(s => s.mode === 'show').map(s => `${p.id}_${s.key}`)),
+    ['intimacy_achievements', 'intimacy_commentary'], 'the playful cards are shown, not injected');
   assert.ok(!all.some(s => s.id === 'combat_roll'));
   assert.match(BUILTIN_PACKS[1].rules, /established adult.*empty values/);
   assert.match(BUILTIN_PACKS[1].sections[2].instructions, /max: null/);

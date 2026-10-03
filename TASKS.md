@@ -172,6 +172,20 @@ with the hint, and the setting firing exactly one run per edit.
 
 T14 edited replies: live-entry fallback drives injection and request bases; the drawer retains stale state, and optional recomputation runs once per edit. Regression coverage includes refresh, cancellation and settings.
 
+## T15 — Instruction list grouped by pack; playful intimacy cards  [x]
+Danger zone (3 Oct 2026, maintainer's phone screenshot: «паки тоже сделать с разбивкой»): the "Model instructions" list
+was flat, with the pack rules dangling after every section. Now the built-in sections stay flat and every built-in pack is
+one nested `details.st-sable-prompt-pack[data-prompt-pack]` (pack glyph, `packTitle()` with the 18+ badge, a «Набор»
+hint, and a `[data-pack-changed]` badge while the rules or any member differ from default), holding the pack rules row
+(`[data-prompt-rules]`) first and then the pack's sections (`[data-prompt-section]`) in `settings.order`, the same
+breakdown as the drawer groups (T13). `promptControls` entries carry their `container`, so `renderDanger()` reorders rows
+inside the flat list or inside the pack body after its rules row. Intimacy pack: two cards shown by default and not
+injected (`mode: 'show'`; the `section()` helper takes a mode argument): `intimacy_achievements` (tags, max 8: video-game
+style badges unlocked only for explicit events, kept across replies in their wording) and `intimacy_commentary` (text:
+one or two tongue-in-cheek sentences in a voice picked for the moment: sports commentator, nature documentary, tabloid
+headline, dating show, trailer). Both keep the adult guard, neither uses `{{scope}}`, so the pack's group chip reads
+«смешано» until the user aligns the modes. Validation: tests, headless Chromium render of the real-ST Danger zone.
+
 ## Notes from previous tasks
 (append here)
 - T13: the drawer's top-level children are `.st-sable-card` or `.st-sable-group`; find cards with

@@ -486,7 +486,12 @@ Built-in packs for v1 (content is a task; shapes are fixed here):
 - `intimacy` (18+): `intimacy_scene` (text: position, pace, who leads, consent
   state), `intimacy_arousal` (stats per participant: arousal 0–100 as a labelled estimate in any scene, stamina),
   `intimacy_counters` (stats with `max: null`: climaxes, minutes, volume in ml,
-  max 8), `intimacy_marks` (tags: visible marks and state, max 10). Rules keep
+  max 8), `intimacy_marks` (tags: visible marks and state, max 10), plus two
+  playful cards whose default mode is `show` (visible, not injected):
+  `intimacy_achievements` (tags, max 8: video-game style badges unlocked only
+  for explicit events, kept across replies) and `intimacy_commentary` (text: one
+  or two tongue-in-cheek sentences in a voice picked for the moment, such as a
+  sports commentator or a nature documentary). Rules keep
   the canon guard from §2 unchanged: every participant must be an established
   adult, otherwise the pack returns empty values; nothing is invented.
 - Candidates for later: `investigation` (clues, suspects, leads),

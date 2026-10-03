@@ -824,23 +824,30 @@ export function createSettings(runtime, { document = globalThis.document,
   rulesLabel.htmlFor = 'st-sable-rules'; danger.append(rulesLabel);
   promptField(danger, 'rules', COMMON_RULES, rulesLabel, 'rules'); promptControls.get('rules').input.id = rulesLabel.htmlFor;
   danger.append(promptList);
-  for (const section of builtinSections()) {
+  function promptRow(section, container) {
     const row = node('details', 'st-sable-prompt'); row.dataset.promptSection = section.id;
     const summary = node('summary'), glyph = node('span', 'st-sable-settings-glyph');
     summary.append(glyph, text('span', '', () => sectionTitle(section.id))); row.append(summary);
     promptField(row, section.id, section.pack ? BUILTIN_PACKS.find(p => p.id === section.pack).sections.find(s => `${section.pack}_${s.key}` === section.id).instructions : section.instructions, summary);
-    promptControls.get(section.id).glyph = glyph; promptList.append(row);
+    Object.assign(promptControls.get(section.id), { glyph, container }); container.append(row);
   }
-  // Pack rules of the built-in packs (prompts.packs[id]) follow the section list with the same Default button and badge.
+  for (const section of builtinSections()) if (!section.pack) promptRow(section, promptList);
+  // Built-in packs follow as one collapsible group each, the same breakdown as the drawer groups: the pack rules
+  // (prompts.packs[id]) first, then the pack's sections, every row with the same Default button and badge.
   const packPromptList = node('div'); danger.append(packPromptList);
   for (const pack of BUILTIN_PACKS) {
-    const row = node('details', 'st-sable-prompt'); row.dataset.promptPack = pack.id;
+    const group = node('details', 'st-sable-prompt-pack'); group.dataset.promptPack = pack.id;
     const summary = node('summary'), glyph = node('span', 'st-sable-settings-glyph'); glyph.append(glyphNode(document, pack.icon));
     const name = () => packTitle(view.packs.available.find(p => p.id === pack.id)?.title).text;
-    summary.append(glyph, text('span', '', name), text('span', 'st-sable-adult', 'packs.adult'), text('small', 'st-sable-pack-kind', 'prompts.packRules'));
-    row.append(summary);
-    promptField(row, pack.id, pack.rules, summary, 'pack');
-    promptControls.get(pack.id).adult = summary.querySelector('.st-sable-adult'); packPromptList.append(row);
+    const changedAll = text('small', 'st-sable-pack-changed', 'prompts.changed'); changedAll.dataset.packChanged = '';
+    summary.append(glyph, text('span', '', name), text('span', 'st-sable-adult', 'packs.adult'), text('small', 'st-sable-pack-kind', 'packs.group'), changedAll);
+    const body = node('div', 'st-sable-prompt-pack-body'); group.append(summary, body); packPromptList.append(group);
+    const row = node('details', 'st-sable-prompt'); row.dataset.promptRules = pack.id;
+    const rowSummary = node('summary'), rowGlyph = node('span', 'st-sable-settings-glyph'); rowGlyph.append(glyphNode(document, 'fa-scroll'));
+    rowSummary.append(rowGlyph, text('span', '', 'prompts.packRules')); row.append(rowSummary);
+    promptField(row, pack.id, pack.rules, rowSummary, 'pack'); body.append(row);
+    Object.assign(promptControls.get(pack.id), { adult: summary.querySelector('.st-sable-adult'), changedAll });
+    for (const section of builtinSections()) if (section.pack === pack.id) promptRow(section, body);
   }
   let resetArmed = false;
   const resetPrompts = button(danger, () => label(resetArmed ? 'prompts.confirmResetAll' : 'prompts.resetAll'), 'eraser', () => {
@@ -878,21 +885,24 @@ export function createSettings(runtime, { document = globalThis.document,
   button(logActions, 'log.clear', 'trash-can', () => runtime.clearLog());
   function renderDanger() {
     const sections = builtinSections(), texts = getPromptTexts(view.settings, getAllSections(view.settings));
-    let previous = null;
+    const previous = new Map();
     for (const id of ['rules', ...orderedSectionIds(view.settings.order, sections)]) {
       const control = promptControls.get(id), rules = id === 'rules';
       const changed = rules ? view.settings.prompts?.rules != null : view.settings.prompts?.sections?.[id] != null;
       setValue(control.input, rules ? texts.rules : texts.sections[id]); control.reset.disabled = !changed; control.badge.hidden = !changed;
       if (rules) continue;
       control.glyph.replaceChildren(sectionGlyph(document, sections.find(s => s.id === id), view.settings.visual?.icons));
-      const expected = previous ? previous.nextSibling : promptList.firstChild;
-      if (expected !== control.parent) promptList.insertBefore(control.parent, expected);
-      previous = control.parent;
+      // Rows follow settings.order inside their container: the flat list, or a pack body after its rules row.
+      const { container } = control, last = previous.get(container) ?? (container === promptList ? null : container.firstChild);
+      const expected = last ? last.nextSibling : container.firstChild;
+      if (expected !== control.parent) container.insertBefore(control.parent, expected);
+      previous.set(container, control.parent);
     }
     for (const pack of BUILTIN_PACKS) {
       const control = promptControls.get(pack.id), changed = view.settings.prompts?.packs?.[pack.id] != null;
       setValue(control.input, texts.packs[pack.id]); control.reset.disabled = !changed; control.badge.hidden = !changed;
       control.adult.hidden = !packTitle(view.packs.available.find(p => p.id === pack.id)?.title).adult;
+      control.changedAll.hidden = !changed && !sections.some(s => s.pack === pack.id && view.settings.prompts?.sections?.[s.id] != null);
     }
     // The log array is replaced only by a recorded run or Clear; other publishes (sliders, folds) keep the rows.
     if (view.log === renderedLog && view.settings.language === renderedLanguage) return;

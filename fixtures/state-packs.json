@@ -24,5 +24,7 @@
     { "key": "Traveller · minutes", "value": 5, "max": null, "unit": "min", "note": "stated duration", "delta": 5 },
     { "key": "Traveller · volume", "value": 0, "max": null, "unit": "ml", "note": "explicit zero" }
   ],
-  "intimacy_marks": ["Guard · flushed cheeks", "Traveller · relaxed posture"]
+  "intimacy_marks": ["Guard · flushed cheeks", "Traveller · relaxed posture"],
+  "intimacy_achievements": ["Bench warmers: a whole scene seated", "Guard · said the quiet part out loud"],
+  "intimacy_commentary": "And the Traveller settles in for the long game, folks; the Guard has not blinked in forty seconds."
 }
