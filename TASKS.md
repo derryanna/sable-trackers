@@ -244,6 +244,31 @@ text), merge over active keys, digest and drawer showing active scales only, a c
 settings group (toggle writes `off`, custom rows write `custom`), every existing test green, README ru + en and
 SPEC §2 mention the group.
 
+## T19 — Layout option: by people  [ ]
+SPEC §21 (3 Oct 2026, maintainer: «по персонажу делала бы как опцию»). `settings.layout` (`topics` | `people`,
+select in Settings → Sections). In the people layout the four NPC-keyed sections (`npcs`, `thoughts`, `bonds`,
+`dossiers`) render as one built-in group «Люди» (`[data-people]`, pack-group header with an aggregate chip over
+the four modes, fold `folded.people`) holding one person card per NPC (`[data-person]`: presence dot + name +
+mood header, fold `folded['person:<id>']`, body = npcs fields + spoiler, thought, bond rows as keyed
+`scaleRow`s, matching dossier), unmatched dossiers as trailing person cards, no editor and no «В группу…» on
+person cards, hideOff when all four are off; everything else renders as in the topics layout; storage, prompt
+and digest untouched. Done when: tests cover the select, the group and its chip, person card order and content
+per mode, the dossier match, keyed persistence of person cards and bond rows across renders, hideOff, folders
+that list an NPC section, the topics layout unchanged (existing tests green); README ru + en mention the
+option; `dev/preview.html` accepts `?layout=people`.
+
+## T20 — Bond visuals: history sparklines and signed custom scales  [ ]
+SPEC §22 (3 Oct 2026, maintainer: «визуал я оч люблю»). `store.history[bondId][scale]` = up to 12
+`{ mesId, value }` points written when a run result or a manual edit is stored (same `mesId` replaces, pruned
+with the ring), `visual.sparklines` (default true) → a 12-bar `div.st-sable-spark` under a bond bar with ≥ 2
+points, tinted like the bar; any scale can be signed per scale (`bondScales.signed` for built-ins, `signed`
+on custom entries; range −100…+100, schema `score` with `min: -100`, the definition gets the signed sentence,
+a centred bar with a hairline, signed numbers, warm tint for the negative side) in the drawer, the panel and
+the §20 settings group (a second «−100…+100» checkbox per scale). Done when: tests cover history writes (append,
+replace on the same mesId, cap 12, prune), the sparkline (hidden under 2 points, bar count and heights, the
+visual toggle), signed parsing and clamping, the centred bar and signed labels, the settings checkbox; every
+existing test green; README ru + en mention both; SPEC §12 lists `visual.sparklines`.
+
 ## Notes from previous tasks
 (append here)
 - T18: `bondScales(settings)`, `bondsSection(settings)`, `normalizeBondScales`, `BOND_SCALE_HINTS`, `FRICTION_SCALES`,

@@ -789,3 +789,115 @@ the built-in scales can be switched off one by one and custom scales added.
 
 Per-chat scale sets, reordering built-in scales, scales with a range other
 than 0–100, migrating values between a built-in and a custom key.
+
+## 21. Layout option: by topics or by people
+
+Why (3 Oct 2026): a community widget shows one card per character with
+everything about that character on it; the maintainer wants that as an
+**option**, not a replacement. Sable's data is already keyed by NPC in four
+sections (`npcs`, `thoughts`, `bonds`, `dossiers`), so a second layout can be
+a pure re-slicing of the same state. Nothing changes in storage, the prompt
+or the digest.
+
+### Setting
+
+- `settings.layout`: `'topics'` (default, today's drawer) | `'people'`.
+  Settings → Sections: a select «Раскладка панели: по темам / по
+  персонажам» / "Drawer layout: by topics / by people", placed before the
+  Sections table. Global, like `order`.
+
+### People layout
+
+- The flat cards that are not NPC-keyed (`world`, `offscreen`, `threads`,
+  `story`, `planner`, `banlist`, custom blocks, pack groups, folders) render
+  exactly as in the topics layout. The four NPC-keyed sections do not render
+  as cards; instead one built-in group «Люди» / "People"
+  (`section.st-sable-group[data-people]`, glyph `fa-users`) takes the
+  position of the first of them in the grouped order and holds one **person
+  card** per NPC. The group header is the pack-group header (handle for the
+  whole block, title, an aggregate chip over the four sections' modes with
+  the same set-all menu, fold under `folded['people']`). A folder that lists
+  any of the four sections keeps its other members; those four are consumed
+  by the People group while this layout is on.
+- Person card: `section.st-sable-card[data-person="<npcId>"]`, no handle
+  (order = present NPCs first, then absent, each by their order in `npcs`),
+  header = presence dot, name, mood (as the npcs row summary), fold under
+  `folded['person:<id>']` (absent NPCs start folded, present ones open, as
+  the npcs rows do today). Body, in this order and only for sections whose
+  mode is not `off`:
+  1. the npcs fields (`agenda` first, then outfit, position, action,
+     wants_toward) and the «Тайна» spoiler (§19);
+  2. the thought as a blockquote (present NPCs only, as today);
+  3. the bond rows (`toward` line, then the active scales as keyed
+     `scaleRow`s with keys `person:<id>:<scale>` so bars slide and flash as
+     in §16);
+  4. the dossier fields (role, look, voice, hook) when a dossier matches the
+     NPC by `name` (case-insensitive) or `id`.
+  A dossier with no matching NPC gets its own person card at the end of the
+  group with the dossier fields only.
+- Footer: «Редактировать» opens the npcs editor row for this NPC? No: v1
+  keeps the schema-driven editors per section. The person card footer shows
+  a muted hint «Редактирование: в раскладке по темам» / "Editing: in the
+  topics layout" and the «В группу…» button is absent (person cards are not
+  reorderable members).
+- Change flags, the title dot, crit glow and card colours (`visual.cardColors`
+  keyed `person:<id>` is out of scope; person cards take the npcs card colour
+  if set) keep working through the keyed rows.
+- hideOff: a person card hides when all four sections are off (then the group
+  hides); the reveal row shows them back. «Скрыто: N» counts the four
+  sections as today, not the person cards.
+- Keyed persistence (§16): person cards persist across renders keyed by NPC
+  id; the People group container persists like a pack group.
+
+### Non-goals
+
+Editing from a person card, per-person colours, reordering people, the
+reply panel (unchanged).
+
+## 22. Bond visuals: history sparklines and signed custom scales
+
+Why (3 Oct 2026): the maintainer wants richer bond visuals from the same
+widget: a small history line under each scale and a signed scale with a
+centre (hatred on the left, love on the right).
+
+### History
+
+- `store.history = { [bondId]: { [scaleKey]: [{ mesId, value }] } }` per
+  chat, at most 12 points per scale, written in `run.js` when a run result
+  is stored: for each bond and each active scale with a numeric value, push
+  `{ mesId, value }`; if the last point has the same `mesId` (a swipe, an
+  edit, a refresh of the same reply) replace it instead; trim to 12. Pruned
+  with the ring on `MESSAGE_DELETED` (drop points whose `mesId` is gone).
+  Manual edits (`editState`) write a point the same way.
+- Drawer: under a bond bar, when the scale has at least 2 history points and
+  `visual.sparklines` is on (boolean, default true, Appearance → Cards), a
+  `div.st-sable-spark` of up to 12 `span` bars (height = value / range),
+  tinted like the bar (friction = warm), 16 px tall, `aria-hidden`, no text.
+  Plain DOM, no canvas. The effects level `off` still shows it (static).
+- The reply panel and the digest ignore history.
+
+### Signed scales
+
+- Any active scale can be signed, per scale: range −100…+100, where negative
+  means the opposite feeling (affection → dislike, trust → distrust, a custom
+  «ревность» → the opposite of jealousy). Built-ins: `settings.bondScales.signed`
+  (array of built-in keys, normalised like `off`); custom scales (§20) gain
+  `signed` (boolean, default false). `bondScales()` descriptors carry
+  `signed`. Schema: a `score` with `min: -100` for signed keys (parse clamps
+  accordingly; unsigned scales stay 0–100). The side-model definition of a
+  signed scale gets the sentence "−100…+100, negative = the opposite feeling"
+  appended automatically. Values already stored stay as they are when the
+  flag changes.
+- Drawer and panel: a signed scale renders a centred bar: a hairline at 50 %,
+  the fill from the centre to the value (right for positive, left for
+  negative; negative uses the warm tint, positive the accent), the number
+  signed («−40», «+65»), delta badges unchanged. The merge delta rule (at
+  most 10 per reply unless major) applies as is.
+- Settings (the §20 group): every built-in scale row gets a second checkbox
+  «−100…+100» next to its on/off checkbox, writing `bondScales.signed` as a
+  whole array; the custom scale row gets the same checkbox next to «трение».
+
+### Non-goals
+
+History for pack stats, exporting history, migrating values when a scale
+changes range.
