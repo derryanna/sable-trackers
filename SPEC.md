@@ -1325,3 +1325,49 @@ and a short line in the settings saying the same.
   (`p.st-sable-settings-intro`, i18n `settings.intro`).
 - Tests: the hint sequence has four steps with the new third title; the
   settings block starts with the intro line.
+
+## 31. Request resilience: rejected reasoning parameters, cut output, empty output
+
+Why (4 Oct 2026, night): on her tavern every run failed for eleven replies in
+a row and the injected state was half an hour old. Two causes found by
+replaying the request from the server: (1) the Rout Gemini lane answers
+HTTP 400 "Invalid request for this model. Please remove unsupported
+parameters" whenever the reasoning parameters of §(«Размышления модели»)
+are present, which pushed her onto a slower profile; (2) on that profile
+the output (reasoning tokens count against `max_tokens`) ran past 6000
+tokens, the JSON was cut, and the parser reported only the generic
+«Не удалось обновить состояние сцены».
+
+- **Retry without reasoning parameters.** `execute` sends the request with
+  `reasoningPayload(settings)` as today. If the request fails with an error
+  that looks like a parameter rejection (HTTP status 400, or a message
+  containing `unsupported parameter`, `Invalid request for this model`,
+  `reasoning`), it retries **once** with an empty payload. The log entry
+  gets `retried: 'no-reasoning'` and a warning «Параметры размышлений
+  отклонены моделью, запрос повторён без них» / "The model rejected the
+  reasoning parameters; retried without them". For the rest of the page
+  session that profile id is kept in an in-memory set and the payload is
+  skipped from the start (one wasted request per reload is acceptable; no
+  persistence). The level «как у модели» still sends nothing.
+- **Cut output.** When the response contains `<sable_state>` but the JSON
+  cannot be parsed (no closing tag or a parse error), the run fails with
+  «Ответ обрезан: модель не дописала JSON. Увеличьте «Макс. токенов»
+  (сейчас N) или уменьшите размышления» / "The reply was cut: the model did
+  not finish the JSON. Raise Max tokens (now N) or reduce reasoning". N is
+  `settings.maxTokens`. The status footer shows this text as it shows
+  `lastRun.error` today.
+- **Empty output.** A response with no text at all fails with «Модель
+  вернула пустой ответ (фильтр содержимого?)» / "The model returned nothing
+  (content filter?)".
+- **Default max tokens** rises from the current default to 8000 for new
+  installs (`DEFAULTS.maxTokens`; stored values are kept as they are); the
+  settings hint for the field says that reasoning tokens count against it.
+- README: one paragraph in the setup section (en + ru) about these three
+  messages and the «как у модели» level.
+- Tests: a fake `ConnectionManagerRequestService` that rejects the first
+  call when the options carry a reasoning payload (error message with
+  "unsupported parameters") and succeeds without → one retry, state stored,
+  log entry flagged; a second run on the same profile sends no payload at
+  all; a truncated response → the cut-output message with N; an empty
+  response → the empty-output message; the normaliser default for
+  `maxTokens`.

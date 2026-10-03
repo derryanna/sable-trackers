@@ -369,6 +369,17 @@ counters 1/4…4/4), and the settings block opens with one muted intro line (`se
 intro), README (one sentence).
 Done when: `npm test` green with the four-step hint test and the intro test; `node --check`.
 
+## T31 — Request resilience: rejected reasoning parameters, cut output, empty output  [ ]
+SPEC §31 (4 Oct 2026 night, root cause of «состояние устаревшее»: Rout's Gemini lane 400s on the reasoning
+parameters; DeepSeek's reasoning + 24 sections overflow 6000 tokens and the cut JSON fails with a generic message).
+One retry without the reasoning payload on a parameter rejection (status 400 / "unsupported parameter" / "Invalid
+request for this model"), the profile remembered in memory for the page session, log entry flagged and a warning
+shown; specific errors for cut output (with the current max tokens) and empty output; `DEFAULTS.maxTokens` 8000 for
+new installs; README paragraph. Files: `src/run.js`, `src/settings.js`, `src/parse.js` (if a "cut" detector helps),
+i18n ru + en, `test/fakes` + tests, README.
+Done when: `npm test` green with the retry, the no-payload second run, the cut and empty messages, the default; `node
+--check`; no change to the prompt text or the store shape.
+
 ## Notes from previous tasks
 (append here)
 - T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and
