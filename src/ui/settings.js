@@ -153,10 +153,6 @@ export function createSettings(runtime, { document = globalThis.document,
     bind(labels, role.parentElement, 'hint.role', 'title');
   }
 
-  checkbox(context, 'recomputeOnEdit');
-  bind(labels, controls.get('recomputeOnEdit').parentElement, 'hint.recomputeOnEdit', 'title');
-  context.append(text('p', 'st-sable-settings-hint', 'hint.recomputeOnEdit'));
-
   // All sections follow drawer order; custom shape editing stays in Custom blocks.
   const sectionsGroup = group('sections', 'group.sections');
   // Drawer layout (SPEC §21): a view option before the table; storage, prompt and digest do not change.
@@ -761,7 +757,10 @@ export function createSettings(runtime, { document = globalThis.document,
   // Actions.
   const actions = group('actions', 'group.actions');
   const actionButtons = node('div', 'st-sable-settings-buttons'); actions.append(actionButtons);
-  button(actionButtons, 'runNow', 'rotate', () => { void runtime.refresh(); });
+  const runNow = button(actionButtons, 'runNow', 'rotate', () => { void runtime.refresh(); });
+  // First-run hints (SPEC §27): the drawer shows them again on its next opening.
+  const hintsAgain = button(actionButtons, 'hints.again', 'circle-question', () => runtime.updateSettings({ hints: { done: false } }));
+  hintsAgain.dataset.control = 'hints-again';
   const seed = button(actionButtons, 'seedLegacy', 'file-import', () => { void runtime.seedLegacy(); });
   const reset = button(actionButtons, 'resetOverrides', 'arrow-rotate-left', () => {
     for (const id of Object.keys(runtime.snapshot().store.modeOverride)) runtime.setMode(id, null, true);
@@ -1101,6 +1100,10 @@ export function createSettings(runtime, { document = globalThis.document,
       auto.setAttribute('aria-pressed', String(!visual[key]));
     }
     seed.disabled = !view.canSeedLegacy;
+    // Without a usable chat-completion profile Run now cannot work (SPEC §27); the title says why.
+    runNow.disabled = !!view.profileIssue;
+    if (view.profileIssue) runNow.title = label('noProfile'); else runNow.removeAttribute('title');
+    hintsAgain.disabled = !view.settings.hints?.done;
     reset.disabled = !Object.keys(view.store.modeOverride).length;
     refillProfiles();
     forced = undefined;

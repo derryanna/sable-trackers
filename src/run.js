@@ -15,6 +15,11 @@ const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue', 'ed
 const characterMessage = message => message && !message.is_user && !message.is_system;
 // Stats sections with history (SPEC §26): built-in pack sections and custom blocks of shape `stats`.
 const isStats = section => !!section?.custom && section.shape === 'stats';
+// The selected side-model profile (SPEC §27): null when usable, else the i18n key of the problem.
+export function profileIssue(ctx, settings) {
+  const profile = ctx.extensionSettings.connectionManager?.profiles?.find(p => p.id === settings.profileId);
+  return !settings.profileId || !profile ? 'profileRequired' : profile.mode !== 'cc' ? 'profileUnsupported' : null;
+}
 const isGroup = ctx => ctx.groupId !== undefined && ctx.groupId !== null && ctx.groupId !== '';
 
 /** Runtime shared by event wiring and future UI. No browser globals at import time. */
@@ -36,6 +41,9 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         description: p.builtin ? t(p.description, settings.language) : p.description, builtin: !!p.builtin, scope: p.scope, scopeDefault: p.scopeDefault })) },
       running: active ? { mesId: active.mesId, swipeId: active.swipeId, startedAt: active.startedAt } : null,
       canSeedLegacy: !store.ring.length && !!seedFromLegacy(ctx.chat),
+      // Connection Manager profiles for the hint's select (the settings control uses the same source and filter).
+      profileIssue: profileIssue(ctx, settings),
+      profiles: (ctx.extensionSettings.connectionManager?.profiles ?? []).map(p => ({ id: p.id, name: p.name ?? p.id, cc: p.mode === 'cc' })),
       name1: ctx.name1, name2: ctx.name2 };
   }
 
@@ -131,9 +139,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       const fingerprint = JSON.stringify([ctx.getCurrentChatId(), mesId, swipeId, message.mes]);
       if (!force && fingerprint === lastFingerprint) return;
       cancel();
-      const profile = ctx.extensionSettings.connectionManager?.profiles?.find(p => p.id === settings.profileId);
-      if (!profile) { warn('profileRequired', settings); return; }
-      if (profile.mode !== 'cc') { warn('profileUnsupported', settings); return; }
+      const issue = profileIssue(ctx, settings);
+      if (issue) { warn(issue, settings); return; }
       warnedProfile = false;
       lastFingerprint = fingerprint;
       const { base, turn, sections, counters, dueSections, built } = prepare(mesId, force);
@@ -194,6 +201,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       current.lastRun = { mesId, ok: true, at: Date.now(), ms: Date.now() - started,
         inTok: Math.ceil(built.messages.reduce((sum, m) => sum + m.content.length, 0) / 4), outTok: Math.ceil(content.length / 4) };
       record('ok');
+      // The first successful run ends the first-run hints (SPEC §27).
+      if (!settings.hints.done) saveSettings(getContext(), { hints: { done: true } });
       settle();
       await saveStore(getContext());
     } catch (error) {
@@ -243,9 +252,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const data = loadStore(ctx), entry = findEntry(data, mesId, ctx.chat[mesId].swipe_id ?? 0);
     if (entry) entry.stale = true;
     publish();
-    const saved = saveStore(ctx);
-    if (loadSettings(ctx).recomputeOnEdit) void run(mesId, { type: 'edit' });
-    return saved;
+    // No automatic request: the drawer's stale status offers «⟳ Recompute» (SPEC §27).
+    return saveStore(ctx);
   }
 
   function chatChanged() {

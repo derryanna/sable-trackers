@@ -185,6 +185,7 @@ const PRIORITIES = ['high', 'mid', 'low'];
 const revealed = new Set();
 // The NPC-keyed sections that the people layout (SPEC §21) shows as person cards.
 const PEOPLE = Object.freeze(['npcs', 'thoughts', 'bonds', 'dossiers']);
+const MODES = Object.freeze(['inject', 'show', 'off']);
 
 // "18+" is part of the intimacy pack's title (SPEC §15 Decisions); the UI shows it as a badge instead.
 export function packTitle(title) {
@@ -282,16 +283,20 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   header.append(title);
   const refresh = button('', 'refresh', () => { void runtime.refresh(); });
   const pin = button('', 'pin', () => runtime.updateSettings({ pinned: !view.settings.pinned }));
-  const settings = button('', 'settings', () => {
+  const settings = button('', 'settings', () => openSettings());
+  /** The gear path: close the drawer and show our block in the Extensions tab; `group` opens that settings group first. */
+  function openSettings(group) {
     hide(false);
-    if (onSettings) return onSettings();
+    if (group && !view.settings.groups?.[group]) runtime.updateSettings({ groups: { [group]: true } });
+    if (onSettings) return onSettings(group);
     const tab = document.querySelector('#extensions-settings-button');
     if (!tab?.querySelector('.openIcon')) (tab?.querySelector('.drawer-toggle') ?? tab)?.click();
     const section = document.querySelector('#st-sable-settings');
     const content = section?.querySelector('.inline-drawer-content');
     if (content && win.getComputedStyle(content).display === 'none') section.querySelector('.inline-drawer-toggle')?.click();
-    section?.scrollIntoView?.({ block: 'center' });
-  });
+    const target = group ? section?.querySelector(`[data-group="${group}"]`) ?? section : section;
+    target?.scrollIntoView?.({ block: 'center' });
+  }
   const close = button('', 'close', () => hide());
   for (const [element, name] of [[refresh, 'rotate'], [pin, 'thumbtack'], [settings, 'gear'], [close, 'xmark']]) element.append(icon(name));
   // Packs (SPEC §15): a header button opens the sheet; ✕ stays in the corner.
@@ -337,7 +342,12 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   rain.setAttribute('aria-hidden', 'true');
   // The undo pill (SPEC §24) sits above the status line, in the flow, so it never covers a card.
   const undo = createUndoPill(document, label);
-  drawer.append(rain, header, seed, cards, hiddenRow, undo.element, status, sheet);
+  // First-run hints (SPEC §27): one small dialog above the card list until settings.hints.done.
+  const hint = node('div', 'hint');
+  hint.id = 'st-sable-hint'; hint.hidden = true;
+  hint.setAttribute('role', 'dialog');
+  hint.setAttribute('aria-labelledby', 'st-sable-hint-title');
+  drawer.append(rain, header, seed, hint, cards, hiddenRow, undo.element, status, sheet);
   // Edge pull tab: glued to the screen edge when closed, to the panel's left edge when open.
   const tab = button('', 'open', () => { if (drawer.hidden) open(tab); else hide(false); }, 'tab');
   tab.append(icon('wand-magic-sparkles'), icon('chevron-right'));
@@ -459,6 +469,69 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     }
   }
 
+  /** The three lines of hint 2: what each mode means. */
+  function modeLegend(className) {
+    const legend = node('div', className);
+    for (const mode of MODES) legend.append(node('div', '', label(`legend.${mode}`)));
+    return legend;
+  }
+  // Hint step 0–2 lives in memory: a reload starts from the first one until «Don't show again» or the end.
+  let hintStep = 0, hintKey, hintsDone;
+  function renderHint() {
+    const done = !!view.settings.hints?.done;
+    if (hintsDone && !done) hintStep = 0;
+    hintsDone = done;
+    hint.hidden = done;
+    if (done) { hint.replaceChildren(); hintKey = undefined; return; }
+    const key = JSON.stringify([hintStep, view.settings.language, view.settings.profileId, view.profiles]);
+    if (key === hintKey) return;
+    hintKey = key;
+    const focusRole = hint.contains(document.activeElement) ? document.activeElement.dataset.control : null;
+    const step = hintStep + 1;
+    hint.dataset.step = String(step);
+    const top = node('div', 'hint-top');
+    const heading = node('h3', 'hint-title', label(`hints.${step}.title`)); heading.id = 'st-sable-hint-title';
+    top.append(heading, node('span', 'hint-count', `${step}/3`));
+    const body = node('div', 'hint-body');
+    if (step === 1) {
+      const profiles = view.profiles ?? [];
+      if (profiles.some(profile => profile.cc)) {
+        // The same source and filter as the settings control: non chat-completion profiles are listed but disabled.
+        const row = node('label', 'hint-row');
+        const select = node('select', 'hint-select');
+        select.dataset.control = 'hint-profile';
+        const add = (value, caption, disabled = false) => {
+          const option = node('option', '', caption); option.value = value; option.disabled = disabled; select.append(option);
+        };
+        add('', label('chooseProfile'));
+        for (const profile of profiles) add(profile.id, `${profile.name}${profile.cc ? '' : ` (${label('notCC')})`}`, !profile.cc);
+        const selected = view.settings.profileId;
+        if (selected && !profiles.some(profile => profile.id === selected)) add(selected, label('missingProfile'), true);
+        select.value = selected;
+        select.addEventListener('change', () => runtime.updateSettings({ profileId: select.value }));
+        row.append(node('span', 'hint-text', label('hints.1.text')), select);
+        body.append(row);
+      } else body.append(node('p', 'hint-text', label('hints.1.none')));
+    } else if (step === 2) body.append(modeLegend('hint-legend'));
+    else body.append(node('p', 'hint-text', label('hints.3.text')));
+    const actions = node('div', 'hint-actions');
+    const never = node('label', 'hint-never');
+    const box = document.createElement('input'); box.type = 'checkbox'; box.dataset.control = 'hint-never';
+    box.addEventListener('change', () => { if (box.checked) runtime.updateSettings({ hints: { done: true } }); });
+    never.append(box, node('span', '', label('hints.never')));
+    const last = hintStep === 2;
+    const next = button(label(last ? 'hints.done' : 'hints.next'), last ? 'hints.done' : 'hints.next', () => {
+      if (last) { runtime.updateSettings({ hints: { done: true } }); return; }
+      hintStep += 1;
+      renderHint();
+      hint.querySelector('[data-control="hint-next"]')?.focus();
+    }, 'hint-next');
+    next.dataset.control = 'hint-next';
+    actions.append(never, next);
+    hint.replaceChildren(top, body, actions);
+    if (focusRole) hint.querySelector(`[data-control="${focusRole}"]`)?.focus();
+  }
+
   function closeModeMenu(restoreFocus = true) {
     if (!modeMenu) return;
     const { chip, popup, hosts } = modeMenu;
@@ -497,6 +570,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       popup.append(item);
       return item;
     });
+    // The mode legend (SPEC §27) closes every mode menu; other menus (the folder picker) reuse this one without it.
+    if (entries.every(({ value }) => MODES.includes(value))) popup.append(modeLegend('menu-legend'));
     popup.addEventListener('keydown', event => {
       const available = choices.filter(item => !item.disabled), index = available.indexOf(document.activeElement);
       if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
@@ -1586,6 +1661,12 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     hiddenToggle.setAttribute('aria-expanded', String(revealOff));
     refresh.setAttribute('aria-busy', String(!!view.running));
     refresh.firstElementChild.classList.toggle('fa-spin', !!view.running && drawer.dataset.stSableEffects !== 'off');
+    // Cards drawn from a reply that was edited afterwards are dimmed until a recompute (SPEC §27).
+    for (const card of [...allCards, ...personCards]) card.classList.toggle('st-sable-stale', !!view.entry?.stale);
+    // No usable profile: the refresh control cannot run and says why (SPEC §27).
+    refresh.disabled = !!view.profileIssue;
+    if (view.profileIssue) { refresh.title = label('noProfile'); refresh.setAttribute('aria-label', label('noProfile')); }
+    renderHint();
     renderStatus();
     if (focusId && focusRole) cards.querySelector(`[data-section="${focusId}"] [data-control="${focusRole}"]`)?.focus();
     else if (focusPerson !== undefined && focusRole) [...cards.querySelectorAll('[data-person]')].find(card => card.dataset.person === focusPerson)
@@ -1612,7 +1693,21 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
           : `${time} · ${label(last.ok ? 'ok' : 'error')} · ${last.ms ?? '—'} ${label('duration')} · ~${last.inTok ?? '—'} / ~${last.outTok ?? '—'} ${label('tokens')}`));
       if (last.error) status.append(node('span', 'status-error', last.error));
     } else status.append(node('span', 'status-text', label('noRun')));
-    if (view.entry?.stale) status.append(node('span', 'stale', `↻ ${label('outdated')}`));
+    // Permanent setup path while no chat-completion profile is usable (SPEC §27), on top of the run warnings.
+    if (view.profileIssue) {
+      const setup = button(label('noProfile'), 'noProfile', () => openSettings('connection'), 'status-setup');
+      setup.dataset.control = 'setup';
+      status.append(setup);
+    }
+    // Edited latest reply (SPEC §27): the state is stale until the edit run recomputes it.
+    if (view.entry?.stale) {
+      const stale = node('span', 'status-stale', label('staleState'));
+      const recompute = button(label('recompute'), 'recompute', () => { void runtime.run(view.entry.mesId, { type: 'edit' }); }, 'recompute');
+      recompute.dataset.control = 'recompute';
+      recompute.disabled = !!view.running || !!view.profileIssue;
+      stale.append(recompute);
+      status.append(stale);
+    }
     if (rollNote) status.append(node('span', 'roll-note', rollNote));
     // Enabled packs as small chips, so the cost of the chat is visible at a glance.
     const enabled = (view.packs?.available ?? []).filter(pack => view.packs.enabled.includes(pack.id));

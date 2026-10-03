@@ -38,18 +38,31 @@ function setup(t, profileEvent = false, host = 'extensions_settings2') {
   return { dom, fake, runtime, ui, calls, query, change, input, button };
 }
 
-test('Context offers localized automatic edit recomputation, off by default', t => {
-  const { query, change, runtime, calls } = setup(t);
-  const input = query('[data-group="context"] input[name="recomputeOnEdit"]');
-  assert.equal(input.checked, false);
-  assert.equal(input.parentElement.textContent, 'Recompute after editing a reply');
-  assert.equal(input.parentElement.title, 'One side-model request after every edit of the latest reply.');
-  change('[name="recomputeOnEdit"]', true);
-  assert.deepEqual(calls.patches.at(-1), { recomputeOnEdit: true });
+test('Context has no recompute checkbox; Actions shows the hints again; Run now needs a usable profile', t => {
+  const { query, runtime, calls, button, fake } = setup(t);
+  assert.equal(query('input[name="recomputeOnEdit"]'), null);
+  const again = query('[data-control="hints-again"]');
+  assert.ok(query('[data-group="actions"]').contains(again));
+  assert.equal(again.textContent, 'Show the hints again');
+  assert.equal(again.disabled, true, 'nothing to show again while the hints are still on');
+  runtime.updateSettings({ hints: { done: true } });
+  assert.equal(again.disabled, false);
+  again.click();
+  assert.deepEqual(calls.patches.at(-1), { hints: { done: false } });
+  assert.equal(runtime.snapshot().settings.hints.done, false);
+  const runNow = button('Run now');
+  assert.equal(runNow.disabled, false);
+  assert.equal(runNow.hasAttribute('title'), false);
+  for (const profileId of ['', 'text', 'gone']) {
+    runtime.updateSettings({ profileId });
+    assert.equal(runNow.disabled, true, profileId);
+    assert.equal(runNow.title, 'No model profile → set up');
+  }
   runtime.updateSettings({ language: 'ru' });
-  assert.equal(input.checked, true);
-  assert.equal(input.parentElement.textContent, 'Пересчитывать после правки ответа');
-  assert.equal(input.parentElement.title, 'Один запрос вспомогательной модели после каждой правки последнего ответа.');
+  assert.equal(runNow.title, 'Нет профиля модели → настроить');
+  runtime.updateSettings({ profileId: 'side' });
+  assert.equal(runNow.disabled, false);
+  assert.equal(fake.ctx.extensionSettings.sableTrackers.profileId, 'side');
 });
 
 test('settings groups normalize known boolean flags idempotently and merge partial patches', () => {

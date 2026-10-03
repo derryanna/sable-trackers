@@ -67,36 +67,51 @@ test('refresh replaces a stale reply and restores its injection', async t => {
   assert.match(injection(fake), /Corrected/);
 });
 
-test('automatic edits run once each, cancel in-flight work and bypass the old fingerprint', async t => {
+test('edits only mark the state stale; the edit run recomputes once, cancels in-flight work and bypasses the old fingerprint', async t => {
   const fake = setup(t), { runtime } = fake;
   const id = fake.add(); await runtime.run(id);
-  runtime.updateSettings({ recomputeOnEdit: true });
+  fake.ctx.chat[id].mes = 'First edit'; await fake.emit('MESSAGE_EDITED', id); await runtime.idle();
+  assert.equal(fake.calls.requests.length, 1, 'no automatic request after an edit');
+  assert.equal(runtime.snapshot().entry.stale, true);
   const pending = deferred(); fake.respond(() => pending.promise);
-  fake.ctx.chat[id].mes = 'First edit'; await fake.emit('MESSAGE_EDITED', id);
+  void runtime.run(id, { type: 'edit' });
   const first = runtime.idle(), signal = fake.calls.requests.at(-1)[3].signal;
   assert.equal(fake.calls.requests.length, 2);
   fake.respond(answer('Second edit'));
-  fake.ctx.chat[id].mes = 'Second edit'; await fake.emit('MESSAGE_EDITED', id); await runtime.idle();
-  assert.equal(signal.aborted, true); assert.equal(fake.calls.requests.length, 3);
+  fake.ctx.chat[id].mes = 'Second edit'; await fake.emit('MESSAGE_EDITED', id);
+  assert.equal(signal.aborted, true, 'a new edit cancels the in-flight recompute');
+  await runtime.run(id, { type: 'edit' });
+  assert.equal(fake.calls.requests.length, 3);
   pending.resolve(answer('Obsolete')); await first;
   assert.match(injection(fake), /Second edit/);
   assert.equal(runtime.snapshot().entry.stale, undefined);
   await fake.emit('MESSAGE_RECEIVED', id, 'normal'); await runtime.idle();
   assert.equal(fake.calls.requests.length, 3);
-  await fake.emit('MESSAGE_EDITED', id); await runtime.idle();
+  await fake.emit('MESSAGE_EDITED', id); await runtime.run(id, { type: 'edit' });
   assert.equal(fake.calls.requests.length, 4, 'each edit event resets even an unchanged fingerprint');
 });
 
-test('recomputeOnEdit normalizes booleans idempotently and survives partial patches', () => {
+test('recomputeOnEdit is accepted and dropped; hints default to not done and keep only a boolean done', () => {
   for (const value of [undefined, null, 'true', 1, false, true]) {
     const settings = normalizeSettings({ recomputeOnEdit: value });
-    assert.equal(settings.recomputeOnEdit, value === true);
+    assert.equal(Object.hasOwn(settings, 'recomputeOnEdit'), false);
+    assert.deepEqual(normalizeSettings(settings), settings);
+  }
+  assert.deepEqual(normalizeSettings({}).hints, { done: false });
+  for (const [value, done] of [[undefined, false], [null, false], ['yes', false], [{ done: 'true' }, false], [{ done: 1 }, false],
+    [{ done: true, extra: 1 }, true], [{ done: false }, false]]) {
+    const settings = normalizeSettings({ hints: value });
+    assert.deepEqual(settings.hints, { done }, JSON.stringify(value));
     assert.deepEqual(normalizeSettings(settings), settings);
   }
   const { ctx } = createFakeST();
-  saveSettings(ctx, { recomputeOnEdit: true }); saveSettings(ctx, { depth: 3 });
-  assert.equal(loadSettings(ctx).recomputeOnEdit, true);
-  saveSettings(ctx, { recomputeOnEdit: false }); assert.equal(loadSettings(ctx).depth, 3);
+  ctx.extensionSettings.sableTrackers.recomputeOnEdit = true;
+  assert.equal(Object.hasOwn(loadSettings(ctx), 'recomputeOnEdit'), false);
+  assert.equal(Object.hasOwn(ctx.extensionSettings.sableTrackers, 'recomputeOnEdit'), false, 'the stored key is dropped');
+  saveSettings(ctx, { hints: { done: true } }); saveSettings(ctx, { depth: 3 });
+  assert.deepEqual(loadSettings(ctx).hints, { done: true });
+  saveSettings(ctx, { hints: { done: false } }); assert.equal(loadSettings(ctx).depth, 3);
+  assert.deepEqual(loadSettings(ctx).hints, { done: false });
 });
 
 test('prompt settings trim, clamp, drop defaults and merge partial overrides idempotently', () => {
