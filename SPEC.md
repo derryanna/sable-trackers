@@ -574,3 +574,89 @@ flag and nothing else, never starts a run, and a re-render caused by anything
 else leaves open groups open. The container rules of §12 apply inside each
 group unchanged. The drawer's gear (⚙) still opens the Extensions tab and
 expands our block.
+
+## 18. Folders: user groups of cards
+
+Why (3 Oct 2026): with packs as groups (§15) the drawer reads as a short list
+of blocks, and the maintainer wants the same for the ordinary cards, the way
+Discord lets you create a category and drop existing channels into it: create a
+group, put cards in, fold it, switch all of its cards with one chip.
+
+### Data
+
+- `settings.folders`: array of `{ id, title, icon, members }`, at most 12.
+  `id` = `f_` + 8 hex (`newCustomId(taken, random, 'f_')`), `title` 1–40
+  characters trimmed, `icon` = Font Awesome classes or a single emoji grapheme
+  (the pack icon rule; `''` = default `fa-folder`, 📁 in emoji mode),
+  `members` = a set of section ids (array, no duplicates, at most 20).
+- Normaliser (`normalizeSettings`): drop a folder with a bad id, an empty title
+  or a duplicate id; keep only members that are built-in sections or custom
+  `c_` sections (never pack sections: a pack is its own group); a section id
+  belongs to at most one folder (the first folder wins). Fold keys gain
+  `folder:<id>`. Folders are global, like `order`; nothing is per chat.
+- **One source of order.** `settings.order` stays a flat list of section ids;
+  `members` is a set, and the order inside a folder is the members' relative
+  order in `settings.order`, exactly as for packs. `groupedOrder(order,
+  sections, packs, folders)` gets a fourth parameter (the normalised folder
+  array, default `[]`): a folder's members read as one contiguous block placed
+  where the first of them appears, in their existing relative order; packs keep
+  their blocks; a section is in one block at most. The drawer's top-level tokens
+  are section ids, `pack:<id>` and `folder:<id>`.
+- A folder with no members has no position in `order`: it renders last and
+  cannot be dragged; it gets a position when the first card joins it.
+
+### Runtime (`src/run.js`)
+
+- `runtime.setFolderMode(folderId, mode)`: every member in one settings write,
+  the same per-chat override semantics as `setPackMode`.
+- Create, rename, icon, delete and membership go through
+  `runtime.updateSettings({ folders })` with the whole array (like `packs` and
+  `customSections`). Membership changes also rewrite `order` in the same patch
+  so the moved card lands at the end of the target block, or right after its old
+  block when it leaves a folder.
+
+### Drawer
+
+- A folder renders as the same container as a pack:
+  `section.st-sable-group[data-folder="<id>"]` with the header row (handle,
+  glyph + title, aggregate mode chip, fold) and the member cards nested inside,
+  lighter, keyed persistence as in §16, fold under `folded['folder:<id>']`.
+  Packs keep `data-pack`; both kinds share one code path through a container
+  descriptor (`kind`, `id`, `key`, `title`, `glyph`, `adult`, member ids, chip
+  target). The pack sheet, the panel, the digest and the prompt are untouched.
+- **Membership.** The footer of a flat card (built-in or custom, not a pack
+  member) gets a second button «В группу…» / "Group…" (`fa-folder-plus`)
+  that opens a small menu with the look and keyboard rules of the mode menu
+  (`role="menu"`): one item per folder with a check mark on the current one,
+  «Без группы» / "No group" (only while the card is in a folder) and «Новая
+  группа…» / "New group…". Choosing a folder moves the card (it leaves its old
+  folder); «Новая группа…» creates `{ title: «Группа N» / "Group N", icon:
+  '', members: [cardId] }` with N = folders.length + 1 and opens that folder's
+  editor with the title focused.
+- **Folder editor.** A folder body ends with a footer button «Редактировать
+  группу» / "Edit group" (pencil, the card footer style). It opens an inline
+  form in the body: title (text, 40), icon (text, validated like custom section
+  icons, with the same hint), «Сохранить», «Отмена», «Удалить группу» (two
+  taps, the armed pattern of the pack delete). Deleting a folder returns its
+  cards to the flat list in place; `order` is unchanged.
+- **Moving.** The folder handle (and ↑/↓ on it) moves the whole block among
+  the top-level items; a member handle moves inside its folder; touch drag at
+  both levels, bounded by the parent, as for packs.
+- **Empty folder.** Shows a hint line «Пусто. Добавьте карточку через
+  «В группу…»» / "Empty. Add a card with Group…" instead of members, its
+  handle disabled, placed last; the footer editor still works.
+- **hideOff.** As for packs: off members hide inside their folder and count in
+  «Скрыто: N»; a folder whose members are all off hides; the reveal row brings
+  them back. An empty folder ignores hideOff.
+- **Suggested layout.** The settings Sections group gets a button «Разложить
+  по группам» / "Suggested groups". When folders already exist the first tap
+  arms it («Нажмите ещё раз: текущие группы будут заменены» / "Tap again to
+  replace the current groups"), the second tap replaces `settings.folders` with
+  three folders: «Мир» / "World" (`fa-globe`: world, offscreen, threads),
+  «Люди» / "People" (`fa-users`: npcs, thoughts, bonds, dossiers), «Сюжет» /
+  "Story" (`fa-book`: story, planner, banlist). Custom sections stay flat.
+
+### Non-goals (candidates for later)
+
+Packs inside folders, folders inside folders, per-chat folders, dragging a card
+from one container into another (membership changes go through the menu).

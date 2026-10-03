@@ -186,6 +186,18 @@ one or two tongue-in-cheek sentences in a voice picked for the moment: sports co
 headline, dating show, trailer). Both keep the adult guard, neither uses `{{scope}}`, so the pack's group chip reads
 «смешано» until the user aligns the modes. Validation: tests, headless Chromium render of the real-ST Danger zone.
 
+## T16 — Folders: user groups of cards  [ ]
+SPEC §18 (3 Oct 2026, maintainer: «создавать из существующих группы, как в Дискорде»). `settings.folders`
+(`{ id: f_…, title, icon, members }`, normalised, max 12, members = built-in or custom section ids, one folder
+per section, fold keys `folder:<id>`), `groupedOrder(order, sections, packs, folders)`, `runtime.setFolderMode`,
+the drawer's group container generalised to packs and folders (`data-folder`), the card footer «В группу…»
+menu (folders / «Без группы» / «Новая группа…»), the folder footer editor (title, icon, two-tap delete),
+empty-folder hint, hideOff inside folders, block and member moves as for packs, and the settings Sections
+group button «Разложить по группам» (Мир / Люди / Сюжет). Membership writes rewrite `order` so the card lands
+at the end of the target block. Done when: the tests of SPEC §18 pass (normaliser, groupedOrder with folders,
+setFolderMode, the drawer flows above, the suggested layout), every existing test stays green, `dev/phone.html`
+and `dev/preview.html` still load, README ru + en describe folders, SPEC §6 mentions them.
+
 ## Notes from previous tasks
 (append here)
 - T13: the drawer's top-level children are `.st-sable-card` or `.st-sable-group`; find cards with
