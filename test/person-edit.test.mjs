@@ -241,7 +241,7 @@ test('delete: one editSections call, bond history dropped, the undo pill restore
   assert.equal(fake.ctx.chatMetadata.sableTrackers.history.maren, undefined);
   const pill = ui.element.querySelector('.st-sable-undo');
   assert.equal(pill.hidden, false);
-  assert.equal(pill.querySelector('.st-sable-undo-text').textContent, 'Maren удалена');
+  assert.equal(pill.querySelector('.st-sable-undo-text').textContent, 'Удалено: Maren');
   ui.element.querySelector('[data-control="undo"]').click();
   assert.equal(calls.length, 2);
   assert.deepEqual(four(state()), before);

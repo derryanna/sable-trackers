@@ -471,7 +471,7 @@ Object.assign(STRINGS.en, {
   'person.add': '+ Person', 'person.name': 'Name', 'person.addSave': 'Add',
 });
 Object.assign(STRINGS.ru, {
-  'person.menu': 'Действия с персонажем', 'person.delete': 'Удалить', 'person.deleted': '{name} удалена',
+  'person.menu': 'Действия с персонажем', 'person.delete': 'Удалить', 'person.deleted': 'Удалено: {name}',
   'person.character': 'Персонаж', 'person.secret': 'Тайна / На самом деле', 'person.notSent': 'не идёт в промпт',
   'person.thought': 'Мысль', 'person.bond': 'Отношения', 'person.dossier': 'Досье',
   'person.addCharacter': '+ Персонаж', 'person.addDossier': '+ Досье', 'person.addBond': '+ Отношения', 'person.addThought': '+ Мысль',
