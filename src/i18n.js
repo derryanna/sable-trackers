@@ -494,3 +494,15 @@ Object.assign(STRINGS.en, {
 Object.assign(STRINGS.ru, {
   'folders.color': 'Цвет', 'folders.colorLabel': 'Цвет группы',
 });
+// T30
+// Fourth hint and the settings intro line (SPEC §27a).
+Object.assign(STRINGS.en, {
+  'hints.cards.title': 'Everything changes in the cards',
+  'hints.cards.text': 'Mode: the chip on a card · period: in its menu · fields and colour: the pen · order and groups: the handle',
+  'settings.intro': 'In short: mode, period, colour, editing and order are changed in the panel\'s cards. Everything else is here.',
+});
+Object.assign(STRINGS.ru, {
+  'hints.cards.title': 'Всё меняется в карточках',
+  'hints.cards.text': 'Режим — чип на карточке, период — в его меню, поля и цвет — карандаш, порядок и группы — ручка',
+  'settings.intro': 'Коротко: режим, период, цвет, правка и порядок меняются прямо в карточках панели. Здесь — всё остальное.',
+});

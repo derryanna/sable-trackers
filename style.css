@@ -984,3 +984,6 @@
 }
 /* The editor's colour field: swatch and «auto» under the label, like the other fields. */
 .st-sable-drawer [data-folder] .st-sable-editor-field > .st-sable-color-row { justify-content: flex-start; }
+/* T30 */
+/* The settings intro line (SPEC §27a): muted, above the first group. */
+.st-sable-settings-intro { margin: 0 0 8px; font-size: .85em; line-height: 1.35; opacity: .65; }

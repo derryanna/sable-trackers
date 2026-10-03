@@ -497,7 +497,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     for (const mode of MODES) legend.append(node('div', '', label(`legend.${mode}`)));
     return legend;
   }
-  // Hint step 0–2 lives in memory: a reload starts from the first one until «Don't show again» or the end.
+  // Hint step 0–3 lives in memory: a reload starts from the first one until «Don't show again» or the end.
+  // Keys per step: the cards hint (SPEC §27a) sits third, so «Enjoy» keeps its T25 keys as the fourth.
+  const HINT_KEYS = ['1', '2', 'cards', '3'];
   let hintStep = 0, hintKey, hintsDone;
   function renderHint() {
     const done = !!view.settings.hints?.done;
@@ -512,8 +514,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const step = hintStep + 1;
     hint.dataset.step = String(step);
     const top = node('div', 'hint-top');
-    const heading = node('h3', 'hint-title', label(`hints.${step}.title`)); heading.id = 'st-sable-hint-title';
-    top.append(heading, node('span', 'hint-count', `${step}/3`));
+    const heading = node('h3', 'hint-title', label(`hints.${HINT_KEYS[hintStep]}.title`)); heading.id = 'st-sable-hint-title';
+    top.append(heading, node('span', 'hint-count', `${step}/${HINT_KEYS.length}`));
     const body = node('div', 'hint-body');
     if (step === 1) {
       const profiles = view.profiles ?? [];
@@ -535,13 +537,13 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         body.append(row);
       } else body.append(node('p', 'hint-text', label('hints.1.none')));
     } else if (step === 2) body.append(modeLegend('hint-legend'));
-    else body.append(node('p', 'hint-text', label('hints.3.text')));
+    else body.append(node('p', 'hint-text', label(`hints.${HINT_KEYS[hintStep]}.text`)));
     const actions = node('div', 'hint-actions');
     const never = node('label', 'hint-never');
     const box = document.createElement('input'); box.type = 'checkbox'; box.dataset.control = 'hint-never';
     box.addEventListener('change', () => { if (box.checked) runtime.updateSettings({ hints: { done: true } }); });
     never.append(box, node('span', '', label('hints.never')));
-    const last = hintStep === 2;
+    const last = hintStep === HINT_KEYS.length - 1;
     const next = button(label(last ? 'hints.done' : 'hints.next'), last ? 'hints.done' : 'hints.next', () => {
       if (last) { runtime.updateSettings({ hints: { done: true } }); return; }
       hintStep += 1;

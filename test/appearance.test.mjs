@@ -50,6 +50,11 @@ test('appearance group: panel / cards / background / theme sub-groups with the n
   const { ui, query, runtime, button } = setup(t);
   assert.deepEqual([...ui.element.querySelectorAll('.st-sable-settings-heading')].map(item => item.textContent),
     ['Connection', 'Context', 'Sections', 'Bond scales', 'Custom blocks', 'Appearance', 'Actions', 'Packs', 'Danger zone'], 'top-level settings groups');
+  // SPEC §27a: the settings block starts with one muted intro line, above the first group.
+  const intro = query('.st-sable-settings-body').firstElementChild;
+  assert.ok(intro.matches('p.st-sable-settings-intro'));
+  assert.equal(intro.textContent, "In short: mode, period, colour, editing and order are changed in the panel's cards. Everything else is here.");
+  assert.ok(intro.nextElementSibling.matches('.st-sable-settings-group[data-group="connection"]'));
   const group = query('[data-group="visual"]');
   assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Panel', 'Card colours', 'Cards', 'Effects', 'Background', 'Theme']);
   for (const name of ['opacity', 'blur', 'fontSize', 'widthVw', 'base', 'text', 'accent', 'effects', 'radius', 'cardFill', 'border', 'titleWeight',
@@ -72,6 +77,7 @@ test('appearance group: panel / cards / background / theme sub-groups with the n
   assert.ok(button('Save theme file') && button('Load theme file') && button('Restore default look'));
   assert.equal(query('img'), null, 'the preview is a CSS background, not an <img>');
   runtime.updateSettings({ language: 'ru' });
+  assert.equal(intro.textContent, 'Коротко: режим, период, цвет, правка и порядок меняются прямо в карточках панели. Здесь — всё остальное.');
   assert.deepEqual([...group.querySelectorAll('.st-sable-settings-subheading')].map(item => item.textContent), ['Панель', 'Цвета карточек', 'Карточки', 'Эффекты', 'Фон', 'Тема']);
   assert.equal(query('[name="effects"]').closest('label').querySelector('.st-sable-settings-label').textContent, 'Эффекты');
   assert.deepEqual([...group.querySelectorAll('[name="effects"] option')].map(item => item.textContent), ['выкл', 'мягко', 'полные']);

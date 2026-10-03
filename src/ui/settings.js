@@ -102,6 +102,8 @@ export function createSettings(runtime, { document = globalThis.document,
   toggle.append(text('b', '', 'settingsTitle'), node('div', 'inline-drawer-icon fa-solid fa-circle-chevron-down down'));
   const content = node('div', 'inline-drawer-content st-sable-settings-body');
   drawer.append(toggle, content); element.append(drawer); host.append(element);
+  // One muted line above the first group (SPEC §27a): what is changed in the cards instead.
+  content.append(text('p', 'st-sable-settings-intro', 'settings.intro'));
   const groups = new Map();
   function group(id, key) {
     const section = node('details', 'st-sable-settings-group st-sable-group'); section.dataset.group = id;

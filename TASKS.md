@@ -361,7 +361,7 @@ to the editor), README (one sentence).
 Done when: `npm test` green; no `[data-control="color"]` in any footer; the editor row writes `visual.cardColors[id]`;
 `node --check`.
 
-## T30 — Fourth hint and the settings intro line  [ ]
+## T30 — Fourth hint and the settings intro line  [x]
 SPEC §27a (3 Oct 2026: «ещё пункт в онбординг, что в карточках можно поменять, а в самих настройках коротко»). The
 hint sequence grows to four (new third step «Всё меняется в карточках» with the chip / menu / pen / handle line,
 counters 1/4…4/4), and the settings block opens with one muted intro line (`settings.intro`). Files:
@@ -568,3 +568,7 @@ Done when: `npm test` green with the four-step hint test and the intro test; `no
   the group while editing, written with the form on Save (`updateSettings({ folders })`, whole array; «auto» drops the
   key), discarded by Cancel (its re-render restores the tint). `colorControls` is unchanged from T26.
   Real rendering of `color-mix(…, currentColor)` on the title is unverified outside jsdom.
+- T30: the hint steps are driven by `HINT_KEYS = ['1', '2', 'cards', '3']` in `src/ui/drawer.js` (counter `n/4`, the last
+  step shows «Понятно»); the new third hint uses `hints.cards.title` / `hints.cards.text`, and «Наслаждайся» keeps its
+  T25 keys `hints.3.*`. The settings block opens with `p.st-sable-settings-intro` (`settings.intro`), the first child of
+  `.st-sable-settings-body`; muted style at the end of `style.css`.

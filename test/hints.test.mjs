@@ -28,7 +28,7 @@ function setup(t, { settings = {}, profiles, stale = false, onSettings } = {}) {
   return { dom, document, fake, runtime, ui, query, hint, change };
 }
 
-test('three hints follow each other above the card list and «Понятно» ends them', t => {
+test('four hints follow each other above the card list and «Понятно» ends them', t => {
   const { ui, runtime, hint, query } = setup(t);
   ui.open();
   const element = hint();
@@ -37,6 +37,7 @@ test('three hints follow each other above the card list and «Понятно» e
   assert.equal(element.nextElementSibling, query('.st-sable-cards'), 'above the card list');
   assert.equal(element.getAttribute('aria-labelledby'), 'st-sable-hint-title');
   assert.equal(query('#st-sable-hint-title').textContent, 'Проверь соединение');
+  assert.equal(element.querySelector('.st-sable-hint-count').textContent, '1/4');
   const select = element.querySelector('select[data-control="hint-profile"]');
   assert.deepEqual([...select.options].map(option => option.value), ['', 'side']);
   assert.equal(select.value, 'side');
@@ -47,8 +48,16 @@ test('three hints follow each other above the card list and «Понятно» e
   assert.equal(query('#st-sable-hint-title').textContent, 'Выбери, что нравится');
   assert.deepEqual([...element.querySelectorAll('.st-sable-hint-legend > div')].map(line => line.textContent),
     ['в промпт — модель это видит', 'показ — только тебе', 'выкл — не обновляется']);
+  assert.equal(element.querySelector('.st-sable-hint-count').textContent, '2/4');
+  next().click();
+  assert.equal(query('#st-sable-hint-title').textContent, 'Всё меняется в карточках');
+  assert.equal(element.querySelector('.st-sable-hint-count').textContent, '3/4');
+  assert.equal(element.querySelector('.st-sable-hint-body').textContent,
+    'Режим — чип на карточке, период — в его меню, поля и цвет — карандаш, порядок и группы — ручка');
+  assert.equal(next().textContent, 'Дальше');
   next().click();
   assert.equal(query('#st-sable-hint-title').textContent, 'Наслаждайся');
+  assert.equal(element.querySelector('.st-sable-hint-count').textContent, '4/4');
   assert.match(element.textContent, /Напиши персонажу — после его ответа карточки заполнятся/);
   assert.equal(next().textContent, 'Понятно');
   assert.equal(runtime.snapshot().settings.hints.done, false, 'reading is not finishing');
