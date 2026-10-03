@@ -406,7 +406,8 @@
 .st-sable-mode { min-height: 36px; height: 36px; }
 /* Only the open card lets its menu extend over neighbours. Keep it above their ink overlays. */
 .st-sable-card.st-sable-menu-open { overflow: visible; z-index: 2; }
-.st-sable-card.st-sable-menu-open:last-child { margin-bottom: 126px; }
+/* The menu grew by the period row and the legend (SPEC §27/§28): the last card needs room for it inside the scroll area. */
+.st-sable-card.st-sable-menu-open:last-child { margin-bottom: 240px; }
 .st-sable-mode-menu {
   position: absolute; top: 100%; right: 0; z-index: 3; width: max-content; min-width: 112px;
   padding: 4px; border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .18);
