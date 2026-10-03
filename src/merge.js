@@ -33,17 +33,17 @@ function mergeById(previous = [], incoming = []) {
   return result;
 }
 
-function recomputeBonds(previous = [], incoming = []) {
+function recomputeBonds(previous = [], incoming = [], scales = BOND_SCALES) {
   const oldById = new Map(previous.map(item => [item.id || item.name, item]));
   const updated = incoming.map(bond => {
     const old = oldById.get(bond.id || bond.name);
     const stats = clone(bond.stats) ?? {};
-    for (const scale of BOND_SCALES) {
+    for (const scale of scales) {
       if (!Object.hasOwn(stats, scale) && typeof old?.stats?.[scale] === 'number') stats[scale] = old.stats[scale];
     }
     const claimed = bond.changes ?? {};
     const changes = {};
-    for (const scale of BOND_SCALES) {
+    for (const scale of scales) {
       const before = old?.stats?.[scale]; const after = stats[scale];
       if (typeof before !== 'number' || typeof after !== 'number' || before === after) continue;
       const delta = after - before;
@@ -56,6 +56,12 @@ function recomputeBonds(previous = [], incoming = []) {
   // Bonds the model did not return keep their numbers, but last turn's deltas are stale.
   return mergeById(previous.map(bond => ({ ...clone(bond), changes: {} })), updated);
 }
+
+// The active bond scales are the stats fields of the registry's bonds schema (SPEC §20).
+const activeScales = registry => {
+  const fields = registry.find(section => section.id === 'bonds')?.schema?.item?.fields?.stats?.fields;
+  return fields ? Object.keys(fields) : BOND_SCALES;
+};
 
 /** Merge only requested, valid sections and preserve every other previous value. */
 export function mergeState(previousState = {}, parsed = {}, options = {}) {
@@ -70,7 +76,7 @@ export function mergeState(previousState = {}, parsed = {}, options = {}) {
     if (id === 'dossiers') next[id] = mergeDossiers(previousState.dossiers, incoming[id]);
     else if (id === 'banlist') next[id] = mergeBanlist(previousState.banlist, incoming[id]);
     else if (id === 'npcs') next[id] = mergeById(previousState.npcs, incoming[id]);
-    else if (id === 'bonds') next[id] = recomputeBonds(previousState.bonds, incoming[id]);
+    else if (id === 'bonds') next[id] = recomputeBonds(previousState.bonds, incoming[id], activeScales(registry));
     else if (registry.find(s => s.id === id)?.shape === 'stats') {
       const before = new Map((Array.isArray(previousState[id]) ? previousState[id] : []).map(item => [item.key, item.value]));
       next[id] = incoming[id].map(item => {

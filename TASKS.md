@@ -229,7 +229,7 @@ Candidates noted the same day, not scheduled: a «по персонажам» la
 thoughts, bonds and dossiers), signed −100…+100 bond scales with a centre line, a 12-point history sparkline per
 scale (needs a small per-chat history store).
 
-## T18 — Bond scales: switchable built-ins and custom scales  [ ]
+## T18 — Bond scales: switchable built-ins and custom scales  [x]
 SPEC §20 (3 Oct 2026, outside feedback: «репутация и уважение похожи, объединила бы»; maintainer: «как в паках,
 основные и допки вкл/выкл, добавить своё»). `settings.bondScales = { off, custom }` (normalised: `off` ⊂ built-in
 keys, `custom` ≤ 6 of `{ key, title, hint, friction }` with slug keys that never collide with built-ins),
@@ -246,6 +246,17 @@ SPEC §2 mention the group.
 
 ## Notes from previous tasks
 (append here)
+- T18: `bondScales(settings)`, `bondsSection(settings)`, `normalizeBondScales`, `BOND_SCALE_HINTS`, `FRICTION_SCALES`,
+  `BOND_SCALE_KEY` and `MAX_CUSTOM_SCALES` live in `src/sections.js`; `getSections`/`getAllSections` swap in the
+  settings-dependent bonds section (default settings return the frozen `SECTION_MAP.bonds`, so the default text is
+  byte-identical; `test/scales.test.mjs` holds a literal copy). Decisions: a custom scale without a hint is described to
+  the side model by its title (`key = title`); with every scale off the definitions read `none`; the base sentences
+  about affection growth and desire/love for minors stay even when those scales are off (they are harmless rules).
+  `merge.js` reads the active keys from the registry's bonds schema; `digest.js` filters bond stats by the same schema,
+  so a switched-off key still stored in an old bond is not injected. `parse.js` needed no change (`changes` already
+  accepts any key; merge recomputes it over active keys). Settings rows for custom scales are positional (index-keyed);
+  an invalid key is marked `aria-invalid` with a hint line and kept in the input, unsaved, until fixed or a row is
+  deleted. The editor's `fieldLabel` falls back to a custom scale's title after the i18n lookups.
 - T13: the drawer's top-level children are `.st-sable-card` or `.st-sable-group`; find cards with
   `cards.querySelector('.st-sable-card[data-section="…"]')` (deep), never through `cards.children`. Section order for the
   drawer comes from `groupedOrder(...)`; `orderedSectionIds` is for the digest and the settings table.

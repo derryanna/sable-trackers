@@ -337,6 +337,11 @@
 .st-sable-custom-field > .st-sable-settings-label { font-size: .78em; opacity: .7; }
 .st-sable-custom-field > .text_pole { width: 100%; }
 .st-sable-custom-field[data-field="icon"] { width: 6.5em; }
+.st-sable-scale-list { display: flex; flex-direction: column; gap: 2px; }
+.st-sable-scale-custom { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
+.st-sable-custom-field[data-field="key"] { width: 9.5em; }
+.st-sable-scale-custom .st-sable-custom-field:is([data-field="title"], [data-field="hint"]) { flex: 1 1 12em; }
+.st-sable-settings input[aria-invalid="true"] { border-color: #f29d9d; }
 .st-sable-custom-field[data-field="shape"] { width: 9.5em; }
 .st-sable-custom-field[data-field="mode"] { width: 8.5em; }
 .st-sable-custom-field:is([data-field="max"], [data-field="period"]) { width: 4.5em; }

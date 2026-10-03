@@ -1,4 +1,4 @@
-import { getAllSections, getSections, orderedSectionIds } from '../sections.js';
+import { BOND_SCALES, BOND_SCALE_KEY, MAX_CUSTOM_SCALES, getAllSections, getSections, orderedSectionIds } from '../sections.js';
 import { COMMON_RULES, getPromptTexts } from '../prompt.js';
 import { t } from '../i18n.js';
 import { FX_DEFAULTS, FX_RANGES, FX_SPEEDS, GROUP_IDS, REASONING_LEVELS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
@@ -47,7 +47,7 @@ export function createSettings(runtime, { document = globalThis.document,
   getContext = () => globalThis.SillyTavern.getContext(), encodeImage = encodeImageFile } = {}) {
   const host = document.querySelector('#extensions_settings2') ?? document.querySelector('#extensions_settings');
   if (!host) return null;
-  let view = runtime.snapshot(), forced, openCustom, openPack, openBlock;
+  let view = runtime.snapshot(), forced, openCustom, openPack, openBlock, openScale;
   const crypto = document.defaultView?.crypto ?? globalThis.crypto;
   const random = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
   // Enabled packs add their cards to the Sections table and the card colours, like the drawer (SPEC §15).
@@ -106,7 +106,7 @@ export function createSettings(runtime, { document = globalThis.document,
   function group(id, key) {
     const section = node('details', 'st-sable-settings-group st-sable-group'); section.dataset.group = id;
     const summary = node('summary', 'st-sable-group-summary'), heading = node('h4', 'st-sable-settings-heading');
-    const glyphs = { connection: 'plug', context: 'align-left', sections: 'list', custom: 'puzzle-piece', visual: 'palette', actions: 'bolt', packs: 'box-open', danger: 'triangle-exclamation' };
+    const glyphs = { connection: 'plug', context: 'align-left', sections: 'list', scales: 'sliders', custom: 'puzzle-piece', visual: 'palette', actions: 'bolt', packs: 'box-open', danger: 'triangle-exclamation' };
     heading.append(icon(glyphs[id]), text('span', '', key));
     summary.append(heading, icon('chevron-right')); section.append(summary);
     if (id === 'danger') section.classList.add('st-sable-danger');
@@ -241,6 +241,102 @@ export function createSettings(runtime, { document = globalThis.document,
   });
   suggested.dataset.control = 'suggested-folders';
   suggested.addEventListener('blur', () => { foldersArmed = false; suggested.classList.remove('st-sable-armed'); applyLabels(labels); });
+
+  // Bond scales (SPEC §20): built-ins switch off one by one, custom scales are rows; every write sends the whole object.
+  const scalesGroup = group('scales', 'group.scales');
+  const bondScaleSettings = () => {
+    const value = runtime.snapshot().settings.bondScales;
+    return { off: Array.isArray(value?.off) ? value.off : [], custom: Array.isArray(value?.custom) ? value.custom : [] };
+  };
+  const writeScales = patch => runtime.updateSettings({ bondScales: { ...bondScaleSettings(), ...patch } });
+  const scaleChecks = new Map(), scaleList = node('div', 'st-sable-scale-list');
+  for (const key of BOND_SCALES) {
+    const row = node('label', 'checkbox_label st-sable-settings-check');
+    const input = node('input'); input.type = 'checkbox'; input.name = `scale.${key}`; input.dataset.scale = key;
+    input.addEventListener('change', () => {
+      const off = bondScaleSettings().off;
+      writeScales({ off: BOND_SCALES.filter(item => (item === key ? !input.checked : off.includes(item))) });
+    });
+    row.append(input, text('span', '', `scale.${key}.hint`)); scaleList.append(row); scaleChecks.set(key, input);
+  }
+  const customScaleList = node('div', 'st-sable-custom-list');
+  const scaleActions = node('div', 'st-sable-settings-buttons');
+  scalesGroup.append(scaleList, text('p', 'st-sable-settings-hint', 'scales.rebuildHint'),
+    text('h5', 'st-sable-settings-subheading', 'scales.custom'), customScaleList, scaleActions);
+  const addScale = button(scaleActions, 'scales.add', 'plus', () => {
+    const custom = bondScaleSettings().custom;
+    if (custom.length >= MAX_CUSTOM_SCALES) return;
+    const taken = new Set([...BOND_SCALES, ...custom.map(item => item?.key)]);
+    let n = 1; while (taken.has(`custom${n}`)) n++;
+    openScale = custom.length;
+    writeScales({ custom: [...custom, { key: `custom${n}`, title: label('scales.newTitle'), hint: '', friction: false }] });
+  });
+  addScale.dataset.control = 'add-scale';
+  const scaleMax = text('p', 'st-sable-settings-hint', 'scales.max'); scaleActions.after(scaleMax);
+  const scaleRows = [];
+  // Rows follow the stored array by position; a key the normaliser would drop stays in its input, marked, unsaved.
+  function createScaleRow(index) {
+    const row = { labels: [], armed: false };
+    const bindRow = (element, key, attribute) => bind(row.labels, element, key, attribute);
+    const patch = value => writeScales({ custom: bondScaleSettings().custom.map((item, i) => (i === index ? { ...item, ...value } : item)) });
+    row.element = node('div', 'st-sable-custom st-sable-scale-custom'); row.element.dataset.scaleIndex = String(index);
+    const field = (key, control, name) => {
+      const wrap = node('label', 'st-sable-custom-field'); wrap.dataset.field = name;
+      wrap.append(bindRow(node('span', 'st-sable-settings-label'), key), control); return wrap;
+    };
+    const input = (name, maxLength) => { const element = node('input', 'text_pole'); element.name = name; element.type = 'text'; element.maxLength = maxLength; return element; };
+    const inputs = row.inputs = { key: input('key', 16), title: input('title', 30), hint: input('hint', 200) };
+    inputs.key.autocomplete = 'off'; inputs.key.spellcheck = false; bindRow(inputs.key, 'scales.keyHint', 'title');
+    row.keyHint = bindRow(node('p', 'st-sable-settings-hint st-sable-invalid-hint'), 'scales.keyHint'); row.keyHint.hidden = true;
+    inputs.key.addEventListener('change', () => {
+      const value = inputs.key.value.trim(), custom = bondScaleSettings().custom;
+      const valid = BOND_SCALE_KEY.test(value) && !BOND_SCALES.includes(value) && !custom.some((item, i) => i !== index && item?.key === value);
+      inputs.key.setAttribute('aria-invalid', String(!valid)); row.keyHint.hidden = valid;
+      if (valid && value !== custom[index]?.key) patch({ key: value });
+    });
+    inputs.title.addEventListener('change', () => patch({ title: inputs.title.value.trim() || label('scales.newTitle') }));
+    inputs.hint.addEventListener('change', () => patch({ hint: inputs.hint.value.trim() }));
+    bindRow(inputs.hint, 'scales.hintPlaceholder', 'placeholder');
+    const friction = node('label', 'checkbox_label st-sable-settings-check');
+    inputs.friction = node('input'); inputs.friction.type = 'checkbox'; inputs.friction.name = 'friction';
+    inputs.friction.addEventListener('change', () => patch({ friction: inputs.friction.checked }));
+    friction.append(inputs.friction, bindRow(node('span'), 'scales.friction'));
+    const small = node('div', 'st-sable-custom-fields');
+    small.append(field('scales.key', inputs.key, 'key'), field('scales.title', inputs.title, 'title'));
+    const actions = node('div', 'st-sable-custom-actions');
+    // Two taps delete, like custom blocks.
+    row.remove = button(actions, () => label(row.armed ? 'scales.confirmDelete' : 'scales.delete'), 'trash-can', () => {
+      if (row.armed) {
+        // Rows are positional: the next item moves into this row, so no row keeps an arm or an unsaved key.
+        row.armed = false; row.remove.classList.remove('st-sable-armed');
+        for (const other of scaleRows) { other.inputs.key.removeAttribute('aria-invalid'); other.keyHint.hidden = true; }
+        writeScales({ custom: bondScaleSettings().custom.filter((item, i) => i !== index) }); return;
+      }
+      row.armed = true; applyLabels(row.labels); row.remove.classList.add('st-sable-armed');
+    }, row.labels);
+    row.remove.addEventListener('blur', () => {
+      if (!row.armed) return;
+      row.armed = false; applyLabels(row.labels); row.remove.classList.remove('st-sable-armed');
+    });
+    row.element.append(small, row.keyHint, field('scales.hint', inputs.hint, 'hint'), friction, actions);
+    return row;
+  }
+  function renderScales() {
+    const off = view.settings.bondScales?.off ?? [], custom = view.settings.bondScales?.custom ?? [];
+    for (const [key, input] of scaleChecks) input.checked = !off.includes(key);
+    while (scaleRows.length > custom.length) scaleRows.pop().element.remove();
+    for (const [index, item] of custom.entries()) {
+      if (!scaleRows[index]) { scaleRows[index] = createScaleRow(index); customScaleList.append(scaleRows[index].element); }
+      const row = scaleRows[index];
+      applyLabels(row.labels);
+      if (row.inputs.key.getAttribute('aria-invalid') !== 'true') setValue(row.inputs.key, item.key);
+      setValue(row.inputs.title, item.title); setValue(row.inputs.hint, item.hint ?? '');
+      row.inputs.friction.checked = !!item.friction;
+    }
+    addScale.disabled = custom.length >= MAX_CUSTOM_SCALES;
+    const added = scaleRows[openScale];
+    if (added) { openScale = undefined; added.inputs.title.focus(); added.inputs.title.select(); }
+  }
 
   // Custom blocks (SPEC §11): every write sends the full array.
   const customGroup = group('custom', 'group.custom');
@@ -971,6 +1067,7 @@ export function createSettings(runtime, { document = globalThis.document,
       else if (key !== 'profileId') setValue(input, view.settings[key]);
     }
     renderSections();
+    renderScales();
     renderCardColors();
     renderCustom();
     renderPacks();

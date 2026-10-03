@@ -1,11 +1,11 @@
-import { SECTIONS, SECTION_ORDER, getSections, getAllSections, normalizeCustomSections } from './sections.js';
+import { SECTIONS, SECTION_ORDER, getSections, getAllSections, normalizeBondScales, normalizeCustomSections } from './sections.js';
 import { BUILTIN_PACKS, getPacks, normalizePacks } from './packs/index.js';
 import { normalizeFolders } from './folders.js';
 import { enabledPacks } from './store.js';
 import { COMMON_RULES } from './prompt.js';
 
 export const SETTINGS_KEY = 'sableTrackers';
-export const GROUP_IDS = Object.freeze(['connection', 'context', 'sections', 'custom', 'visual', 'actions', 'packs', 'danger']);
+export const GROUP_IDS = Object.freeze(['connection', 'context', 'sections', 'scales', 'custom', 'visual', 'actions', 'packs', 'danger']);
 // Drawer look (SPEC §12). Ranges are inclusive; the UI sliders use the same bounds.
 // base/text: null = automatic (dark glass, theme text; a base derives its own ink). Hex colours override (SPEC §12).
 // bgImage: null or a sanitised data:/http(s) URL (normalizeBgImage); the other keys are numbers, booleans or choices.
@@ -45,7 +45,7 @@ export const DEFAULTS = {
   hideOff: true, spoilers: true,
   prompts: { rules: null, sections: {}, packs: {} },
   packs: [], packDefaults: [], packScope: {},
-  order: SECTION_ORDER, customSections: [], folders: [],
+  order: SECTION_ORDER, customSections: [], folders: [], bondScales: { off: [], custom: [] },
   groups: { connection: true },
   folded: {}, pinned: false, floatingPosition: null,
   sections: Object.fromEntries(SECTIONS.map(s => [s.id, { mode: s.defaultMode, period: s.period }])),
@@ -71,6 +71,7 @@ export function normalizeSettings(value = {}) {
   result.reasoning = REASONING_LEVELS.includes(result.reasoning) ? result.reasoning : DEFAULTS.reasoning;
   result.language = ['ru', 'en'].includes(result.language) ? result.language : 'ru';
   result.customSections = normalizeCustomSections(value.customSections);
+  result.bondScales = normalizeBondScales(value.bondScales);
   result.packs = normalizePacks(value.packs);
   result.folders = normalizeFolders(value.folders, getSections(result));
   const packIds = getPacks(result).map(pack => pack.id);

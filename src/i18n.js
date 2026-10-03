@@ -343,3 +343,33 @@ Object.assign(STRINGS.ru, {
   'folders.suggested': 'Разложить по группам', 'folders.confirmSuggested': 'Нажмите ещё раз: текущие группы будут заменены',
   'folders.world': 'Мир', 'folders.people': 'Люди', 'folders.story': 'Сюжет',
 });
+
+// Bond scales (SPEC §20): the settings group, one hint line per built-in scale and the custom scale rows.
+Object.assign(STRINGS.en, {
+  'group.scales': 'Bond scales',
+  'scale.affection.hint': 'Affection — emotional attachment, not necessarily romance', 'scale.trust.hint': 'Trust — willingness to rely on the target',
+  'scale.desire.hint': 'Desire — attraction to the target, not love or arousal in general', 'scale.love.hint': 'Love — romantic feelings, apart from affection and desire',
+  'scale.reputation.hint': 'Reputation — how the NPC rates the target, not fame', 'scale.suspicion.hint': 'Suspicion — suspicion toward the target',
+  'scale.respect.hint': 'Respect — respect for the target', 'scale.fear.hint': 'Fear — fear of the target',
+  'scale.grudge.hint': 'Grudge — resentment toward the target, not anger in general', 'scale.tension.hint': 'Tension — current tension; it can drop independently of affection',
+  'scales.rebuildHint': 'The default instruction is rebuilt from the enabled scales; an override in the Danger zone replaces it whole.',
+  'scales.custom': 'Custom scales', 'scales.add': 'Add scale', 'scales.newTitle': 'New scale', 'scales.max': 'At most 6 custom scales.',
+  'scales.key': 'Key', 'scales.title': 'Title', 'scales.hint': 'What it measures (for the side model)', 'scales.friction': 'High value = friction',
+  'scales.delete': 'Delete', 'scales.confirmDelete': 'Delete for good?',
+  'scales.keyHint': 'Latin lower-case letters, digits and _, starts with a letter, 2–16 characters, not a built-in scale; it names the JSON field.',
+  'scales.hintPlaceholder': 'E.g.: jealousy toward toward',
+});
+Object.assign(STRINGS.ru, {
+  'group.scales': 'Шкалы отношений',
+  'scale.affection.hint': 'Привязанность — эмоциональная связь, не обязательно романтика', 'scale.trust.hint': 'Доверие — готовность положиться',
+  'scale.desire.hint': 'Влечение — тяга к цели, не любовь и не возбуждение вообще', 'scale.love.hint': 'Влюблённость — романтические чувства, отдельно от привязанности и влечения',
+  'scale.reputation.hint': 'Репутация — как NPC оценивает цель, не слава', 'scale.suspicion.hint': 'Подозрение — подозрение к цели',
+  'scale.respect.hint': 'Уважение — уважение к цели', 'scale.fear.hint': 'Страх — страх перед целью',
+  'scale.grudge.hint': 'Обида — обида на цель, не злость вообще', 'scale.tension.hint': 'Напряжение — текущее напряжение, может спадать независимо от привязанности',
+  'scales.rebuildHint': 'Инструкция по умолчанию пересобирается из включённых шкал; своя инструкция в «Опасной зоне» заменяет её целиком.',
+  'scales.custom': 'Свои шкалы', 'scales.add': 'Добавить шкалу', 'scales.newTitle': 'Новая шкала', 'scales.max': 'Не больше 6 своих шкал.',
+  'scales.key': 'Ключ', 'scales.title': 'Название', 'scales.hint': 'Что измеряет (для вспомогательной модели)', 'scales.friction': 'Высокое значение = трение',
+  'scales.delete': 'Удалить', 'scales.confirmDelete': 'Точно удалить?',
+  'scales.keyHint': 'Строчные латинские буквы, цифры и _, начинается с буквы, 2–16 знаков, не встроенная шкала; это имя поля в JSON.',
+  'scales.hintPlaceholder': 'Например: jealousy toward toward',
+});

@@ -1,4 +1,4 @@
-import { getSections, groupedOrder, BOND_SCALES } from '../sections.js';
+import { getSections, groupedOrder, bondScales } from '../sections.js';
 import { moveToFolder } from '../folders.js';
 import { newCustomId } from './settings.js';
 import { t } from '../i18n.js';
@@ -152,8 +152,6 @@ const MARKERS = {
   seed: ['seedling', '🌱'], timer: ['hourglass-half', '⏳'],
   time: ['clock', '🕒'], location: ['location-dot', '📍'], weather: ['cloud-sun-rain', '🌦️'],
 };
-// Scales where a high value means friction; their bars get the warm tint.
-const FRICTION = new Set(['suspicion', 'fear', 'grudge', 'tension']);
 const PRIORITIES = ['high', 'mid', 'low'];
 const revealed = new Set();
 
@@ -694,11 +692,12 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       head.replaceChildren(node('span', 'name', bond.name || bond.id), muted(` → ${bond.toward || '—'}`));
       const rows = keyedChildren(group, ':scope > details');
       let previous = head;
-      for (const scale of BOND_SCALES) {
+      // Active scales only (SPEC §20); the warm tint follows each scale's `friction`.
+      for (const { key: scale, builtin, title, friction } of bondScales(view.settings)) {
         const score = bond.stats?.[scale];
         if (!Number.isFinite(score)) continue;
-        const change = bond.changes?.[scale], key = `${groupKey}:${scale}`;
-        const { element, changed } = scaleRow(rows, key, { name: label(scale), title: label(scale), friction: FRICTION.has(scale),
+        const change = bond.changes?.[scale], key = `${groupKey}:${scale}`, name = builtin ? label(title) : title;
+        const { element, changed } = scaleRow(rows, key, { name, title: name, friction,
           value: score, max: 100, plain: true, delta: change?.delta, reason: change?.reason });
         rows.delete(key); changedAny ||= changed;
         place(group, element, previous); previous = element;
@@ -1096,7 +1095,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   const editors = new Map();
   function fieldLabel(key) {
     for (const candidate of [`field.${key}`, key]) if (label(candidate) !== candidate) return label(candidate);
-    return key;
+    return view.settings.bondScales?.custom?.find(scale => scale.key === key)?.title ?? key;
   }
   const blank = value => value === undefined
     || (value !== null && typeof value === 'object' && !Array.isArray(value) && !Object.keys(value).length);

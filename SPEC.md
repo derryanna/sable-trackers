@@ -53,7 +53,7 @@ model), `render(state)` for the drawer, and `digest(state)` for injection.
 | `story` | 🌱 seeds `{text, planted_turn}` (planted, not yet paid off, max 6); ⏳ timers `{text, due}` (in-world deadlines, max 4); `arc_phase`, `scene_phase` (short labels) | inject | 1 |
 | `npcs` | per NPC: `id, name, present, outfit, position, mood, agenda, action, wants_toward, secret, truth` | inject | 1 |
 | `thoughts` | per present NPC: private first-person thought, ≤30 words (≈ "NPC Inner Chatter") | show | 1 |
-| `bonds` | per NPC: `toward` + scales 0–100 or null: affection, trust, desire, love, reputation, suspicion, respect, fear, grudge, tension; plus `changes` (only changed scales: `{delta, reason}`) | inject | 1 |
+| `bonds` | per NPC: `toward` + scales 0–100 or null: affection, trust, desire, love, reputation, suspicion, respect, fear, grudge, tension; plus `changes` (only changed scales: `{delta, reason}`); built-ins can be switched off and custom scales added in the «Шкалы отношений» / "Bond scales" settings group (§20) | inject | 1 |
 | `dossiers` | one dossier per NEW named NPC: `{name, role, look, voice, hook}`, each ≤1 sentence; written once when the NPC first appears, never rewritten | show | 0 (only when a new NPC appears) |
 | `planner` | 2–3 possible next beats `{beat, why}` and one "don't forget" line | show | 5 |
 | `banlist` | phrases/rhetorical patterns the main model overused in the last replies: `{pattern, example}`, max 8, oldest dropped first | inject | 3 |
