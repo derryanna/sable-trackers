@@ -661,3 +661,57 @@ group, put cards in, fold it, switch all of its cards with one chip.
 
 Packs inside folders, folders inside folders, per-chat folders, dragging a card
 from one container into another (membership changes go through the menu).
+
+## 19. NPC underside: secret and truth behind a tap
+
+Why (3 Oct 2026): the maintainer liked a community widget's per-character
+"hidden secret, tap to reveal" and "true feeling on the back of the card",
+and wants the same reading experience in Sable with its own names and
+without the widget's mechanics (the main model writing JSON into replies).
+`npcs` already carries `secret` and `agenda`; what is missing is one more
+field and the spoiler.
+
+### Data
+
+- `npcs[].truth` (string, max 160): one short phrase, at most 12 words,
+  naming what this NPC actually feels right now beneath the shown behaviour,
+  grounded in canon and shown behaviour; empty when there is no basis. Added
+  to the `npcs` schema after `secret`; the side-model instruction for `npcs`
+  gains that sentence and one clarifying `agenda` as what the NPC is about to
+  do next.
+- Neither `secret` nor `truth` enters the digest (§5): the `npcs` injection
+  line stays `name (here/away) — mood · agenda · action`. They exist for the
+  reader and for the side model's own continuity.
+- `settings.spoilers` (boolean, default `true`): secrets and truths sit
+  behind a tap in the drawer. Off = plain fields, as before.
+
+### Drawer
+
+- In the «Персонажи» row the field order becomes: `agenda` labelled
+  «Собирается» / "About to" first, then `outfit`, `position`, `action`,
+  `wants_toward`. `secret` and `truth` leave the plain field list.
+- When either `secret` or `truth` is non-empty and `settings.spoilers` is on,
+  the row ends with a spoiler: a button «Тайна» / "Secret"
+  (`data-control="spoiler"`, glyph `fa-eye-slash`, 🙊 in emoji mode,
+  `aria-expanded`), tap target ≥ 36 px. Tapping reveals a `dl` with «Тайна» /
+  "Secret" and «На самом деле» / "Deep down" (only the non-empty ones) and
+  turns the glyph to `fa-eye`; tapping again hides it. Revealed rows are
+  remembered in memory per NPC id while the same ring entry is shown; a new
+  ring entry (a new reply, an edit, a refresh) hides them again, as does a
+  chat change. With `settings.spoilers` off both fields render as plain fields
+  after `wants_toward`, labelled the same way.
+- No 🔒 / 💎 glyphs anywhere: the names and icons are Sable's own.
+- The bottom panel (§7) is unchanged (it prints name and mood only). The
+  manual editor (§13) is schema-driven and gets `truth` for free; its label
+  comes from `field.truth`.
+
+### Settings
+
+- Sections group: a checkbox «Тайны и «на самом деле» за спойлером» / "Secrets
+  and truths behind a tap", bound to `settings.spoilers`, placed after the
+  period hint and before «Разложить по группам».
+
+### Non-goals
+
+A per-character layout, signed bond scales and history sparklines are
+separate candidates (see TASKS.md).

@@ -208,6 +208,23 @@ fixture shares the preview's two folders. Validation: 198 tests, changed-JavaScr
 checks pass; the actual preview module loads in jsdom with both folders. Browser discovery returned no connected
 browser, so real-browser/Android visual verification remains manual. No dependencies, commit or push.
 
+## T17 — NPC underside: secret and truth behind a tap  [ ]
+SPEC §19 (3 Oct 2026, maintainer: «секрет я бы поменяла на тайну 🙊… мне нравится структура»). `npcs[].truth`
+(string ≤ 160, a short phrase of what the NPC actually feels beneath the shown behaviour; instruction added to
+`npcs`), neither `secret` nor `truth` in the digest, `settings.spoilers` (default true). Drawer: in each NPC row
+`agenda` is labelled «Собирается» and comes first; `secret` and `truth` move behind a «Тайна» spoiler button
+(`fa-eye-slash` / `fa-eye`, 🙊 in emoji mode, `data-control="spoiler"`, `aria-expanded`), revealed per NPC id in
+memory until a new ring entry or a chat change; with the setting off both are plain fields. Settings → Sections:
+the spoiler checkbox before «Разложить по группам». Labels ru/en: «Тайна» / "Secret", «На самом деле» /
+"Deep down", «Собирается» / "About to", plus `field.truth` for the editor. Done when: schema and sanitize tests
+cover `truth`, the digest snapshot tests are unchanged, drawer tests cover hidden-by-default, reveal, re-hide on
+a new entry and on chat change, the setting off, present and absent rows, the editor field; README ru + en and
+SPEC §2 table mention the field; `fixtures/state-full.json` carries a `truth` for one NPC.
+
+Candidates noted the same day, not scheduled: a «по персонажам» layout (one card per NPC built from npcs,
+thoughts, bonds and dossiers), signed −100…+100 bond scales with a centre line, a 12-point history sparkline per
+scale (needs a small per-chat history store).
+
 ## Notes from previous tasks
 (append here)
 - T13: the drawer's top-level children are `.st-sable-card` or `.st-sable-group`; find cards with
