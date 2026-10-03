@@ -269,6 +269,16 @@ replace on the same mesId, cap 12, prune), the sparkline (hidden under 2 points,
 visual toggle), signed parsing and clamping, the centred bar and signed labels, the settings checkbox; every
 existing test green; README ru + en mention both; SPEC §12 lists `visual.sparklines`.
 
+## T21 — Intimacy+ pack (18+)  [ ]
+SPEC §23 (3 Oct 2026, a reader's list of a thorough adult block; maintainer: «идея для второго пака… пиши»).
+Built-in pack `intimacy_plus` («Интим+ (18+)», `fa-fire`, scope default `others`, the adult guard + explicit-facts
+rules) with seven sections: `climax` (stats, inject), `contact` (kv, inject), `zones` (kv, show), `kinks` (tags,
+inject), `limits` (tags, inject), `experience` (list, show), `after` (text, show), each instruction starting with
+the adult guard and the empty-value rule. Content only: `src/packs/index.js`, i18n ru + en, fixtures, tests
+(shape/cap list, scope set, digest snapshot, the fixture key list, the pack sheet count), README + SPEC §15.
+Done when: `npm test` green with the new pack in every pack test, the fixture validates through `sanitizeSection`
+for every new section, the digest snapshot includes the four inject sections, the sheet lists three packs.
+
 ## Notes from previous tasks
 (append here)
 - T19: `settings.layout` (`LAYOUTS` in `src/settings.js`), the select «Раскладка панели» first in Settings → Sections,
