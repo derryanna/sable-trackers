@@ -322,6 +322,7 @@ Rules: custom sections behave exactly like built-ins: requested from the side mo
   titleWeight: 700,   // 500–800, step 100
   chipStyle: 'filled' | 'outline', // the active «в промпт» chip
   accentBar: true,    // the left accent bar on cards
+  sparklines: true,   // history sparklines under bond scales (§22)
   spacing: 'cozy' | 'compact' }
 ```
 

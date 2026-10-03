@@ -15,7 +15,8 @@ export const BOND_SCALE_HINTS = Object.freeze({
 });
 // Scales where a high value means friction; their bars get the warm tint.
 export const FRICTION_SCALES = Object.freeze(['suspicion', 'fear', 'grudge', 'tension']);
-const bondSchema = keys => ({ type:'array',max:50,item:{type:'object',fields:{...npcBase,toward:s(120),stats:{type:'object',fields:Object.fromEntries(keys.map(k=>[k,{type:'score'}]))},changes:{type:'changes'},legacy_stats:{type:'object',allowUnknown:true}},required:['id']} });
+// `signed` = keys whose range is −100…+100 (SPEC §22).
+const bondSchema = (keys, signed = []) => ({ type:'array',max:50,item:{type:'object',fields:{...npcBase,toward:s(120),stats:{type:'object',fields:Object.fromEntries(keys.map(k=>[k,signed.includes(k)?{type:'score',min:-100}:{type:'score'}]))},changes:{type:'changes'},legacy_stats:{type:'object',allowUnknown:true}},required:['id']} });
 const bondInstructions = definitions => `Independent scales toward the named target only: ${definitions.join('; ') || 'none'}. Known scores are integers 0-100: 0 means known absence, null means unknown. Do not fill everything with 50. Keep the previous known value without new basis; derive new starting values cautiously from canon. A scale absent from PREVIOUS STATE is new: give it a starting value from canon and shown behaviour instead of null. Change by at most 10 per reply unless a clearly major event warrants more; no automatic affection growth. desire = null for minors, without sexual interpretations; love = null for minors as well. changes contains changed scales only, with short concrete reasons; return {} if unchanged.`;
 
 export const SECTION_ORDER = ['world', 'offscreen', 'threads', 'story', 'npcs', 'thoughts', 'bonds', 'dossiers', 'planner', 'banlist'];
@@ -40,10 +41,14 @@ export function getSection(id) { return SECTION_MAP[id]; }
 
 export const BOND_SCALE_KEY = /^[a-z][a-z0-9_]{1,15}$/;
 export const MAX_CUSTOM_SCALES = 6;
-/** settings.bondScales (SPEC §20): `off` ⊂ built-in keys without duplicates; `custom` ≤ 6 valid, unique, non-colliding entries. */
+// Appended to the definition of a signed scale (SPEC §22).
+export const SIGNED_HINT = ' (−100…+100, negative = the opposite feeling)';
+/** settings.bondScales (SPEC §20, §22): `off` and `signed` ⊂ built-in keys without duplicates; `custom` ≤ 6 valid, unique,
+ *  non-colliding entries, each with a `signed` flag. */
 export function normalizeBondScales(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const off = [...new Set(Array.isArray(source.off) ? source.off : [])].filter(key => scales.includes(key));
+  const builtins = list => [...new Set(Array.isArray(list) ? list : [])].filter(key => scales.includes(key));
+  const off = builtins(source.off), signed = builtins(source.signed);
   const used = new Set(scales), custom = [];
   for (const item of Array.isArray(source.custom) ? source.custom : []) {
     if (custom.length >= MAX_CUSTOM_SCALES) break;
@@ -51,25 +56,26 @@ export function normalizeBondScales(value) {
     const title = typeof item.title === 'string' ? item.title.trim().slice(0, 30).trim() : '';
     if (!title) continue;
     used.add(item.key);
-    custom.push({ key: item.key, title, hint: typeof item.hint === 'string' ? item.hint.trim().slice(0, 200).trim() : '', friction: !!item.friction });
+    custom.push({ key: item.key, title, hint: typeof item.hint === 'string' ? item.hint.trim().slice(0, 200).trim() : '', friction: !!item.friction, signed: !!item.signed });
   }
-  return { off, custom };
+  return { off, signed, custom };
 }
 
 /** Active bond scales in order: built-ins minus `off`, then custom ones. A built-in's title is its i18n key. */
 export function bondScales(settings = {}) {
-  const { off, custom } = normalizeBondScales(settings?.bondScales);
-  return [...scales.filter(key => !off.includes(key)).map(key => ({ key, builtin: true, title: key, hint: BOND_SCALE_HINTS[key], friction: FRICTION_SCALES.includes(key) })),
+  const { off, signed, custom } = normalizeBondScales(settings?.bondScales);
+  return [...scales.filter(key => !off.includes(key)).map(key => ({ key, builtin: true, title: key, hint: BOND_SCALE_HINTS[key],
+    friction: FRICTION_SCALES.includes(key), signed: signed.includes(key) })),
     ...custom.map(item => ({ ...item, builtin: false }))];
 }
 
 /** The bonds section for these settings: stats fields and definitions follow the active scales (default = SECTION_MAP.bonds). */
 export function bondsSection(settings = {}) {
-  const { off, custom } = normalizeBondScales(settings?.bondScales);
-  if (!off.length && !custom.length) return SECTION_MAP.bonds;
+  const { off, signed, custom } = normalizeBondScales(settings?.bondScales);
+  if (!off.length && !signed.length && !custom.length) return SECTION_MAP.bonds;
   const active = bondScales(settings);
-  return Object.freeze({ ...SECTION_MAP.bonds, schema: bondSchema(active.map(scale => scale.key)),
-    instructions: bondInstructions(active.map(scale => `${scale.key} = ${scale.hint || scale.title}`)) });
+  return Object.freeze({ ...SECTION_MAP.bonds, schema: bondSchema(active.map(scale => scale.key), active.filter(scale => scale.signed).map(scale => scale.key)),
+    instructions: bondInstructions(active.map(scale => `${scale.key} = ${scale.hint || scale.title}${scale.signed ? SIGNED_HINT : ''}`)) });
 }
 
 export function normalizeCustomSections(value) {

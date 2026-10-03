@@ -21,7 +21,7 @@ const custom = { bondScales: { off: ['reputation'], custom: [jealousy] } };
 const statKeys = section => Object.keys(section.schema.item.fields.stats.fields);
 
 test('bond scale normaliser: off ⊂ built-ins, custom keys validated, capped and coerced', () => {
-  assert.deepEqual(normalizeBondScales(undefined), { off: [], custom: [] });
+  assert.deepEqual(normalizeBondScales(undefined), { off: [], signed: [], custom: [] });
   assert.deepEqual(normalizeBondScales({ off: ['fear', 'bogus', 'fear', 7, 'trust'] }).off, ['fear', 'trust']);
   const result = normalizeBondScales({ custom: [
     { key: 'jealousy', title: '  Ревность  ', hint: ' h ', friction: 1 },
@@ -31,15 +31,15 @@ test('bond scale normaliser: off ⊂ built-ins, custom keys validated, capped an
     { key: 'long_title', title: 'x'.repeat(40), hint: 'y'.repeat(250), friction: 'no' },
   ] });
   assert.deepEqual(result.custom.map(item => item.key), ['jealousy', 'long_title']);
-  assert.deepEqual(result.custom[0], { key: 'jealousy', title: 'Ревность', hint: 'h', friction: true });
+  assert.deepEqual(result.custom[0], { key: 'jealousy', title: 'Ревность', hint: 'h', friction: true, signed: false });
   assert.equal(result.custom[1].title.length, 30);
   assert.equal(result.custom[1].hint.length, 200);
   assert.equal(typeof result.custom[1].friction, 'boolean');
   const many = Array.from({ length: 9 }, (_, i) => ({ key: `s${i}x`, title: `S${i}` }));
   assert.equal(normalizeBondScales({ custom: many }).custom.length, 6);
   const settings = normalizeSettings({ bondScales: { off: ['respect', 'respect'], custom: [jealousy, { key: 'fear', title: 'x' }] } });
-  assert.deepEqual(settings.bondScales, { off: ['respect'], custom: [jealousy] });
-  assert.deepEqual(normalizeSettings({}).bondScales, { off: [], custom: [] });
+  assert.deepEqual(settings.bondScales, { off: ['respect'], signed: [], custom: [{ ...jealousy, signed: false }] });
+  assert.deepEqual(normalizeSettings({}).bondScales, { off: [], signed: [], custom: [] });
   assert.equal(GROUP_IDS[GROUP_IDS.indexOf('sections') + 1], 'scales');
 });
 
@@ -48,9 +48,9 @@ test('bondScales: built-ins minus off in canonical order, then custom; descripto
   assert.deepEqual(FRICTION_SCALES, ['suspicion', 'fear', 'grudge', 'tension']);
   const scales = bondScales({ bondScales: { off: ['tension', 'affection'], custom: [jealousy] } });
   assert.deepEqual(scales.map(s => s.key), ['trust', 'desire', 'love', 'reputation', 'suspicion', 'respect', 'fear', 'grudge', 'jealousy']);
-  assert.deepEqual(scales[0], { key: 'trust', builtin: true, title: 'trust', hint: BOND_SCALE_HINTS.trust, friction: false });
+  assert.deepEqual(scales[0], { key: 'trust', builtin: true, title: 'trust', hint: BOND_SCALE_HINTS.trust, friction: false, signed: false });
   assert.equal(scales.find(s => s.key === 'fear').friction, true);
-  assert.deepEqual(scales.at(-1), { ...jealousy, builtin: false });
+  assert.deepEqual(scales.at(-1), { ...jealousy, signed: false, builtin: false });
 });
 
 test('the bonds section follows the settings: stats fields = active keys, rebuilt definitions', () => {
@@ -169,7 +169,7 @@ test('settings: built-in checkboxes write the whole off array; the rebuild hint 
   assert.match(group.textContent, /rebuilt from the enabled scales/);
   boxes[6].checked = false; fire(boxes[6]);
   boxes[4].checked = false; fire(boxes[4]);
-  assert.deepEqual(patches.at(-1), { bondScales: { off: ['reputation', 'respect'], custom: [] } });
+  assert.deepEqual(patches.at(-1), { bondScales: { off: ['reputation', 'respect'], signed: [], custom: [] } });
   boxes[6].checked = true; fire(boxes[6]);
   assert.deepEqual(runtime.snapshot().settings.bondScales.off, ['reputation']);
   assert.ok(!boxes[4].checked);
@@ -186,14 +186,14 @@ test('settings: custom scale rows write the whole custom array, validate keys, c
   const { runtime, patches, group, fire, document } = settingsSetup(t);
   const add = group.querySelector('[data-control="add-scale"]');
   add.click();
-  assert.deepEqual(runtime.snapshot().settings.bondScales.custom, [{ key: 'custom1', title: 'New scale', hint: '', friction: false }]);
+  assert.deepEqual(runtime.snapshot().settings.bondScales.custom, [{ key: 'custom1', title: 'New scale', hint: '', friction: false, signed: false }]);
   const row = () => group.querySelectorAll('.st-sable-scale-custom')[0];
   assert.equal(document.activeElement, row().querySelector('[name="title"]'), 'the new row focuses its title');
   const title = row().querySelector('[name="title"]'); title.value = 'Jealousy'; fire(title);
   const hint = row().querySelector('[name="hint"]'); hint.value = 'jealousy toward toward'; fire(hint);
   const friction = row().querySelector('[name="friction"]'); friction.checked = true; fire(friction);
   const key = row().querySelector('[name="key"]'); key.value = 'jealousy'; fire(key);
-  assert.deepEqual(patches.at(-1), { bondScales: { off: [], custom: [{ key: 'jealousy', title: 'Jealousy', hint: 'jealousy toward toward', friction: true }] } });
+  assert.deepEqual(patches.at(-1), { bondScales: { off: [], signed: [], custom: [{ key: 'jealousy', title: 'Jealousy', hint: 'jealousy toward toward', friction: true, signed: false }] } });
   // A bad or colliding key stays in the input, marked, and is not saved.
   const before = patches.length;
   for (const bad of ['Bad key', 'trust']) {
@@ -227,5 +227,5 @@ test('saveSettings replaces bondScales whole', () => {
   const fake = createFakeST();
   saveSettings(fake.ctx, { bondScales: { off: ['fear'], custom: [jealousy] } });
   const next = saveSettings(fake.ctx, { bondScales: { off: ['trust'] } });
-  assert.deepEqual(next.bondScales, { off: ['trust'], custom: [] });
+  assert.deepEqual(next.bondScales, { off: ['trust'], signed: [], custom: [] });
 });

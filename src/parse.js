@@ -17,7 +17,8 @@ function sanitize(value, schema) {
   }
   if (schema.type === 'score') {
     if (value === null) return null;
-    const n = Number(value); return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : undefined;
+    // Signed scales (SPEC §22) carry min: -100; the default range is 0–100.
+    const n = Number(value); return Number.isFinite(n) ? Math.min(100, Math.max(schema.min ?? 0, Math.round(n))) : undefined;
   }
   if (schema.type === 'enum') return schema.values.includes(value) ? value : schema.fallback;
   if (schema.type === 'array') {

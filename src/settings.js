@@ -26,7 +26,7 @@ export const FX_DEFAULTS = Object.freeze({
 export const FX_RANGES = Object.freeze({ 'glow.intensity': [0, 1, 0.05], 'rain.density': [0, 1, 0.05], 'rain.angle': [-30, 30, 1] });
 export const VISUAL_DEFAULTS = Object.freeze({ opacity: 0.93, blur: 14, fontSize: 13, widthVw: 80, accent: '#f5f4ee', base: null, text: null, icons: 'fa', radius: 18,
   bgImage: null, bgDim: 0.45, bgFit: 'cover', effects: 'subtle', fx: FX_DEFAULTS, cardColors: Object.freeze({}),
-  cardFill: 0.05, border: 0.13, titleFont: 'theme', titleWeight: 700, chipStyle: 'filled', accentBar: true, spacing: 'cozy' });
+  cardFill: 0.05, border: 0.13, titleFont: 'theme', titleWeight: 700, chipStyle: 'filled', accentBar: true, spacing: 'cozy', sparklines: true });
 export const VISUAL_RANGES = Object.freeze({ opacity: [0.5, 1, 0.01], blur: [0, 30, 1], fontSize: [12, 16, 1], widthVw: [60, 100, 1], radius: [8, 24, 1],
   bgDim: [0, 0.9, 0.01], cardFill: [0, 0.3, 0.01], border: [0, 0.5, 0.01], titleWeight: [500, 800, 100] });
 // Closed choices in display order; VISUAL_DEFAULTS holds the default of each.
@@ -45,7 +45,7 @@ export const DEFAULTS = {
   hideOff: true, spoilers: true, layout: 'topics',
   prompts: { rules: null, sections: {}, packs: {} },
   packs: [], packDefaults: [], packScope: {},
-  order: SECTION_ORDER, customSections: [], folders: [], bondScales: { off: [], custom: [] },
+  order: SECTION_ORDER, customSections: [], folders: [], bondScales: { off: [], signed: [], custom: [] },
   groups: { connection: true },
   folded: {}, pinned: false, floatingPosition: null,
   sections: Object.fromEntries(SECTIONS.map(s => [s.id, { mode: s.defaultMode, period: s.period }])),
@@ -164,7 +164,7 @@ export function normalizeVisual(value, settings = {}) {
   // Migration (SPEC §16): the old `motion` boolean becomes the level (false → off, true → subtle) and is not kept.
   if (!EFFECTS_LEVELS.includes(source.effects) && typeof source.motion === 'boolean') result.effects = source.motion ? 'subtle' : 'off';
   result.fx = normalizeFx(source.fx);
-  result.accentBar = typeof source.accentBar === 'boolean' ? source.accentBar : VISUAL_DEFAULTS.accentBar;
+  for (const key of ['accentBar', 'sparklines']) result[key] = typeof source[key] === 'boolean' ? source[key] : VISUAL_DEFAULTS[key];
   result.bgImage = normalizeBgImage(source.bgImage);
   return result;
 }

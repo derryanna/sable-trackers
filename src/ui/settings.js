@@ -248,18 +248,24 @@ export function createSettings(runtime, { document = globalThis.document,
   const scalesGroup = group('scales', 'group.scales');
   const bondScaleSettings = () => {
     const value = runtime.snapshot().settings.bondScales;
-    return { off: Array.isArray(value?.off) ? value.off : [], custom: Array.isArray(value?.custom) ? value.custom : [] };
+    const list = key => (Array.isArray(value?.[key]) ? value[key] : []);
+    return { off: list('off'), signed: list('signed'), custom: list('custom') };
   };
   const writeScales = patch => runtime.updateSettings({ bondScales: { ...bondScaleSettings(), ...patch } });
-  const scaleChecks = new Map(), scaleList = node('div', 'st-sable-scale-list');
+  const scaleChecks = new Map(), signedChecks = new Map(), scaleList = node('div', 'st-sable-scale-list');
+  // Each built-in row: the on/off checkbox, then «−100…+100» (SPEC §22); a switched-off scale keeps its signed flag.
+  const flagList = (list, key, on) => BOND_SCALES.filter(item => (item === key ? on : list.includes(item)));
   for (const key of BOND_SCALES) {
+    const line = node('div', 'st-sable-scale-builtin');
     const row = node('label', 'checkbox_label st-sable-settings-check');
     const input = node('input'); input.type = 'checkbox'; input.name = `scale.${key}`; input.dataset.scale = key;
-    input.addEventListener('change', () => {
-      const off = bondScaleSettings().off;
-      writeScales({ off: BOND_SCALES.filter(item => (item === key ? !input.checked : off.includes(item))) });
-    });
-    row.append(input, text('span', '', `scale.${key}.hint`)); scaleList.append(row); scaleChecks.set(key, input);
+    input.addEventListener('change', () => writeScales({ off: flagList(bondScaleSettings().off, key, !input.checked) }));
+    row.append(input, text('span', '', `scale.${key}.hint`));
+    const signedRow = node('label', 'checkbox_label st-sable-settings-check st-sable-scale-signed');
+    const signed = node('input'); signed.type = 'checkbox'; signed.name = `signed.${key}`; signed.dataset.signed = key;
+    signed.addEventListener('change', () => writeScales({ signed: flagList(bondScaleSettings().signed, key, signed.checked) }));
+    signedRow.append(signed, text('span', '', 'scales.signed'));
+    line.append(row, signedRow); scaleList.append(line); scaleChecks.set(key, input); signedChecks.set(key, signed);
   }
   const customScaleList = node('div', 'st-sable-custom-list');
   const scaleActions = node('div', 'st-sable-settings-buttons');
@@ -303,6 +309,11 @@ export function createSettings(runtime, { document = globalThis.document,
     inputs.friction = node('input'); inputs.friction.type = 'checkbox'; inputs.friction.name = 'friction';
     inputs.friction.addEventListener('change', () => patch({ friction: inputs.friction.checked }));
     friction.append(inputs.friction, bindRow(node('span'), 'scales.friction'));
+    const signed = node('label', 'checkbox_label st-sable-settings-check st-sable-scale-signed');
+    inputs.signed = node('input'); inputs.signed.type = 'checkbox'; inputs.signed.name = 'signed';
+    inputs.signed.addEventListener('change', () => patch({ signed: inputs.signed.checked }));
+    signed.append(inputs.signed, bindRow(node('span'), 'scales.signed'));
+    const checks = node('div', 'st-sable-scale-checks'); checks.append(friction, signed);
     const small = node('div', 'st-sable-custom-fields');
     small.append(field('scales.key', inputs.key, 'key'), field('scales.title', inputs.title, 'title'));
     const actions = node('div', 'st-sable-custom-actions');
@@ -320,12 +331,13 @@ export function createSettings(runtime, { document = globalThis.document,
       if (!row.armed) return;
       row.armed = false; applyLabels(row.labels); row.remove.classList.remove('st-sable-armed');
     });
-    row.element.append(small, row.keyHint, field('scales.hint', inputs.hint, 'hint'), friction, actions);
+    row.element.append(small, row.keyHint, field('scales.hint', inputs.hint, 'hint'), checks, actions);
     return row;
   }
   function renderScales() {
-    const off = view.settings.bondScales?.off ?? [], custom = view.settings.bondScales?.custom ?? [];
+    const off = view.settings.bondScales?.off ?? [], custom = view.settings.bondScales?.custom ?? [], signed = view.settings.bondScales?.signed ?? [];
     for (const [key, input] of scaleChecks) input.checked = !off.includes(key);
+    for (const [key, input] of signedChecks) input.checked = signed.includes(key);
     while (scaleRows.length > custom.length) scaleRows.pop().element.remove();
     for (const [index, item] of custom.entries()) {
       if (!scaleRows[index]) { scaleRows[index] = createScaleRow(index); customScaleList.append(scaleRows[index].element); }
@@ -334,6 +346,7 @@ export function createSettings(runtime, { document = globalThis.document,
       if (row.inputs.key.getAttribute('aria-invalid') !== 'true') setValue(row.inputs.key, item.key);
       setValue(row.inputs.title, item.title); setValue(row.inputs.hint, item.hint ?? '');
       row.inputs.friction.checked = !!item.friction;
+      row.inputs.signed.checked = !!item.signed;
     }
     addScale.disabled = custom.length >= MAX_CUSTOM_SCALES;
     const added = scaleRows[openScale];
@@ -580,6 +593,7 @@ export function createSettings(runtime, { document = globalThis.document,
   choice('spacing', 'spacing');
   choice('icons', 'icons');
   visualCheck('accentBar');
+  visualCheck('sparklines');
 
   // Effects (SPEC §16): the level select, then one row per composable effect, shown only at «full». Knobs preview on
   // input and persist on change through the same visual path; a null colour means automatic.

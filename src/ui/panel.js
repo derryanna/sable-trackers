@@ -1,4 +1,4 @@
-import { applyEffects, displayNode } from './drawer.js';
+import { applyEffects, displayNode, signedNumber } from './drawer.js';
 import { bondScales, getSections } from '../sections.js';
 import { t } from '../i18n.js';
 
@@ -67,10 +67,12 @@ export function createPanel(runtime, drawer, { document = globalThis.document,
     // An older snapshot may still describe the scene, but its deltas are not this turn's.
     if (view.modes.bonds !== 'off' && view.entry.mesId === mesId && !view.entry.stale) {
       const scales = bondScales(view.settings);
-      for (const bond of state.bonds ?? []) for (const { key, builtin, title } of scales) {
-        const delta = bond.changes?.[key]?.delta;
+      for (const bond of state.bonds ?? []) for (const { key, builtin, title, signed } of scales) {
+        const delta = bond.changes?.[key]?.delta, value = bond.stats?.[key];
         if (!Number.isFinite(delta) || !delta) continue;
-        lines.push(node('span', 'panel-badge', `${bond.name || bond.id}: ${delta > 0 ? '+' : '−'}${Math.abs(delta)} ${builtin ? t(title, language) : title}`));
+        // A signed scale (SPEC §22) also shows where it now stands, with its sign: «+5 Trust → −40».
+        const now = signed && Number.isFinite(value) ? ` → ${signedNumber(value)}` : '';
+        lines.push(node('span', 'panel-badge', `${bond.name || bond.id}: ${delta > 0 ? '+' : '−'}${Math.abs(delta)} ${builtin ? t(title, language) : title}${now}`));
       }
     }
     // Rebuilt lines leave first, so the persistent pack lines are never detached and re-inserted.

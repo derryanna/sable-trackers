@@ -257,7 +257,7 @@ per mode, the dossier match, keyed persistence of person cards and bond rows acr
 that list an NPC section, the topics layout unchanged (existing tests green); README ru + en mention the
 option; `dev/preview.html` accepts `?layout=people`.
 
-## T20 — Bond visuals: history sparklines and signed custom scales  [ ]
+## T20 — Bond visuals: history sparklines and signed custom scales  [x]
 SPEC §22 (3 Oct 2026, maintainer: «визуал я оч люблю»). `store.history[bondId][scale]` = up to 12
 `{ mesId, value }` points written when a run result or a manual edit is stored (same `mesId` replaces, pruned
 with the ring), `visual.sparklines` (default true) → a 12-bar `div.st-sable-spark` under a bond bar with ≥ 2
@@ -271,6 +271,23 @@ existing test green; README ru + en mention both; SPEC §12 lists `visual.sparkl
 
 ## Notes from previous tasks
 (append here)
+- T20: `store.history[bondId][scale]` via `recordHistory(data, bonds, mesId, keys)` / `pruneHistory(data, keep)` (keep = a
+  chat length or a Set of mesIds) and `HISTORY_POINTS = 12` in `src/store.js`; `run.js` records after a parsed run result is
+  stored (not on a skipped run with no due sections) and after `editState('bonds')`, prunes in `deleted`. A point is
+  written whenever the stored state carries the bond, also on replies where bonds were not due (the line then shows a
+  flat step per reply). `settings.bondScales` is now `{ off, signed, custom }` (custom entries carry `signed`);
+  `SIGNED_HINT` in `src/sections.js` is appended to signed definitions; a signed flag alone rebuilds the bonds section
+  (the default text stays byte-identical). The common sentence "Known scores are integers 0-100" stays: the per-scale
+  range sentence overrides it locally, and changing it would break the byte-identical default. `scaleRow` takes `signed`
+  and `history`; the sparkline is the summary's last child (the first four children are read by position; CSS puts it
+  in grid column 2, second row) so a closed `<details>` still shows it. The signed fill keeps the transform animation: it
+  is half the track, anchored inline with `left: 50%` / `right: 50%` and scaled by |value|/100. Decisions: the negative
+  side takes the opposite tint of the scale (warm for affinity scales, as SPEC says; the plain bar colour for a friction
+  scale such as a signed fear), sparkline bars of negative points likewise; sparkline bars do not animate (the CSS test
+  forbids height transitions, and §22 says static is fine); the reply panel badge of a signed scale appends the signed
+  current value («Maren: +5 Trust → −40»), since the panel shows only deltas; the bond score column is 2.6em (was 2.1em)
+  with `white-space: nowrap` so «−100» fits. The custom scale row's empty space came from `flex: 1 1 12em` on the hint
+  field inside a column flex container (a 12em height); only the title grows now, inside the key/title line, gaps 8 px.
 - T19: `settings.layout` (`LAYOUTS` in `src/settings.js`), the select «Раскладка панели» first in Settings → Sections,
   `runtime.setSectionsMode(ids, mode, chatOnly)` (`setFolderMode` now delegates to it). In the drawer the people layout is
   a container descriptor `{ kind: 'people', key: 'people' }` plus `drawerFolders()`: `groupedOrder` gets a leading pseudo

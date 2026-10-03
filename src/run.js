@@ -1,5 +1,5 @@
 import { seedFromLegacy } from './legacy.js';
-import { getSections } from './sections.js';
+import { getSections, bondScales } from './sections.js';
 import { roll } from './packs/dice.js';
 import { getPacks } from './packs/index.js';
 import { buildPrompt } from './prompt.js';
@@ -8,7 +8,7 @@ import { mergeState } from './merge.js';
 import { buildDigest } from './digest.js';
 import { t } from './i18n.js';
 import { ROLES, loadSettings, saveSettings, effectiveModes, reasoningPayload } from './settings.js';
-import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries } from './store.js';
+import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, putEntry, pruneEntries, recordHistory, pruneHistory } from './store.js';
 
 export const LOG_LIMIT = 5;
 const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue', 'edit']);
@@ -186,6 +186,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
       for (const id of parsed.validSections) counters[id] = 0;
       putEntry(current, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
+      recordHistory(current, state.bonds, mesId, bondScales(settings).map(scale => scale.key));
       const content = typeof result === 'string' ? result : result.content;
       current.lastRun = { mesId, ok: true, at: Date.now(), ms: Date.now() - started,
         inTok: Math.ceil(built.messages.reduce((sum, m) => sum + m.content.length, 0) / 4), outTok: Math.ceil(content.length / 4) };
@@ -225,6 +226,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     const ctx = getContext(), data = loadStore(ctx);
     const length = Math.min(ctx.chat.length, newChatLength);
     pruneEntries(data, length);
+    pruneHistory(data, length);
     if (data.roll && length <= data.roll.forMesId) delete data.roll;
     restoreCounters(data, currentEntry(data, ctx.chat));
     publish();
@@ -361,6 +363,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     entry.state[id] = cleaned;
     entry.state.meta = { ...entry.state.meta, editedAt: Date.now() };
     delete entry.stale;
+    if (id === 'bonds') recordHistory(data, cleaned, entry.mesId, bondScales(settings).map(scale => scale.key));
     publish();
     void saveStore(ctx);
     return true;

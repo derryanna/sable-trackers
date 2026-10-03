@@ -156,13 +156,25 @@
 /* Bonds: label | bar | number | delta. A row with a delta is a <summary>; tap shows the reason. */
 .st-sable-bond + .st-sable-bond { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .06); }
 .st-sable-bond-name { margin-bottom: 4px; }
-.st-sable-scale-row { display: grid; grid-template-columns: 8em minmax(36px, 1fr) 2.1em 3.4em; align-items: center; gap: 8px; min-height: 28px; font-size: calc(var(--st-sable-fs) - 1px); }
+.st-sable-scale-row { display: grid; grid-template-columns: 8em minmax(36px, 1fr) 2.6em 3.4em; align-items: center; gap: 8px; min-height: 28px; font-size: calc(var(--st-sable-fs) - 1px); }
 .st-sable-drawer summary.st-sable-scale-row { min-height: 36px; }
 .st-sable-scale-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .72; }
 .st-sable-bar { display: block; height: 6px; overflow: hidden; border-radius: 999px; background: rgba(var(--st-sable-ink-rgb, 255,255,255), .09); }
 .st-sable-bar-fill { display: block; width: 100%; height: 100%; transform-origin: 0 50%; background: rgba(var(--st-sable-ink-rgb, 245,244,238), .82); }
 .st-sable-friction > .st-sable-bar-fill { background: #e39a8d; }
-.st-sable-score { text-align: right; font-size: calc(var(--st-sable-fs) - .5px); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Bond visuals (SPEC §22). A signed scale fills from a hairline at the centre: the fill is half the track, anchored at
+   50 % (left for positive, right for negative, set inline) and scaled like a normal fill. */
+.st-sable-bar.st-sable-signed { position: relative; }
+.st-sable-bar.st-sable-signed::before { content: ''; position: absolute; z-index: 1; top: 0; bottom: 0; left: calc(50% - .5px); width: 1px; background: rgba(var(--st-sable-ink-rgb, 245,244,238), .5); }
+.st-sable-signed > .st-sable-bar-fill { position: absolute; top: 0; width: 50%; }
+.st-sable-signed.st-sable-negative > .st-sable-bar-fill { transform-origin: 100% 50%; }
+/* History sparkline: one bar per stored point under the scale bar (second grid row, bar column), tinted like the bar. */
+.st-sable-scale-row:has(> .st-sable-spark) { row-gap: 0; }
+.st-sable-spark { grid-column: 2; display: flex; align-items: flex-end; gap: 2px; height: 16px; margin-top: 3px; margin-bottom: 6px; }
+.st-sable-spark > span { flex: 1; min-width: 2px; border-radius: 1px; opacity: .75; background: rgba(var(--st-sable-ink-rgb, 245,244,238), .82); }
+.st-sable-spark.st-sable-friction > span, .st-sable-spark > span.st-sable-negative { background: #e39a8d; }
+.st-sable-spark.st-sable-friction > span.st-sable-negative { background: rgba(var(--st-sable-ink-rgb, 245,244,238), .82); }
+.st-sable-score { text-align: right; font-size: calc(var(--st-sable-fs) - .5px); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .st-sable-badge { justify-self: start; padding: 2px 6px; border-radius: 999px; font-size: calc(var(--st-sable-fs) - 2px); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .st-sable-up { color: #93dca5; background: rgba(120,200,140,.16); }
 .st-sable-down { color: #f29d9d; background: rgba(235,120,120,.16); }
@@ -274,6 +286,7 @@
 .st-sable-drawer[data-st-sable-tone="light"] :is(.st-sable-dot, .st-sable-presence, .st-sable-status-dot) { outline: 1px solid rgba(0,0,0,.22); }
 .st-sable-drawer[data-st-sable-tone="light"] .st-sable-bar { box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
 .st-sable-drawer[data-st-sable-tone="light"] .st-sable-friction > .st-sable-bar-fill { background: #d9776a; }
+.st-sable-drawer[data-st-sable-tone="light"] :is(.st-sable-spark.st-sable-friction > span:not(.st-sable-negative), .st-sable-spark:not(.st-sable-friction) > span.st-sable-negative) { background: #d9776a; }
 
 /* Compact scene strip; all text remains inside the available message width. */
 .st-sable-panel { min-height: 36px; padding: 8px 10px; margin-top: 8px; border-radius: 10px; background: rgba(25, 25, 32, .8); color: #eee; cursor: pointer; overflow-wrap: anywhere; font-size: .85em; }
@@ -338,9 +351,17 @@
 .st-sable-custom-field > .text_pole { width: 100%; }
 .st-sable-custom-field[data-field="icon"] { width: 6.5em; }
 .st-sable-scale-list { display: flex; flex-direction: column; gap: 2px; }
-.st-sable-scale-custom { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
+.st-sable-scale-builtin { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; }
+.st-sable-scale-builtin > .st-sable-settings-check:first-child { flex: 1 1 14em; min-width: 0; }
+.st-sable-scale-signed { flex: none; white-space: nowrap; }
+/* The custom scale row is a column; only the title grows, and only inside the key/title line (a flex-basis on the hint
+   field would be a height here and left empty space under it on phones). */
+.st-sable-scale-custom { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
 .st-sable-custom-field[data-field="key"] { width: 9.5em; }
-.st-sable-scale-custom .st-sable-custom-field:is([data-field="title"], [data-field="hint"]) { flex: 1 1 12em; }
+.st-sable-scale-custom .st-sable-custom-fields > .st-sable-custom-field[data-field="title"] { flex: 1 1 12em; }
+.st-sable-scale-custom > .st-sable-custom-field { flex: none; }
+.st-sable-scale-custom > .st-sable-custom-fields { gap: 8px 10px; }
+.st-sable-scale-checks { display: flex; flex-wrap: wrap; gap: 0 16px; }
 .st-sable-settings input[aria-invalid="true"] { border-color: #f29d9d; }
 .st-sable-custom-field[data-field="shape"] { width: 9.5em; }
 .st-sable-custom-field[data-field="mode"] { width: 8.5em; }

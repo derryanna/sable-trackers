@@ -20,6 +20,9 @@ export const SECTION_ICONS = Object.freeze({
   thoughts: 'comment-dots', bonds: 'handshake', dossiers: 'address-card', planner: 'compass', banlist: 'ban',
 });
 
+/** A signed scale value as text (SPEC §22): «+65», «−40» (a true minus sign), «0». */
+export const signedNumber = number => (number > 0 ? `+${number}` : number < 0 ? `−${Math.abs(number)}` : '0');
+
 const BLACK = '0,0,0', WHITE = '255,255,255';
 const hexRgb = hex => [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16));
 
@@ -639,8 +642,28 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   }
   const dropRow = item => { for (const score of item.querySelectorAll('.st-sable-score')) stopTick(score, false); item.remove(); };
   const unique = (seen, key) => { let candidate = key; for (let n = 2; seen.has(candidate); n++) candidate = `${key}#${n}`; seen.add(candidate); return candidate; };
-  /** Creates or updates the row for `key`. spec: { name, title, stat, friction, value, max, plain, unit, delta, reason, openable, die };
-   *  `plain` shows the bare number (bond scales are always out of 100). */
+  /** Creates or updates the row for `key`. spec: { name, title, stat, friction, value, max, plain, unit, delta, reason, openable, die,
+   *  signed, history }; `plain` shows the bare number (bond scales are always out of 100), `signed` draws a centred bar for
+   *  −max…+max with a signed number, `history` (numbers) adds the sparkline under the bar (SPEC §22). */
+  /** The history line under a bar (SPEC §22): one span per point, kept in place and resized; absent under 2 points or
+   *  with `visual.sparklines` off. Heights span the scale's range, at least 8 %. It is the summary's last child (the
+   *  first four are read by position; the grid puts it under the bar), so a closed row still shows it. */
+  function sparkline(row, spec, signed) {
+    let spark = row.querySelector(':scope > .st-sable-spark');
+    const points = view.settings.visual?.sparklines === false || !Array.isArray(spec.history) ? []
+      : spec.history.filter(Number.isFinite).slice(-12);
+    if (points.length < 2) { spark?.remove(); return; }
+    if (!spark) { spark = node('div', 'spark'); spark.setAttribute('aria-hidden', 'true'); row.append(spark); }
+    spark.className = `st-sable-spark ${spec.friction ? 'st-sable-friction' : 'st-sable-affinity'}`;
+    while (spark.children.length > points.length) spark.lastElementChild.remove();
+    while (spark.children.length < points.length) spark.append(document.createElement('span'));
+    const min = signed ? -spec.max : 0, max = spec.max;
+    points.forEach((value, index) => {
+      const span = spark.children[index], ratio = (Math.min(max, Math.max(min, value)) - min) / (max - min);
+      span.style.height = `${Math.max(8, Math.round(ratio * 1000) / 10)}%`;
+      span.classList.toggle('st-sable-negative', signed && value < 0);
+    });
+  }
   function scaleRow(existing, key, spec) {
     const kind = spec.max == null ? 'counter' : 'bar';
     let wrap = existing.get(key);
@@ -665,17 +688,25 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (spec.title) name.title = spec.title; else name.removeAttribute('title');
     const value = Number(spec.value), previous = fresh ? undefined : Number(wrap.dataset.value);
     const changed = !fresh && previous !== value;
-    const format = number => `${number}${spec.max == null || spec.plain ? '' : `/${spec.max}`}${spec.unit ? ` ${spec.unit}` : ''}`;
+    const signed = kind === 'bar' && !!spec.signed;
+    const format = number => `${signed ? signedNumber(number) : number}${spec.max == null || spec.plain ? '' : `/${spec.max}`}${spec.unit ? ` ${spec.unit}` : ''}`;
     if (kind === 'bar') {
-      bar.className = `st-sable-bar ${spec.friction ? 'st-sable-friction' : 'st-sable-affinity'}`;
+      // A signed scale (SPEC §22) fills from the centre: right for positive, left for negative; the opposite side takes
+      // the other tint (warm for an affinity scale, the accent for a friction one).
+      const negative = signed && value < 0, warm = negative ? !spec.friction : !!spec.friction;
+      bar.className = `st-sable-bar ${warm ? 'st-sable-friction' : 'st-sable-affinity'}${signed ? ' st-sable-signed' : ''}${negative ? ' st-sable-negative' : ''}`;
       bar.setAttribute('aria-label', spec.name);
+      bar.setAttribute('aria-valuemin', String(signed ? -spec.max : 0));
       bar.setAttribute('aria-valuemax', String(spec.max));
       bar.setAttribute('aria-valuenow', String(value));
-      const ratio = Math.min(1, Math.max(0, value / spec.max)), fill = bar.firstElementChild;
+      const ratio = Math.min(1, Math.max(0, (signed ? Math.abs(value) : value) / spec.max)), fill = bar.firstElementChild;
       fill.style.transform = `scaleX(${ratio})`;
       fill.style.setProperty('--st-sable-ratio', String(ratio));
-      // Value colour (full): affinity bars pulse under 20 %; friction bars are not "low" when they drop.
-      bar.toggleAttribute('data-st-sable-low', !spec.friction && ratio < 0.2);
+      fill.style.left = signed && !negative ? '50%' : '';
+      fill.style.right = negative ? '50%' : '';
+      // Value colour (full): affinity bars pulse under 20 %; friction and signed bars are not "low" when they drop.
+      bar.toggleAttribute('data-st-sable-low', !spec.friction && !signed && ratio < 0.2);
+      sparkline(row, spec, signed);
     }
     if (changed && Number.isFinite(previous) && ticksOn()) startTick(score, previous, value, format);
     else { stopTick(score, false); score.textContent = format(value); }
@@ -708,12 +739,13 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       const rows = keyedChildren(group, ':scope > details');
       let previous = head;
       // Active scales only (SPEC §20); the warm tint follows each scale's `friction`.
-      for (const { key: scale, builtin, title, friction } of bondScales(view.settings)) {
+      for (const { key: scale, builtin, title, friction, signed } of bondScales(view.settings)) {
         const score = bond.stats?.[scale];
         if (!Number.isFinite(score)) continue;
         const change = bond.changes?.[scale], key = `${groupKey}:${scale}`, name = builtin ? label(title) : title;
-        const { element, changed } = scaleRow(rows, key, { name, title: name, friction,
-          value: score, max: 100, plain: true, delta: change?.delta, reason: change?.reason });
+        const { element, changed } = scaleRow(rows, key, { name, title: name, friction, signed,
+          value: score, max: 100, plain: true, delta: change?.delta, reason: change?.reason,
+          history: view.store?.history?.[bond.id]?.[scale]?.map(point => point.value) });
         rows.delete(key); changedAny ||= changed;
         place(group, element, previous); previous = element;
       }
