@@ -244,7 +244,7 @@ text), merge over active keys, digest and drawer showing active scales only, a c
 settings group (toggle writes `off`, custom rows write `custom`), every existing test green, README ru + en and
 SPEC §2 mention the group.
 
-## T19 — Layout option: by people  [ ]
+## T19 — Layout option: by people  [x]
 SPEC §21 (3 Oct 2026, maintainer: «по персонажу делала бы как опцию»). `settings.layout` (`topics` | `people`,
 select in Settings → Sections). In the people layout the four NPC-keyed sections (`npcs`, `thoughts`, `bonds`,
 `dossiers`) render as one built-in group «Люди» (`[data-people]`, pack-group header with an aggregate chip over
@@ -271,6 +271,20 @@ existing test green; README ru + en mention both; SPEC §12 lists `visual.sparkl
 
 ## Notes from previous tasks
 (append here)
+- T19: `settings.layout` (`LAYOUTS` in `src/settings.js`), the select «Раскладка панели» first in Settings → Sections,
+  `runtime.setSectionsMode(ids, mode, chatOnly)` (`setFolderMode` now delegates to it). In the drawer the people layout is
+  a container descriptor `{ kind: 'people', key: 'people' }` plus `drawerFolders()`: `groupedOrder` gets a leading pseudo
+  folder `{ id: 'people', members: the four }` and the user folders minus the four, so the block is contiguous and the
+  handle / ↑↓ / touch drag move it like a folder (`moveToken` now recognises container keys instead of `:`; `shownIds`
+  expands the People group to its four ids). Decisions: a folder whose members are only NPC sections is hidden while the
+  layout is on (it would otherwise show as an empty folder); a folder chip in this layout writes only its remaining
+  members; with all four off the group hides under hideOff and, revealed, shows an off group with «—» (no person cards);
+  the header mood shows only while `npcs` is not off; bonds whose id matches no NPC also get a trailing person card (so no
+  bars disappear), after them unmatched dossiers (card key = dossier name, made unique); person cards default to folded
+  unless the NPC is present; the title dot is per person (`freshCards` holds `person:<id>` for cards whose bond rows
+  changed) rather than the whole npcs/bonds sections; `fields()` now labels through `fieldLabel` and `field.role` was
+  added, because `role` is the injection-role setting label («Роль вставки») — this also fixes the dossier role label in
+  the manual editor. `normalizeSettings` keeps `folded.people` and any `person:<id>` key.
 - T18: `bondScales(settings)`, `bondsSection(settings)`, `normalizeBondScales`, `BOND_SCALE_HINTS`, `FRICTION_SCALES`,
   `BOND_SCALE_KEY` and `MAX_CUSTOM_SCALES` live in `src/sections.js`; `getSections`/`getAllSections` swap in the
   settings-dependent bonds section (default settings return the frozen `SECTION_MAP.bonds`, so the default text is

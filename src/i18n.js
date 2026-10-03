@@ -373,3 +373,13 @@ Object.assign(STRINGS.ru, {
   'scales.keyHint': 'Строчные латинские буквы, цифры и _, начинается с буквы, 2–16 знаков, не встроенная шкала; это имя поля в JSON.',
   'scales.hintPlaceholder': 'Например: jealousy toward toward',
 });
+
+// Drawer layout (SPEC §21): the settings select, the People group and the person card footer.
+Object.assign(STRINGS.en, {
+  layout: 'Drawer layout', 'layout.topics': 'by topics', 'layout.people': 'by people',
+  people: 'People', 'field.role': 'Role', 'people.hint': 'Editing: in the topics layout',
+});
+Object.assign(STRINGS.ru, {
+  layout: 'Раскладка панели', 'layout.topics': 'по темам', 'layout.people': 'по персонажам',
+  people: 'Люди', 'field.role': 'Роль', 'people.hint': 'Редактирование: в раскладке по темам',
+});

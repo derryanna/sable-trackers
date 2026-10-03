@@ -1,7 +1,7 @@
 import { BOND_SCALES, BOND_SCALE_KEY, MAX_CUSTOM_SCALES, getAllSections, getSections, orderedSectionIds } from '../sections.js';
 import { COMMON_RULES, getPromptTexts } from '../prompt.js';
 import { t } from '../i18n.js';
-import { FX_DEFAULTS, FX_RANGES, FX_SPEEDS, GROUP_IDS, REASONING_LEVELS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
+import { FX_DEFAULTS, FX_RANGES, FX_SPEEDS, GROUP_IDS, LAYOUTS, REASONING_LEVELS, ROLES, VISUAL_CHOICES, VISUAL_DEFAULTS, VISUAL_RANGES, normalizeBgImage, normalizeVisual } from '../settings.js';
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
 import { BUILTIN_PACKS, packScopeOf } from '../packs/index.js';
 import { copyPack, exportPack, importPack } from '../packs/io.js';
@@ -159,6 +159,8 @@ export function createSettings(runtime, { document = globalThis.document,
 
   // All sections follow drawer order; custom shape editing stays in Custom blocks.
   const sectionsGroup = group('sections', 'group.sections');
+  // Drawer layout (SPEC §21): a view option before the table; storage, prompt and digest do not change.
+  options(select(sectionsGroup, 'layout'), LAYOUTS, value => `layout.${value}`);
   const table = node('div', 'st-sable-settings-table');
   const head = node('div', 'st-sable-settings-thead'); head.setAttribute('aria-hidden', 'true');
   head.append(text('span', '', 'section'), text('span', '', 'mode'), bind(labels, text('span', '', 'periodShort'), 'period', 'title'));

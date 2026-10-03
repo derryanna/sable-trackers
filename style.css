@@ -677,6 +677,13 @@
 .st-sable-drawer .st-sable-group .st-sable-card-body { padding-left: 10px; }
 .st-sable-drawer .st-sable-group .st-sable-card::before, .st-sable-drawer .st-sable-group .st-sable-card::after { top: 12px; bottom: 12px; }
 @media (max-width: 379px) { .st-sable-group-body { padding-left: 6px; } .st-sable-group .st-sable-card-body { padding-inline: 8px; } }
+/* People layout (SPEC §21): person cards are member cards of the People group; header = presence, name, mood, fold. */
+.st-sable-drawer .st-sable-person-header { gap: 8px; padding-left: 8px; }
+.st-sable-drawer .st-sable-person-header > .st-sable-card-title { flex: 0 1 auto; gap: 6px; }
+.st-sable-drawer .st-sable-person-header > .st-sable-mood { min-width: 0; overflow-wrap: anywhere; }
+.st-sable-drawer .st-sable-person-header > .st-sable-fold { margin-left: auto; }
+.st-sable-drawer .st-sable-person-part + .st-sable-person-part { margin-top: 6px; }
+.st-sable-drawer .st-sable-person > .st-sable-card-footer { justify-content: flex-start; padding-left: 10px; font-size: calc(var(--st-sable-fs) - 2px); }
 
 /* Live cards (SPEC §16). The level arrives as data-st-sable-effects="off | subtle | full" on the drawer, the tab and the
    reply panel (the system reduced-motion setting forces "off"); the effects that are on arrive as data-st-sable-fx="glow

@@ -21,6 +21,7 @@ fake.ctx.extensionSettings.sableTrackers.folders = [
 fake.ctx.chatMetadata.sableTrackers = { ring: [{ mesId: 0, swipeId: 0, turn: 14, state }],
   lastRun: { at: Date.now() - 60000, ok: true, ms: 2400, inTok: 3100, outTok: 900 }, ...(packs ? { packs: ['combat', 'intimacy'] } : {}) };
 const q = new URLSearchParams(location.search);
+if (q.get('layout') === 'people') fake.ctx.extensionSettings.sableTrackers.layout = 'people';
 if (q.get('fold') === 'all') fake.ctx.extensionSettings.sableTrackers.folded = Object.fromEntries(Object.keys(state).map(k => [k, true]));
 const runtime = createRuntime(fake.getContext); runtime.start();
 const ui = createDrawer(runtime, { document });

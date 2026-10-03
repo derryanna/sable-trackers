@@ -83,7 +83,8 @@ export function applyVisual(element, visual) {
     ['width', `${value.widthVw}vw`], ['radius', `${value.radius}px`], ['card-fill', String(value.cardFill)],
     ['border', String(value.border)], ['title-weight', String(value.titleWeight)], ['bg-dim', String(value.bgDim)]]) set(name, css);
   for (const name of ['base-rgb', 'ink-rgb', 'accent', 'accent-ink-rgb', 'text']) set(name, colors[name]);
-  for (const card of element.querySelectorAll('.st-sable-card')) applyCardColor(card, value.cardColors[card.dataset.section]);
+  // Person cards (SPEC §21) take the npcs card colour.
+  for (const card of element.querySelectorAll('.st-sable-card')) applyCardColor(card, value.cardColors[card.dataset.section ?? (card.dataset.person === undefined ? '' : 'npcs')]);
   // Light bases need darker status colours; see style.css.
   flag('stSableTone', colors.tone || null);
   applyEffects(element, value);
@@ -154,6 +155,8 @@ const MARKERS = {
 };
 const PRIORITIES = ['high', 'mid', 'low'];
 const revealed = new Set();
+// The NPC-keyed sections that the people layout (SPEC §21) shows as person cards.
+const PEOPLE = Object.freeze(['npcs', 'thoughts', 'bonds', 'dossiers']);
 
 // "18+" is part of the intimacy pack's title (SPEC §15 Decisions); the UI shows it as a badge instead.
 export function packTitle(title) {
@@ -175,16 +178,26 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   // Packs and folders share containers (SPEC §15/§18); the stored order stays flat.
   const sections = () => getSections(view.settings, view.packs?.enabled ?? []);
   const enabled = () => view.packs?.enabled ?? [];
-  const grouped = () => groupedOrder(view.settings.order, sections(), enabled(), view.settings.folders);
+  // People layout (SPEC §21): the four NPC-keyed sections read as one block, consumed from any folder that lists them.
+  const peopleOn = () => view.settings.layout === 'people';
+  const folderMembers = folder => (peopleOn() ? folder.members.filter(id => !PEOPLE.includes(id)) : folder.members);
+  const drawerFolders = () => (peopleOn() ? [{ id: 'people', members: PEOPLE },
+    ...(view.settings.folders ?? []).map(folder => ({ ...folder, members: folderMembers(folder) }))] : view.settings.folders);
+  const grouped = () => groupedOrder(view.settings.order, sections(), enabled(), drawerFolders());
   let containerList = [];
   const containers = () => containerList;
   const describeContainers = () => [
     ...(view.packs?.available ?? []).filter(pack => enabled().includes(pack.id)).map(pack => ({ kind: 'pack', id: pack.id,
       key: `pack:${pack.id}`, title: packTitle(pack.title).text, adult: packTitle(pack.title).adult, glyph: () => packGlyph(pack),
       members: sections().filter(s => s.pack === pack.id).map(s => s.id), target: mode => runtime.setPackMode(pack.id, mode) })),
-    ...(view.settings.folders ?? []).map(folder => ({ ...folder, kind: 'folder', key: `folder:${folder.id}`, adult: false,
+    // A folder of NPC sections only has nothing left to show in the people layout.
+    ...(view.settings.folders ?? []).filter(folder => !folder.members.length || folderMembers(folder).length).map(folder => ({ ...folder,
+      members: folderMembers(folder), kind: 'folder', key: `folder:${folder.id}`, adult: false,
       glyph: () => glyphNode(document, folder.icon || (view.settings.visual?.icons === 'emoji' ? '📁' : 'fa-folder')),
-      target: mode => runtime.setFolderMode(folder.id, mode) })),
+      target: mode => (peopleOn() ? runtime.setSectionsMode(folderMembers(folder), mode) : runtime.setFolderMode(folder.id, mode)) })),
+    ...(peopleOn() ? [{ kind: 'people', id: 'people', key: 'people', title: label('people'), adult: false,
+      glyph: () => glyphNode(document, view.settings.visual?.icons === 'emoji' ? '👥' : 'fa-users'),
+      members: PEOPLE.filter(id => sections().some(section => section.id === id)), target: mode => runtime.setSectionsMode(PEOPLE, mode) }] : []),
   ];
   const containerOf = id => containers().find(group => group.members.includes(id));
   const groupNode = key => [...cards.children].find(group => group.dataset.container === key);
@@ -200,7 +213,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (index < 0 || target < 0 || target >= list.length) return;
     [list[index], list[target]] = [list[target], list[index]];
     const order = grouped();
-    runtime.updateSettings({ order: list.flatMap(item => item.includes(':') ? order.filter(id => containerOf(id)?.key === item) : [item]) });
+    const keys = new Set(containers().map(group => group.key));
+    runtime.updateSettings({ order: list.flatMap(item => (keys.has(item) ? order.filter(id => containerOf(id)?.key === item) : [item])) });
   }
   /** Move a member inside its own container; the rest of the order is untouched. */
   function moveMember(id, delta) {
@@ -496,7 +510,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   function line(parent, text, className = 'line') { if (text) parent.append(node('div', className, text)); }
   function fields(parent, value, keys) {
     const list = node('dl', 'kv');
-    for (const key of keys) if (value?.[key]) list.append(node('dt', '', label(key)), node('dd', '', value[key]));
+    for (const key of keys) if (value?.[key]) list.append(node('dt', '', fieldLabel(key)), node('dd', '', value[key]));
     if (list.childNodes.length) parent.append(list);
   }
   let spoilerId = 0;
@@ -680,16 +694,17 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     wrap.dataset.value = String(value);
     return { element: wrap, changed };
   }
-  function renderBonds(body, value) {
+  /** Bond groups keyed `bonds:<id>`; a person card (SPEC §21) keys them `person:<id>` and leaves the name to its header. */
+  function renderBonds(body, value, prefix = 'bonds', named = true) {
     for (const child of [...body.children]) if (!child.classList.contains('st-sable-bond')) child.remove();
     const groups = keyedChildren(body, ':scope > .st-sable-bond'), seen = new Set();
     let changedAny = false, previousGroup = null;
     for (const bond of value) {
-      const groupKey = unique(seen, `bonds:${bond.id}`);
+      const groupKey = unique(seen, `${prefix}:${bond.id}`);
       let group = groups.get(groupKey); groups.delete(groupKey);
       if (!group) { group = node('div', 'bond'); group.dataset.key = groupKey; group.append(node('div', 'bond-name')); }
       const head = group.firstElementChild;
-      head.replaceChildren(node('span', 'name', bond.name || bond.id), muted(` → ${bond.toward || '—'}`));
+      head.replaceChildren(...(named ? [node('span', 'name', bond.name || bond.id)] : []), muted(`${named ? ' ' : ''}→ ${bond.toward || '—'}`));
       const rows = keyedChildren(group, ':scope > details');
       let previous = head;
       // Active scales only (SPEC §20); the warm tint follows each scale's `friction`.
@@ -993,7 +1008,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     title.append(glyph, node('span', 'card-label', text));
     if (adult) title.append(node('span', 'adult', label('packs.adult')));
     const wrap = modeChip(text, mode, groupTarget(pack));
-    const fold = button('', pack.kind === 'folder' ? 'folders.fold' : 'packs.fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [key]: !folded } }), 'fold');
+    const fold = button('', pack.kind === 'pack' ? 'packs.fold' : 'folders.fold', () => runtime.updateSettings({ folded: { ...view.settings.folded, [key]: !folded } }), 'fold');
     fold.append(icon('chevron-down'));
     fold.dataset.control = 'fold'; fold.setAttribute('aria-expanded', String(!folded));
     fold.setAttribute('aria-controls', `st-sable-group-body-${pack.id}`);
@@ -1011,10 +1026,97 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const { mode, folded } = groupState(pack);
     group.dataset.mode = mode ?? 'mixed';
     group.classList.toggle('st-sable-off', mode === 'off');
-    group.setAttribute('aria-label', `${label(pack.kind === 'folder' ? 'folders.group' : 'packs.group')}: ${pack.title}`);
+    group.setAttribute('aria-label', `${label(pack.kind === 'pack' ? 'packs.group' : 'folders.group')}: ${pack.title}`);
     group.firstElementChild.replaceWith(buildGroupHeader(pack));
     group.lastElementChild.hidden = folded;
   }
+  // People layout (SPEC §21): one person card per NPC, present first, then bonds and dossiers that match no NPC.
+  function people(state) {
+    const list = key => (Array.isArray(state[key]) ? state[key] : []), lower = text => String(text ?? '').trim().toLowerCase();
+    const dossiers = [...list('dossiers')], bonds = list('bonds'), result = [], seen = new Set();
+    for (const npc of [...list('npcs')].sort((a, b) => Number(!!b.present) - Number(!!a.present))) {
+      if (!npc?.id || seen.has(npc.id)) continue;
+      seen.add(npc.id);
+      const index = dossiers.findIndex(item => (item?.id && item.id === npc.id)
+        || (lower(item?.name) && [lower(npc.name), lower(npc.id)].includes(lower(item.name))));
+      result.push({ id: npc.id, name: npc.name || npc.id, npc, thought: list('thoughts').find(item => item?.id === npc.id),
+        bonds: bonds.filter(bond => bond?.id === npc.id), dossier: index < 0 ? undefined : dossiers.splice(index, 1)[0] });
+    }
+    if (view.modes.bonds !== 'off') for (const bond of bonds) if (bond?.id && !seen.has(bond.id)) {
+      seen.add(bond.id); result.push({ id: bond.id, name: bond.name || bond.id, bonds: bonds.filter(item => item?.id === bond.id) });
+    }
+    if (view.modes.dossiers !== 'off') for (const dossier of dossiers) if (dossier?.name) {
+      result.push({ id: unique(seen, dossier.name), name: dossier.name, bonds: [], dossier });
+    }
+    return result;
+  }
+  let personBody = 0;
+  function buildPersonCard(person) {
+    const card = node('section', 'card'); card.classList.add('st-sable-person'); card.dataset.person = person.id;
+    const body = node('div', 'card-body'); body.id = `st-sable-person-body-${++personBody}`;
+    card.append(node('div', 'card-header'), body, node('div', 'card-footer'));
+    return card;
+  }
+  /** Header and footer follow the view; the body keeps its bond part, so bars slide. Returns whether a bond value changed. */
+  function updatePersonCard(card, person) {
+    const { npc } = person, key = `person:${person.id}`, on = id => view.modes[id] !== 'off';
+    const folded = view.settings.folded[key] ?? !npc?.present;
+    applyCardColor(card, view.settings.visual?.cardColors?.npcs);
+    card.classList.toggle('st-sable-present', !!npc?.present);
+    const [, body, footer] = card.children;
+    const heading = node('div', 'card-header'); heading.classList.add('st-sable-person-header');
+    const title = node('h3', 'card-title');
+    if (npc) {
+      const presence = node('span', 'presence'); presence.setAttribute('role', 'img');
+      presence.setAttribute('aria-label', label(npc.present ? 'here' : 'away')); title.append(presence);
+    }
+    const dot = node('span', 'change-dot'); dot.hidden = true;
+    dot.setAttribute('role', 'img'); dot.setAttribute('aria-label', label('changed'));
+    title.append(node('span', 'card-label', person.name));
+    if (npc && !npc.present) title.append(node('span', 'pill', label('away')));
+    title.append(dot);
+    heading.append(title);
+    if (npc && on('npcs')) heading.append(node('span', 'mood', npc.mood || '—'));
+    const fold = button('', 'fold', () => {
+      if (folded) freshCards.delete(key);
+      runtime.updateSettings({ folded: { ...view.settings.folded, [key]: !folded } });
+    }, 'fold');
+    fold.append(icon('chevron-down'));
+    fold.dataset.control = 'fold'; fold.setAttribute('aria-expanded', String(!folded)); fold.setAttribute('aria-controls', body.id);
+    heading.addEventListener('click', event => { if (!event.target.closest('button')) fold.click(); });
+    heading.append(fold);
+    card.firstElementChild.replaceWith(heading);
+    body.hidden = footer.hidden = folded;
+    footer.replaceChildren(muted(label('people.hint')));
+    const parts = [], part = name => { const element = node('div', 'person-part'); element.dataset.part = name; return element; };
+    if (npc && on('npcs')) {
+      const element = part('npcs');
+      fields(element, npc, ['agenda', 'outfit', 'position', 'action', 'wants_toward', ...(view.settings.spoilers ? [] : ['secret', 'truth'])]);
+      if (view.settings.spoilers && (npc.secret || npc.truth)) spoiler(element, npc);
+      if (element.childNodes.length) parts.push(element);
+    }
+    if (npc?.present && person.thought?.thought && on('thoughts')) {
+      const element = part('thoughts'), thought = node('div', 'thought');
+      thought.append(node('blockquote', 'quote', quote(person.thought.thought))); element.append(thought); parts.push(element);
+    }
+    let changed = false;
+    if (person.bonds.length && on('bonds')) {
+      const element = body.querySelector(':scope > [data-part="bonds"]') ?? part('bonds');
+      changed = renderBonds(element, person.bonds, 'person', false);
+      parts.push(element);
+    }
+    if (person.dossier && on('dossiers')) {
+      const element = part('dossiers');
+      fields(element, person.dossier, ['role', 'look', 'voice', 'hook']);
+      if (element.childNodes.length) parts.push(element);
+    }
+    for (const child of [...body.children]) if (!parts.includes(child)) dropRow(child);
+    let previous = null;
+    for (const element of parts) { place(body, element, previous); previous = element; }
+    if (!parts.length) body.append(node('span', 'empty', '—'));
+    return changed;
+  }
+
   /** Rebuild one card only (editor open/close); the other cards are untouched. */
   function rebuildCard(id) {
     closeModeMenu();
@@ -1230,6 +1332,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const focused = document.activeElement;
     const focusId = focused?.closest('[data-section]')?.dataset.section;
     const focusPack = focused?.closest('.st-sable-group')?.dataset.container;
+    const focusPerson = focused?.closest('[data-person]')?.dataset.person;
     const focusRole = focused?.dataset.control;
     const previousStore = view.store;
     view = next;
@@ -1259,12 +1362,30 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const list = sections(), packIds = enabled(), ordered = [], allCards = [], changedCards = new Set();
     // Cards persist across renders (SPEC §16): keyed rows keep their nodes, so bars slide instead of jumping. Pack groups
     // (SPEC §15) persist too, keyed by pack id; a hidden member stays out of its group, an empty group leaves the list.
-    const existing = new Map([...cards.querySelectorAll('.st-sable-card')].map(card => [card.dataset.section, card]));
+    const existing = new Map([...cards.querySelectorAll('.st-sable-card[data-section]')].map(card => [card.dataset.section, card]));
+    const persons = new Map([...cards.querySelectorAll('.st-sable-card[data-person]')].map(card => [card.dataset.person, card]));
+    const personCards = [];
     const groups = new Map([...cards.children].filter(child => child.classList.contains('st-sable-group')).map(group => [group.dataset.container, group]));
     const members = new Map();
     for (const id of groupedOrder(view.settings.order, list, packIds, view.settings.folders)) {
       const section = list.find(item => item.id === id), editor = editors.get(id);
       if (editor && view.modes[id] === 'off') editors.delete(id);
+      if (peopleOn() && PEOPLE.includes(id)) {
+        // The People group (SPEC §21) sits at the first of the four; it hides like a group whose members are all off.
+        const pack = containers().find(group => group.key === 'people');
+        if (members.has(pack.key) || (view.settings.hideOff && !revealOff && groupState(pack).mode === 'off')) continue;
+        const group = groups.get(pack.key) ?? buildGroup(pack), items = [];
+        refreshGroup(group, pack);
+        if (groupState(pack).mode !== 'off') for (const person of people(view.entry?.state ?? {})) {
+          const card = persons.get(person.id) ?? buildPersonCard(person);
+          persons.delete(person.id);
+          if (updatePersonCard(card, person)) changedCards.add(`person:${person.id}`);
+          items.push(card); personCards.push(card);
+        }
+        if (!items.length) items.push(node('span', 'empty', '—'));
+        members.set(pack.key, { group, pack, items }); ordered.push(group);
+        continue;
+      }
       if (view.settings.hideOff && !revealOff && view.modes[id] === 'off') continue;
       let card;
       if (editors.has(id) && editor.card?.isConnected) {
@@ -1317,6 +1438,11 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       const dot = card.querySelector('.st-sable-card-title > .st-sable-change-dot');
       if (dot) dot.hidden = !freshCards.has(id);
     }
+    for (const card of personCards) {
+      const key = `person:${card.dataset.person}`;
+      card.toggleAttribute('data-st-sable-changed', changedCards.has(key));
+      card.querySelector('.st-sable-card-title > .st-sable-change-dot').hidden = !freshCards.has(key);
+    }
     const offCount = list.filter(section => view.modes[section.id] === 'off').length;
     hiddenRow.hidden = !view.settings.hideOff || offCount === 0;
     const hiddenLabel = revealOff ? label('hideSections') : `${label('hiddenSections')}: ${offCount}`;
@@ -1328,6 +1454,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     refresh.firstElementChild.classList.toggle('fa-spin', !!view.running && drawer.dataset.stSableEffects !== 'off');
     renderStatus();
     if (focusId && focusRole) cards.querySelector(`[data-section="${focusId}"] [data-control="${focusRole}"]`)?.focus();
+    else if (focusPerson !== undefined && focusRole) [...cards.querySelectorAll('[data-person]')].find(card => card.dataset.person === focusPerson)
+      ?.querySelector(`[data-control="${focusRole}"]`)?.focus();
     else if (focusPack && focusRole) groupNode(focusPack)?.querySelector(`[data-control="${focusRole}"]`)?.focus();
   }
 
@@ -1374,9 +1502,12 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
   const dragged = () => (drag.container ? groupNode(drag.container) : cards.querySelector(`.st-sable-card[data-section="${drag.section}"]`));
-  // Section ids in list order: top-level cards, groups expanded to their members.
-  const shownIds = () => [...cards.children].flatMap(child => (child.classList.contains('st-sable-group')
-    ? [...child.lastElementChild.children].map(card => card.dataset.section).filter(Boolean) : [child.dataset.section]));
+  // Section ids in list order: top-level cards, groups expanded to their members; the People group (SPEC §21) holds
+  // person cards, not section cards, so it stands for its four sections.
+  const shownIds = () => [...cards.children].flatMap(child => (child.dataset.container === 'people'
+    ? containers().find(group => group.key === 'people')?.members ?? []
+    : child.classList.contains('st-sable-group')
+      ? [...child.lastElementChild.children].map(card => card.dataset.section).filter(Boolean) : [child.dataset.section]));
   const endDrag = () => cards.querySelector('.st-sable-dragging')?.classList.remove('st-sable-dragging');
   listen(document, 'pointermove', event => {
     if (!drag || event.pointerId !== drag.pointerId) return;
@@ -1401,7 +1532,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       // Hidden cards keep their slots; the saved order is regrouped so pack blocks stay contiguous.
       const visible = shownIds(), ids = new Set(visible);
       const order = grouped().map(id => (ids.has(id) ? visible.shift() : id));
-      runtime.updateSettings({ order: groupedOrder(order, sections(), enabled(), view.settings.folders) });
+      runtime.updateSettings({ order: groupedOrder(order, sections(), enabled(), drawerFolders()) });
     }
   });
   listen(document, 'pointercancel', () => {

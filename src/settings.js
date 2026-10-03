@@ -42,7 +42,7 @@ export const DEFAULTS = {
   enabled: true, profileId: '', language: 'ru', messages: 4,
   cardChars: 6000, loreChars: 4000, maxTokens: 3000, depth: 2, keep: 3, role: 'system', reasoning: 'low',
   recomputeOnEdit: false, perChatOverrides: false, showPanel: true, showFloatingButton: true,
-  hideOff: true, spoilers: true,
+  hideOff: true, spoilers: true, layout: 'topics',
   prompts: { rules: null, sections: {}, packs: {} },
   packs: [], packDefaults: [], packScope: {},
   order: SECTION_ORDER, customSections: [], folders: [], bondScales: { off: [], custom: [] },
@@ -54,6 +54,8 @@ export const DEFAULTS = {
 const isMode = value => ['inject', 'show', 'off'].includes(value);
 // Injection role for setExtensionPrompt (SPEC §5), in the order of SillyTavern's extension_prompt_roles.
 export const ROLES = Object.freeze(['system', 'user', 'assistant']);
+// Drawer layout (SPEC §21): topic cards, or the four NPC-keyed sections as one card per person.
+export const LAYOUTS = Object.freeze(['topics', 'people']);
 
 export function normalizeSettings(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
@@ -68,6 +70,7 @@ export function normalizeSettings(value = {}) {
   }
   result.profileId = typeof result.profileId === 'string' ? result.profileId : '';
   result.role = ROLES.includes(result.role) ? result.role : DEFAULTS.role;
+  result.layout = LAYOUTS.includes(result.layout) ? result.layout : DEFAULTS.layout;
   result.reasoning = REASONING_LEVELS.includes(result.reasoning) ? result.reasoning : DEFAULTS.reasoning;
   result.language = ['ru', 'en'].includes(result.language) ? result.language : 'ru';
   result.customSections = normalizeCustomSections(value.customSections);
@@ -79,9 +82,11 @@ export function normalizeSettings(value = {}) {
   result.packScope = Object.fromEntries(packIds.filter(id => ['all', 'user', 'others'].includes(value.packScope?.[id])).map(id => [id, value.packScope[id]]));
   const all = getAllSections({ ...result, prompts: {} });
   const ids = all.map(section => section.id);
-  // Fold keys are section ids plus pack and folder container keys (SPEC §15/§18).
-  const foldKeys = [...ids, ...packIds.map(id => `pack:${id}`), ...result.folders.map(folder => `folder:${folder.id}`)];
-  result.folded = Object.fromEntries(foldKeys.filter(id => typeof value.folded?.[id] === 'boolean').map(id => [id, value.folded[id]]));
+  // Fold keys are section ids plus pack and folder container keys (SPEC §15/§18), the People group and person cards (§21).
+  const foldKeys = [...ids, ...packIds.map(id => `pack:${id}`), ...result.folders.map(folder => `folder:${folder.id}`), 'people'];
+  const isPerson = id => /^person:.{1,200}$/s.test(id);
+  result.folded = Object.fromEntries(Object.keys(value.folded && typeof value.folded === 'object' ? value.folded : {})
+    .filter(id => (foldKeys.includes(id) || isPerson(id)) && typeof value.folded[id] === 'boolean').map(id => [id, value.folded[id]]));
   result.groups = { ...DEFAULTS.groups, ...Object.fromEntries(GROUP_IDS
     .filter(id => typeof value.groups?.[id] === 'boolean').map(id => [id, value.groups[id]])) };
   const position = value.floatingPosition;
