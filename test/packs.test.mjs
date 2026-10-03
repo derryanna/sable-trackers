@@ -22,12 +22,13 @@ const stats = all.find(s => s.id === 'combat_stats');
 const tags = all.find(s => s.id === 'combat_effects');
 
 test('final built-in content is bounded, localized and keeps the adult and scope guards', () => {
-  const scoped = new Set(['combat_stats', 'combat_effects', 'combat_odds', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks']);
+  const scoped = new Set(['combat_stats', 'combat_effects', 'combat_odds', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks',
+    'intimacy_plus_climax', 'intimacy_plus_contact', 'intimacy_plus_zones', 'intimacy_plus_kinks', 'intimacy_plus_limits', 'intimacy_plus_experience']);
   const guard = 'Every participant must be an established adult; otherwise return empty values. Invent nothing.';
   for (const pack of BUILTIN_PACKS) {
     for (const text of [pack.rules, ...pack.sections.map(s => s.instructions)]) {
       assert.ok(text.length > 0 && text.length <= 2000);
-      if (pack.id === 'intimacy') assert.ok(text.includes(guard));
+      if (pack.id !== 'combat') assert.ok(text.includes(guard), `${pack.id}: adult guard`);
     }
     assert.ok(pack.rules.includes('{{scope}}'));
     for (const s of pack.sections) assert.equal(s.instructions.includes('{{scope}}'), scoped.has(`${pack.id}_${s.key}`));
@@ -43,8 +44,8 @@ test('final built-in content is bounded, localized and keeps the adult and scope
 
 test('final pack prompts expand every scope and place due rules after common rules', () => {
   for (const choice of ['all', 'user', 'others']) {
-    const settings = { language: 'en', packScope: { combat: choice, intimacy: choice } };
-    const sections = getSections(settings, ['combat', 'intimacy']);
+    const settings = { language: 'en', packScope: { combat: choice, intimacy: choice, intimacy_plus: choice } };
+    const sections = getSections(settings, ['combat', 'intimacy', 'intimacy_plus']);
     const sentence = choice === 'all' ? 'Track every participant present in the scene.'
       : choice === 'user' ? "Track only the user's character, Traveller; other participants are not tracked."
         : "Track every participant except the user's character, Traveller; never record or imply the user's own state, feelings or responses.";
@@ -81,7 +82,11 @@ COMBAT ODDS: crit %: 15 (Guard; estimate) · hit %: 60 (Guard; estimate) · init
 INTIMACY SCENE: Guard (adult, 30) and Traveller (adult, 32); seated side by side; paused; neither leads; both explicitly agree to closeness.
 AROUSAL: Guard · arousal 20/100 · Guard · stamina 70/100 · Traveller · arousal 15/100 · Traveller · stamina 85/120
 COUNTERS: Guard · climaxes 0 (explicit zero) · Traveller · minutes 5 min (+5 stated duration) · Traveller · volume 0 ml (explicit zero)
-MARKS: Guard · flushed cheeks · Traveller · relaxed posture`);
+MARKS: Guard · flushed cheeks · Traveller · relaxed posture
+CLIMAX: Guard · climax 10/100 (estimate) · Traveller · climax 5/100 (estimate)
+CONTACT: Guard · penetration: none · paused · Traveller · release: none · paused
+KINKS: Guard · hair stroking · Traveller · slow pace
+DISLIKES: Guard · being rushed · Traveller · loud noise`);
   assert.ok(actual.length < 6000);
 });
 
@@ -95,8 +100,8 @@ test('packs registry preserves the default list and appends enabled packs in reg
   const combat = getSections(settings, ['combat', 'combat']);
   assert.deepEqual(combat.slice(normal.length).map(s => s.id), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']);
   assert.equal(combat.at(-1).custom, true); assert.equal(combat.at(-1).pack, 'combat');
-  assert.deepEqual(getSections(settings, ['intimacy', 'combat']).slice(normal.length).map(s => s.id), all.slice(SECTIONS.length).map(s => s.id));
-  assert.equal(getAllSections(settings).length, normal.length + 11);
+  assert.deepEqual(getSections(settings, ['intimacy_plus', 'intimacy', 'combat']).slice(normal.length).map(s => s.id), all.slice(SECTIONS.length).map(s => s.id));
+  assert.equal(getAllSections(settings).length, normal.length + 18);
   assert.ok(isPackSectionId('p_0123abcd_stock', settings));
   assert.ok(!isPackSectionId('p_deadbeef_stock', settings));
   assert.ok(!isPackSectionId('combat_unknown', settings));
@@ -104,6 +109,8 @@ test('packs registry preserves the default list and appends enabled packs in reg
     ['combat_scene', 'text', 600], ['combat_stats', 'stats', 12], ['combat_effects', 'tags', 10], ['combat_odds', 'kv', 6],
     ['intimacy_scene', 'text', 600], ['intimacy_arousal', 'stats', 8], ['intimacy_counters', 'stats', 8], ['intimacy_marks', 'tags', 10],
     ['intimacy_achievements', 'tags', 8], ['intimacy_commentary', 'text', 600],
+    ['intimacy_plus_climax', 'stats', 8], ['intimacy_plus_contact', 'kv', 6], ['intimacy_plus_zones', 'kv', 10], ['intimacy_plus_kinks', 'tags', 12],
+    ['intimacy_plus_limits', 'tags', 8], ['intimacy_plus_experience', 'list', 10], ['intimacy_plus_after', 'text', 600],
   ]);
   for (const p of BUILTIN_PACKS) {
     assert.equal(p.scope, true);
@@ -111,10 +118,28 @@ test('packs registry preserves the default list and appends enabled packs in reg
     assert.ok(p.sections.every(s => ['inject', 'show'].includes(s.mode) && s.period === 1));
   }
   assert.deepEqual(BUILTIN_PACKS.flatMap(p => p.sections.filter(s => s.mode === 'show').map(s => `${p.id}_${s.key}`)),
-    ['intimacy_achievements', 'intimacy_commentary'], 'the playful cards are shown, not injected');
+    ['intimacy_achievements', 'intimacy_commentary', 'intimacy_plus_zones', 'intimacy_plus_experience', 'intimacy_plus_after'], 'the playful and reference cards are shown, not injected');
   assert.ok(!all.some(s => s.id === 'combat_roll'));
   assert.match(BUILTIN_PACKS[1].rules, /established adult.*empty values/);
   assert.match(BUILTIN_PACKS[1].sections[2].instructions, /max: null/);
+});
+
+test('intimacy_plus alone yields its seven sections in order with their default modes, scope others and the 18+ title', () => {
+  const settings = { language: 'en' }, normal = getSections(settings);
+  const plus = getSections(settings, ['intimacy_plus']).slice(normal.length);
+  assert.deepEqual(plus.map(s => [s.id, s.defaultMode, s.pack, s.title]), [
+    ['intimacy_plus_climax', 'inject', 'intimacy_plus', 'Climax'], ['intimacy_plus_contact', 'inject', 'intimacy_plus', 'Contact'],
+    ['intimacy_plus_zones', 'show', 'intimacy_plus', 'Zones'], ['intimacy_plus_kinks', 'inject', 'intimacy_plus', 'Kinks'],
+    ['intimacy_plus_limits', 'inject', 'intimacy_plus', 'Dislikes'], ['intimacy_plus_experience', 'show', 'intimacy_plus', 'Experience'],
+    ['intimacy_plus_after', 'show', 'intimacy_plus', 'Afterglow'],
+  ]);
+  assert.deepEqual(plus.map(s => s.icon), ['fa-bolt', 'fa-circle-nodes', 'fa-hand-dots', 'fa-heart-circle-plus', 'fa-heart-circle-xmark', 'fa-book-open', 'fa-mug-hot']);
+  const pack = BUILTIN_PACKS.find(p => p.id === 'intimacy_plus');
+  assert.equal(pack.icon, 'fa-fire'); assert.equal(packScopeOf({}, pack), 'others');
+  assert.equal(t(pack.title, 'ru'), 'Интим+ (18+)'); assert.equal(t(pack.title, 'en'), 'Intimacy+ (18+)');
+  assert.match(pack.rules, /never infer consent, preference or dislike/);
+  for (const s of pack.sections) assert.match(s.instructions, s.shape === 'text' ? /Return an empty string if the adult guard fails/ : /Return \[\] if the adult guard fails/);
+  assert.ok(isPackSectionId('intimacy_plus_kinks', settings)); assert.ok(!isPackSectionId('intimacy_kinks', settings));
 });
 
 test('user pack normalization is bounded, rejects invalid identities and sections, and is idempotent', () => {

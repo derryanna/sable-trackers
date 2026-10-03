@@ -497,6 +497,8 @@ Built-in packs for v1 (content is a task; shapes are fixed here):
   sports commentator or a nature documentary). Rules keep
   the canon guard from §2 unchanged: every participant must be an established
   adult, otherwise the pack returns empty values; nothing is invented.
+- `intimacy_plus` (18+): a deeper, explicit companion to `intimacy`, enabled alone or on top of it;
+  seven sections (`climax`, `contact`, `zones`, `kinks`, `limits`, `experience`, `after`), see §23.
 - Candidates for later: `investigation` (clues, suspects, leads),
   `survival` (hunger, cold, supplies), `travel` (route, days, provisions).
 
@@ -903,3 +905,69 @@ centre (hatred on the left, love on the right).
 
 History for pack stats, exporting history, migrating values when a scale
 changes range.
+
+## 23. Intimacy+ pack (18+)
+
+Why (3 Oct 2026): a reader's list of what the most thorough adult block she
+had seen tracked. The base intimacy pack (§15) already has arousal, climax
+counts, volume and marks; the rest goes into a second built-in pack, deeper
+and more explicit, that users enable on top of the first or alone.
+
+### Pack
+
+- `id: 'intimacy_plus'`, title «Интим+ (18+)» / "Intimacy+ (18+)", icon
+  `fa-fire`, description «Глубже: шкала оргазма, проникновение и финал, зоны,
+  кинки, антикинки, опыт, после» / "Deeper: climax build-up, contact and
+  release, zones, kinks, dislikes, experience, afterglow". `scope: true`,
+  `scopeDefault: 'others'`. Rules = the adult guard of §15 (every participant
+  an established adult, including those outside the tracking scope; empty
+  values otherwise) + `{{scope}}` + "Track only explicit, established facts;
+  never infer consent, preference or dislike from arousal, silence or
+  compliance; preferences and dislikes come only from shown enjoyment, shown
+  discomfort or stated words; invent nothing. Clinical wording, no slang, no
+  judgement."
+- The side model writes explicit content here by design; the pack
+  description says so. Every section instruction starts with the adult guard
+  sentence and the empty-value rule, as in the base pack.
+
+### Sections (key, shape, glyph, cap, default mode)
+
+1. `climax` — stats, `fa-bolt`, cap 8, inject. «Оргазм» / "Climax". Keys
+   `Name · climax`, 0–100 with `max: 100`: build-up toward orgasm for each
+   tracked participant, present only once sexual contact or petting has
+   begun (`[]` before that); cautious estimates labelled in `note`; set to 0
+   right after an explicit climax (the base pack counts them); never invent
+   a climax. No `delta`.
+2. `contact` — kv, `fa-circle-nodes`, cap 6, inject. «Контакт» / "Contact".
+   Keys `Name · penetration` → `depth · orifice` only when both are
+   established in the text; `Name · release` → `amount · where` for an
+   explicit release event, cleared when the scene moves on; omit unknown
+   entries; never estimate amounts.
+3. `zones` — kv, `fa-hand-dots`, cap 10, show. «Зоны» / "Zones". Keys
+   `Name · zone` → state (marks, soreness, sensitivity) only when described;
+   preserved until a change is established; invent nothing.
+4. `kinks` — tags, `fa-heart-circle-plus`, cap 12, inject. «Кинки» /
+   "Kinks". Short participant-labelled tags of preferences and fetishes,
+   added only from shown enjoyment or an explicit statement; persistent
+   across scenes; removed only when the text contradicts them.
+5. `limits` — tags, `fa-heart-circle-xmark`, cap 8, inject. «Антикинки» /
+   "Dislikes". Short participant-labelled tags of what a participant
+   disliked or refused, from shown discomfort or explicit refusal;
+   persistent; removed only when contradicted.
+6. `experience` — list, `fa-book-open`, cap 10, show. «Опыт» / "Experience".
+   Short entries «Name: first X, positive (why)» / «Name: after Y avoids Z»,
+   appended only for a new explicit experience; older entries kept; the
+   oldest dropped first past the cap.
+7. `after` — text, `fa-mug-hot`, show. «После» / "Afterglow". Compact state
+   after the act per participant: closeness or distance, soreness, mood;
+   empty while the act continues or when nothing happened.
+
+### Everything else
+
+- `packSections` / `BUILTIN_PACKS` as for the two existing packs; i18n keys
+  `pack.intimacy_plus.*`; `fixtures/state-packs.json` gains synthetic values
+  for every new section (the Guard and the Traveller, both adults, kept
+  tame); the digest snapshot test gains the inject lines; `test/packs.test.mjs`
+  shape/cap list and scope set updated; the pack sheet lists three packs.
+- README ru + en: one sentence per pack in the packs paragraph; SPEC §15
+  built-in list mentions `intimacy_plus`.

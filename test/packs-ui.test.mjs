@@ -95,11 +95,14 @@ test('sheet: the header button opens it, switches toggle packs per chat without 
   assert.equal(packs.getAttribute('aria-expanded'), 'true');
   assert.equal(document.activeElement, sheet().querySelector('.st-sable-sheet-header button'));
   assert.equal(sheet().querySelector('.st-sable-sheet-title').textContent, 'Наборы');
-  assert.deepEqual([...sheet().querySelectorAll('[data-pack]')].map(item => item.dataset.pack), ['combat', 'intimacy']);
+  assert.deepEqual([...sheet().querySelectorAll('[data-pack]')].map(item => item.dataset.pack), ['combat', 'intimacy', 'intimacy_plus']);
   assert.equal(row('combat').querySelector('.st-sable-pack-title').textContent, 'Бой');
   assert.equal(row('combat').querySelector('.st-sable-adult'), null);
   assert.equal(row('intimacy').querySelector('.st-sable-pack-title > span').textContent, 'Интим');
   assert.equal(row('intimacy').querySelector('.st-sable-adult').textContent, '18+');
+  assert.equal(row('intimacy_plus').querySelector('.st-sable-pack-title > span').textContent, 'Интим+');
+  assert.equal(row('intimacy_plus').querySelector('.st-sable-adult').textContent, '18+');
+  assert.ok(row('intimacy_plus').querySelector('.st-sable-pack-icon .fa-fire'));
   assert.ok(row('combat').querySelector('.st-sable-pack-desc').textContent.length > 0);
   assert.ok(row('combat').querySelector('.st-sable-pack-icon .fa-hand-fist'));
   const toggle = () => row('combat').querySelector('[role="switch"]');
@@ -341,7 +344,7 @@ test('settings: the Packs group folds, lists packs with defaults, scope and copi
   runtime.updateSettings({ messages: 5 }); await tick();
   assert.equal(group.open, true, 'an unrelated render keeps the group open');
   const rows = () => [...group.querySelectorAll('[data-pack]')];
-  assert.deepEqual(rows().map(row => row.dataset.pack), ['combat', 'intimacy']);
+  assert.deepEqual(rows().map(row => row.dataset.pack), ['combat', 'intimacy', 'intimacy_plus']);
   const combat = sq('[data-group="packs"] [data-pack="combat"]'), intimacy = sq('[data-group="packs"] [data-pack="intimacy"]');
   assert.equal(combat.querySelector('.st-sable-custom-name').textContent, 'Combat');
   assert.equal(combat.querySelector('.st-sable-adult').hidden, true);
@@ -371,7 +374,7 @@ test('settings: the Packs group folds, lists packs with defaults, scope and copi
   const copy = runtime.snapshot().settings.packs[0];
   assert.match(copy.id, /^p_[0-9a-f]{8}$/);
   assert.equal(copy.title, 'Combat'); assert.equal(copy.sections[1].title, 'Combat stats'); assert.equal(copy.rules, BUILTIN_PACKS[0].rules);
-  assert.deepEqual(rows().map(row => row.dataset.pack), ['combat', 'intimacy', copy.id]);
+  assert.deepEqual(rows().map(row => row.dataset.pack), ['combat', 'intimacy', 'intimacy_plus', copy.id]);
   const copyRow = () => sq(`[data-group="packs"] [data-pack="${copy.id}"]`);
   assert.equal(copyRow().open, true);
   assert.equal(dom.window.document.activeElement, copyRow().querySelector('[name="title"]'));
