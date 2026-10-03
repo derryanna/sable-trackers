@@ -938,27 +938,31 @@ and more explicit, that users enable on top of the first or alone.
    begun (`[]` before that); cautious estimates labelled in `note`; set to 0
    right after an explicit climax (the base pack counts them); never invent
    a climax. No `delta`.
-2. `contact` — kv, `fa-circle-nodes`, cap 6, inject. «Контакт» / "Contact".
+2. `wetness` — stats, `fa-droplet`, cap 8, inject. «Влажность» / "Wetness".
+   Added by §23a; see there.
+3. `contact` — kv, `fa-circle-nodes`, cap 6, inject. «Контакт» / "Contact".
    Keys `Name · penetration` → `depth · orifice` only when both are
    established in the text; `Name · release` → `amount · where` for an
    explicit release event, cleared when the scene moves on; omit unknown
    entries; never estimate amounts.
-3. `zones` — kv, `fa-hand-dots`, cap 10, show. «Зоны» / "Zones". Keys
+4. `zones` — kv, `fa-hand-dots`, cap 10, show. «Зоны» / "Zones". Keys
    `Name · zone` → state (marks, soreness, sensitivity) only when described;
    preserved until a change is established; invent nothing.
-4. `kinks` — tags, `fa-heart-circle-plus`, cap 12, inject. «Кинки» /
+5. `kinks` — tags, `fa-heart-circle-plus`, cap 12, inject. «Кинки» /
    "Kinks". Short participant-labelled tags of preferences and fetishes,
    added only from shown enjoyment or an explicit statement; persistent
    across scenes; removed only when the text contradicts them.
-5. `limits` — tags, `fa-heart-circle-xmark`, cap 8, inject. «Антикинки» /
+6. `limits` — tags, `fa-heart-circle-xmark`, cap 8, inject. «Антикинки» /
    "Dislikes". Short participant-labelled tags of what a participant
    disliked or refused, from shown discomfort or explicit refusal;
    persistent; removed only when contradicted.
-6. `experience` — list, `fa-book-open`, cap 10, show. «Опыт» / "Experience".
+7. `experience` — list, `fa-book-open`, cap 10, show. «Опыт» / "Experience".
    Short entries «Name: first X, positive (why)» / «Name: after Y avoids Z»,
    appended only for a new explicit experience; older entries kept; the
    oldest dropped first past the cap.
-7. `after` — text, `fa-mug-hot`, show. «После» / "Afterglow". Compact state
+8. `cum` — kv, `fa-vial`, cap 8, inject. «Семя» / "Cum". Added by §23a; see
+   there.
+9. `after` — text, `fa-mug-hot`, show. «После» / "Afterglow". Compact state
    after the act per participant: closeness or distance, soreness, mood;
    empty while the act continues or when nothing happened.
 

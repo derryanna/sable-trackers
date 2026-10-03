@@ -23,7 +23,8 @@ const tags = all.find(s => s.id === 'combat_effects');
 
 test('final built-in content is bounded, localized and keeps the adult and scope guards', () => {
   const scoped = new Set(['combat_stats', 'combat_effects', 'combat_odds', 'intimacy_arousal', 'intimacy_counters', 'intimacy_marks',
-    'intimacy_plus_climax', 'intimacy_plus_contact', 'intimacy_plus_zones', 'intimacy_plus_kinks', 'intimacy_plus_limits', 'intimacy_plus_experience']);
+    'intimacy_plus_climax', 'intimacy_plus_wetness', 'intimacy_plus_contact', 'intimacy_plus_zones', 'intimacy_plus_kinks', 'intimacy_plus_limits',
+    'intimacy_plus_experience', 'intimacy_plus_cum']);
   const guard = 'Every participant must be an established adult; otherwise return empty values. Invent nothing.';
   for (const pack of BUILTIN_PACKS) {
     for (const text of [pack.rules, ...pack.sections.map(s => s.instructions)]) {
@@ -84,9 +85,11 @@ AROUSAL: Guard · arousal 20/100 · Guard · stamina 70/100 · Traveller · arou
 COUNTERS: Guard · climaxes 0 (explicit zero) · Traveller · minutes 5 min (+5 stated duration) · Traveller · volume 0 ml (explicit zero)
 MARKS: Guard · flushed cheeks · Traveller · relaxed posture
 CLIMAX: Guard · climax 10/100 (estimate) · Traveller · climax 5/100 (estimate)
+WETNESS: Maren · wetness 15/100 (estimate)
 CONTACT: Guard · penetration: none · paused · Traveller · release: none · paused
 KINKS: Guard · hair stroking · Traveller · slow pace
-DISLIKES: Guard · being rushed · Traveller · loud noise`);
+DISLIKES: Guard · being rushed · Traveller · loud noise
+CUM: Tomas: on the sheets · 1 time`);
   assert.ok(actual.length < 6000);
 });
 
@@ -101,7 +104,7 @@ test('packs registry preserves the default list and appends enabled packs in reg
   assert.deepEqual(combat.slice(normal.length).map(s => s.id), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']);
   assert.equal(combat.at(-1).custom, true); assert.equal(combat.at(-1).pack, 'combat');
   assert.deepEqual(getSections(settings, ['intimacy_plus', 'intimacy', 'combat']).slice(normal.length).map(s => s.id), all.slice(SECTIONS.length).map(s => s.id));
-  assert.equal(getAllSections(settings).length, normal.length + 18);
+  assert.equal(getAllSections(settings).length, normal.length + 20);
   assert.ok(isPackSectionId('p_0123abcd_stock', settings));
   assert.ok(!isPackSectionId('p_deadbeef_stock', settings));
   assert.ok(!isPackSectionId('combat_unknown', settings));
@@ -109,8 +112,8 @@ test('packs registry preserves the default list and appends enabled packs in reg
     ['combat_scene', 'text', 600], ['combat_stats', 'stats', 12], ['combat_effects', 'tags', 10], ['combat_odds', 'kv', 6],
     ['intimacy_scene', 'text', 600], ['intimacy_arousal', 'stats', 8], ['intimacy_counters', 'stats', 8], ['intimacy_marks', 'tags', 10],
     ['intimacy_achievements', 'tags', 8], ['intimacy_commentary', 'text', 600],
-    ['intimacy_plus_climax', 'stats', 8], ['intimacy_plus_contact', 'kv', 6], ['intimacy_plus_zones', 'kv', 10], ['intimacy_plus_kinks', 'tags', 12],
-    ['intimacy_plus_limits', 'tags', 8], ['intimacy_plus_experience', 'list', 10], ['intimacy_plus_after', 'text', 600],
+    ['intimacy_plus_climax', 'stats', 8], ['intimacy_plus_wetness', 'stats', 8], ['intimacy_plus_contact', 'kv', 6], ['intimacy_plus_zones', 'kv', 10], ['intimacy_plus_kinks', 'tags', 12],
+    ['intimacy_plus_limits', 'tags', 8], ['intimacy_plus_experience', 'list', 10], ['intimacy_plus_cum', 'kv', 8], ['intimacy_plus_after', 'text', 600],
   ]);
   for (const p of BUILTIN_PACKS) {
     assert.equal(p.scope, true);
@@ -124,22 +127,44 @@ test('packs registry preserves the default list and appends enabled packs in reg
   assert.match(BUILTIN_PACKS[1].sections[2].instructions, /max: null/);
 });
 
-test('intimacy_plus alone yields its seven sections in order with their default modes, scope others and the 18+ title', () => {
+test('intimacy_plus alone yields its nine sections in order with their default modes, scope others and the 18+ title', () => {
   const settings = { language: 'en' }, normal = getSections(settings);
   const plus = getSections(settings, ['intimacy_plus']).slice(normal.length);
   assert.deepEqual(plus.map(s => [s.id, s.defaultMode, s.pack, s.title]), [
-    ['intimacy_plus_climax', 'inject', 'intimacy_plus', 'Climax'], ['intimacy_plus_contact', 'inject', 'intimacy_plus', 'Contact'],
+    ['intimacy_plus_climax', 'inject', 'intimacy_plus', 'Climax'], ['intimacy_plus_wetness', 'inject', 'intimacy_plus', 'Wetness'],
+    ['intimacy_plus_contact', 'inject', 'intimacy_plus', 'Contact'],
     ['intimacy_plus_zones', 'show', 'intimacy_plus', 'Zones'], ['intimacy_plus_kinks', 'inject', 'intimacy_plus', 'Kinks'],
     ['intimacy_plus_limits', 'inject', 'intimacy_plus', 'Dislikes'], ['intimacy_plus_experience', 'show', 'intimacy_plus', 'Experience'],
-    ['intimacy_plus_after', 'show', 'intimacy_plus', 'Afterglow'],
+    ['intimacy_plus_cum', 'inject', 'intimacy_plus', 'Cum'], ['intimacy_plus_after', 'show', 'intimacy_plus', 'Afterglow'],
   ]);
-  assert.deepEqual(plus.map(s => s.icon), ['fa-bolt', 'fa-circle-nodes', 'fa-hand-dots', 'fa-heart-circle-plus', 'fa-heart-circle-xmark', 'fa-book-open', 'fa-mug-hot']);
+  assert.deepEqual(plus.map(s => s.icon), ['fa-bolt', 'fa-droplet', 'fa-circle-nodes', 'fa-hand-dots', 'fa-heart-circle-plus', 'fa-heart-circle-xmark', 'fa-book-open', 'fa-vial', 'fa-mug-hot']);
   const pack = BUILTIN_PACKS.find(p => p.id === 'intimacy_plus');
   assert.equal(pack.icon, 'fa-fire'); assert.equal(packScopeOf({}, pack), 'others');
-  assert.equal(t(pack.title, 'ru'), 'Интим+ (18+)'); assert.equal(t(pack.title, 'en'), 'Intimacy+ (18+)');
+  assert.equal(t(pack.title, 'ru'), 'Интим+ (18+)');
+  assert.equal(t('pack.intimacy_plus.wetness', 'ru'), 'Влажность'); assert.equal(t('pack.intimacy_plus.cum', 'ru'), 'Семя'); assert.equal(t(pack.title, 'en'), 'Intimacy+ (18+)');
   assert.match(pack.rules, /never infer consent, preference or dislike/);
   for (const s of pack.sections) assert.match(s.instructions, s.shape === 'text' ? /Return an empty string if the adult guard fails/ : /Return \[\] if the adult guard fails/);
   assert.ok(isPackSectionId('intimacy_plus_kinks', settings)); assert.ok(!isPackSectionId('intimacy_kinks', settings));
+});
+
+test('intimacy_plus wetness and cum follow SPEC §23a: guard first, empty until shown, explicit only', () => {
+  const pack = BUILTIN_PACKS.find(p => p.id === 'intimacy_plus');
+  const guard = 'Every participant must be an established adult; otherwise return empty values. Invent nothing. ';
+  const wetness = pack.sections.find(s => s.key === 'wetness'), cum = pack.sections.find(s => s.key === 'cum');
+  assert.deepEqual([wetness.shape, wetness.icon, wetness.max, wetness.mode, wetness.period], ['stats', 'fa-droplet', 8, 'inject', 1]);
+  assert.deepEqual([cum.shape, cum.icon, cum.max, cum.mode, cum.period], ['kv', 'fa-vial', 8, 'inject', 1]);
+  for (const s of [wetness, cum]) {
+    assert.ok(s.instructions.startsWith(guard + '{{scope}} Return [] if the adult guard fails for anyone in the scene.'));
+  }
+  assert.match(wetness.instructions, /Return \[\] until the text shows arousal/);
+  assert.match(wetness.instructions, /Name · wetness.*max: 100.*labelled estimate in note/);
+  assert.match(wetness.instructions, /Preserve values without new evidence.*Never equate wetness with consent/);
+  assert.match(cum.instructions, /Return \[\] until the text shows an explicit release/);
+  assert.match(cum.instructions, /the key is the name, the value says where it went, how many times, and the amount only when the text states or clearly implies it/);
+  assert.match(cum.instructions, /cumulative within the scene.*Reset only when the text establishes a new scene or a clean-up/);
+  assert.match(pack.rules, /climax, wetness, contact, zones, kinks, limits, experience and cum/);
+  assert.deepEqual(BUILTIN_PACKS.find(p => p.id === 'intimacy').sections.map(s => s.key), ['scene', 'arousal', 'counters', 'marks', 'achievements', 'commentary']);
+  assert.equal(t(wetness.title, 'en'), 'Wetness'); assert.equal(t(cum.title, 'en'), 'Cum');
 });
 
 test('user pack normalization is bounded, rejects invalid identities and sections, and is idempotent', () => {

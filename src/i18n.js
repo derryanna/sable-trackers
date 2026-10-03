@@ -8,7 +8,7 @@ const STRINGS = {
     'pack.intimacy.title': 'Intimacy (18+)', 'pack.intimacy.desc': 'Tracks established adult scenes (18+): arousal, stamina, counters and marks, plus achievements and a cheeky commentator.',
     'pack.intimacy.scene': 'Intimacy scene', 'pack.intimacy.arousal': 'Arousal', 'pack.intimacy.counters': 'Counters', 'pack.intimacy.marks': 'Marks',
     'pack.intimacy.achievements': 'Achievements', 'pack.intimacy.commentary': 'Commentator',
-    'pack.intimacy_plus.title': 'Intimacy+ (18+)', 'pack.intimacy_plus.desc': 'Explicit, deeper adult tracking (18+): climax build-up, contact and release, zones, kinks, dislikes, experience, afterglow. Works alone or with Intimacy.',
+    'pack.intimacy_plus.title': 'Intimacy+ (18+)', 'pack.intimacy_plus.desc': 'Explicit, deeper adult tracking (18+): climax build-up, wetness, contact and release, zones, kinks, dislikes, experience, cum, afterglow. Works alone or with Intimacy.',
     'pack.intimacy_plus.climax': 'Climax', 'pack.intimacy_plus.contact': 'Contact', 'pack.intimacy_plus.zones': 'Zones', 'pack.intimacy_plus.kinks': 'Kinks',
     'pack.intimacy_plus.limits': 'Dislikes', 'pack.intimacy_plus.experience': 'Experience', 'pack.intimacy_plus.after': 'Afterglow',
     'shape.stats': 'Stats', 'shape.tags': 'Tags',
@@ -40,7 +40,7 @@ const STRINGS = {
     'pack.intimacy.title': 'Интим (18+)', 'pack.intimacy.desc': 'Отслеживает сцену взрослых участников (18+): возбуждение, силы, счётчики и следы, плюс ачивки и ехидный комментатор.',
     'pack.intimacy.scene': 'Интимная сцена', 'pack.intimacy.arousal': 'Возбуждение', 'pack.intimacy.counters': 'Счётчики', 'pack.intimacy.marks': 'Следы',
     'pack.intimacy.achievements': 'Ачивки', 'pack.intimacy.commentary': 'Комментатор',
-    'pack.intimacy_plus.title': 'Интим+ (18+)', 'pack.intimacy_plus.desc': 'Откровенно и глубже (18+): шкала оргазма, проникновение и финал, зоны, кинки, антикинки, опыт, после. Работает отдельно или вместе с «Интимом».',
+    'pack.intimacy_plus.title': 'Интим+ (18+)', 'pack.intimacy_plus.desc': 'Откровенно и глубже (18+): шкала оргазма, влажность, проникновение и финал, зоны, кинки, антикинки, опыт, семя, после. Работает отдельно или вместе с «Интимом».',
     'pack.intimacy_plus.climax': 'Оргазм', 'pack.intimacy_plus.contact': 'Контакт', 'pack.intimacy_plus.zones': 'Зоны', 'pack.intimacy_plus.kinks': 'Кинки',
     'pack.intimacy_plus.limits': 'Антикинки', 'pack.intimacy_plus.experience': 'Опыт', 'pack.intimacy_plus.after': 'После',
     'shape.stats': 'Показатели', 'shape.tags': 'Метки',
@@ -477,4 +477,12 @@ Object.assign(STRINGS.ru, {
   'person.addCharacter': '+ Персонаж', 'person.addDossier': '+ Досье', 'person.addBond': '+ Отношения', 'person.addThought': '+ Мысль',
   'person.removePart': 'Убрать', 'person.changed': 'Данные обновились', 'person.reread': 'Перечитать', 'person.saveAnyway': 'Сохранить всё равно',
   'person.add': '+ Человек', 'person.name': 'Имя', 'person.addSave': 'Добавить',
+});
+// T28
+// Intimacy+ additions (SPEC §23a): wetness and cum.
+Object.assign(STRINGS.en, {
+  'pack.intimacy_plus.wetness': 'Wetness', 'pack.intimacy_plus.cum': 'Cum',
+});
+Object.assign(STRINGS.ru, {
+  'pack.intimacy_plus.wetness': 'Влажность', 'pack.intimacy_plus.cum': 'Семя',
 });
