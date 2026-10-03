@@ -113,3 +113,7 @@ Sable Trackers хранит состояние сцены отдельно от 
 ## Credits
 
 The drawer look is inspired by the side panel of [Megumin Suite](https://github.com/Arif-salah/Megumin-Suite) by Arif-salah. This extension shares no code with it.
+
+## Changelog / Что нового
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes with screenshots. / Заметки о выпусках со скриншотами: [CHANGELOG.md](CHANGELOG.md).
