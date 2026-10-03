@@ -55,7 +55,7 @@ test('drawer renders full fixture safely and mode menu updates settings and dige
   assert.ok(card('bonds').querySelector('.st-sable-delta').textContent.includes('you gave her the key'));
   assert.ok(card('story').textContent.includes('2 хода'));
   assert.ok(query('.st-sable-status').textContent.includes('~123 / ~45'));
-  assert.ok(query('.st-sable-stale').textContent.includes('устарело'));
+  assert.ok(query('.st-sable-status-stale').textContent.includes('устарело'));
   assert.equal(fake.calls.prompts.at(-1)[1], '');
   card('world').querySelector('.st-sable-mode').click();
   query('.st-sable-mode-option[data-mode="show"]').click();
@@ -86,7 +86,7 @@ test('reply edit keeps the drawer state and stale hint while removing its inject
   fake.ctx.chat[0].mes = 'Trimmed reply';
   await fake.emit('MESSAGE_EDITED', 0);
   assert.equal(card('world').textContent, content);
-  assert.ok(query('.st-sable-stale'));
+  assert.ok(query('.st-sable-status-stale'));
   assert.equal(runtime.snapshot().entry.stale, true);
   assert.equal(fake.calls.prompts.at(-1)[1], '');
 });
@@ -159,7 +159,7 @@ test('folds, pin, edge tab toggle and visibility persist; menu, settings and ref
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(fake.calls.requests.length, 1);
   assert.ok(runtime.snapshot().store.lastRun.at);
-  assert.equal(query('.st-sable-stale'), null);
+  assert.equal(query('.st-sable-status-stale'), null);
   const originalCard = card('world');
   query('textarea').dispatchEvent(new document.defaultView.Event('input', { bubbles: true }));
   assert.equal(card('world'), originalCard, 'typing must not render');
@@ -586,7 +586,7 @@ test('mode menu checks current mode, supports keyboard selection and restores ch
   chip().focus(); key(chip(), 'ArrowDown');
   assert.equal(runtime.snapshot().modes.world, 'inject', 'opening never writes a mode');
   assert.equal(chip().getAttribute('aria-expanded'), 'true');
-  const choices = [...query('[role="menu"]').children];
+  const choices = [...query('[role="menu"]').querySelectorAll('[role="menuitemradio"]')];
   assert.deepEqual(choices.map(item => item.textContent), ['в промпт', 'показ', 'выкл']);
   assert.deepEqual(choices.map(item => item.getAttribute('aria-checked')), ['true', 'false', 'false']);
   assert.ok(choices[0].querySelector('.fa-check'));
@@ -605,7 +605,7 @@ test('mode menu checks current mode, supports keyboard selection and restores ch
   assert.equal(ui.element.hidden, false, 'Escape closes the menu before the drawer');
   chip().click();
   const computed = styled();
-  for (const item of query('[role="menu"]').children) {
+  for (const item of query('[role="menu"]').querySelectorAll('[role="menuitemradio"]')) {
     assert.ok(parseFloat(computed(item).minHeight) >= 36);
     assert.ok(parseFloat(computed(item).minWidth) >= 44);
   }

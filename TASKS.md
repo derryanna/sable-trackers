@@ -315,7 +315,7 @@ Done when: `npm test` green with store tests (stats recorded, counters without m
 swipe replace, prune), a drawer test for the label and the active bar (jsdom; scrolling stubbed), the panel and the
 digest untouched.
 
-## T25 — First-run hints, missing-profile status, mode legend, stale recompute  [ ]
+## T25 — First-run hints, missing-profile status, mode legend, stale recompute  [x]
 SPEC §27 (3 Oct 2026: «мелкие всплывашки… проверь соединение, выбери что нравится и наслаждайся» + «галочка, чтобы
 не показывало больше»). Three sequential hint popups in the drawer with «Больше не показывать», `settings.hints.done`
 (set by the checkbox, the third hint, or the first successful run), «Показать подсказки снова» in Actions; a permanent
@@ -338,6 +338,23 @@ storage beyond the banner flag.
 
 ## Notes from previous tasks
 (append here)
+- T25: `settings.hints = { done }` (normalised to a boolean, default false); `normalizeSettings` deletes `recomputeOnEdit`, so
+  the stored key disappears on the next load. `profileIssue(ctx, settings)` (exported from `src/run.js`) returns null or
+  the i18n key `profileRequired` / `profileUnsupported`; the snapshot carries it as `profileIssue` plus `profiles`
+  (`{ id, name, cc }`, the hint's select source). `execute` uses it for the existing warnings and, after the first `ok`
+  run, saves `hints: { done: true }`. `edited()` only marks the entry stale and saves; the drawer status offers «⟳
+  Пересчитать» (`[data-control="recompute"]`, `runtime.run(entry.mesId, { type: 'edit' })`, disabled while running or
+  without a profile). Drawer: `div.st-sable-hint[role=dialog]` sits between the legacy button and the cards; the step
+  (0–2) is in memory and restarts when `done` goes back to false; controls `hint-profile` / `hint-never` / `hint-next`.
+  The gear handler is now `openSettings(group)`: with a group it first writes `groups[group] = true` (the settings UI
+  opens the details on render), then calls `onSettings(group)` or the Extensions-tab path, scrolling to that group.
+  The status setup button is `[data-control="setup"]` (`st-sable-status-setup`); the ↻ header button is disabled with
+  the same title while `profileIssue` is set, like Run now in Settings → Actions (next to it: «Показать подсказки снова»,
+  `[data-control="hints-again"]`, disabled while the hints are still on). Decisions: the status «outdated» span was
+  renamed `st-sable-status-stale` (cards now own `st-sable-stale`); the legend is appended only when every menu entry
+  is a mode, so the folder picker that reuses `openModeMenu` has none; mode-menu tests now select
+  `[role="menuitemradio"]` instead of the popup's children; `test/effects.test.mjs` ends the full-only CSS part at the
+  first `/* T<n> */` marker so later task blocks can be appended after it.
 - T20: `store.history[bondId][scale]` via `recordHistory(data, bonds, mesId, keys)` / `pruneHistory(data, keep)` (keep = a
   chat length or a Set of mesIds) and `HISTORY_POINTS = 12` in `src/store.js`; `run.js` records after a parsed run result is
   stored (not on a skipped run with no due sections) and after `editState('bonds')`, prunes in `deleted`. A point is

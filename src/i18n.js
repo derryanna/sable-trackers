@@ -106,8 +106,6 @@ Object.assign(STRINGS.en, {
   messages: 'Recent messages', cardChars: 'Card characters', loreChars: 'Lore characters',
   maxTokens: 'Max output tokens', depth: 'Injection depth', keep: 'Saved states', role: 'Injection role',
   'role.system': 'system', 'role.user': 'user', 'role.assistant': 'assistant',
-  recomputeOnEdit: 'Recompute after editing a reply',
-  'hint.recomputeOnEdit': 'One side-model request after every edit of the latest reply.',
   perChatOverrides: 'Mode changes apply to this chat only', showPanel: 'Show reply panel', showFloatingButton: 'Edge tab',
   mode: 'Mode', period: 'Update period (replies)', resetOverrides: 'Reset overrides for this chat', runNow: 'Run now',
   chooseProfile: 'Select a connection profile', notCC: 'not chat-completion', missingProfile: 'Selected profile is missing',
@@ -121,8 +119,6 @@ Object.assign(STRINGS.ru, {
   messages: 'Последних сообщений', cardChars: 'Карточка, символов', loreChars: 'Лор, символов',
   maxTokens: 'Токенов ответа', depth: 'Глубина вставки', keep: 'Хранить состояний', role: 'Роль вставки',
   'role.system': 'система', 'role.user': 'пользователь', 'role.assistant': 'ассистент',
-  recomputeOnEdit: 'Пересчитывать после правки ответа',
-  'hint.recomputeOnEdit': 'Один запрос вспомогательной модели после каждой правки последнего ответа.',
   perChatOverrides: 'Менять режимы только для этого чата', showPanel: 'Панель под ответом', showFloatingButton: 'Язычок сбоку',
   mode: 'Режим', period: 'Период обновления (ответов)', resetOverrides: 'Сбросить режимы этого чата', runNow: 'Обновить сейчас',
   chooseProfile: 'Выберите профиль подключения', notCC: 'не chat-completion', missingProfile: 'Выбранный профиль отсутствует',
@@ -388,4 +384,27 @@ Object.assign(STRINGS.en, {
 Object.assign(STRINGS.ru, {
   layout: 'Раскладка панели', 'layout.topics': 'по темам', 'layout.people': 'по персонажам',
   people: 'Люди', 'field.role': 'Роль', 'people.hint': 'Редактирование: в раскладке по темам',
+});
+
+// T25
+// First-run hints, missing-profile status, mode legend and stale recompute (SPEC §27).
+Object.assign(STRINGS.en, {
+  'hints.label': 'Hint', 'hints.next': 'Next', 'hints.done': 'Got it', 'hints.never': "Don't show again",
+  'hints.again': 'Show the hints again',
+  'hints.1.title': 'Check the connection', 'hints.1.text': 'The side model that fills the cards:',
+  'hints.1.none': 'Create a profile in Connection Manager',
+  'hints.2.title': 'Pick what you like', 'hints.3.title': 'Enjoy',
+  'hints.3.text': 'Write to the character; the cards fill in after their reply',
+  'legend.inject': 'inject — the model sees it', 'legend.show': 'show — only you', 'legend.off': 'off — not updated',
+  noProfile: 'No model profile → set up', staleState: 'State is stale', recompute: '⟳ Recompute',
+});
+Object.assign(STRINGS.ru, {
+  'hints.label': 'Подсказка', 'hints.next': 'Дальше', 'hints.done': 'Понятно', 'hints.never': 'Больше не показывать',
+  'hints.again': 'Показать подсказки снова',
+  'hints.1.title': 'Проверь соединение', 'hints.1.text': 'Вспомогательная модель, которая заполняет карточки:',
+  'hints.1.none': 'Создай профиль в Connection Manager',
+  'hints.2.title': 'Выбери, что нравится', 'hints.3.title': 'Наслаждайся',
+  'hints.3.text': 'Напиши персонажу — после его ответа карточки заполнятся',
+  'legend.inject': 'в промпт — модель это видит', 'legend.show': 'показ — только тебе', 'legend.off': 'выкл — не обновляется',
+  noProfile: 'Нет профиля модели → настроить', staleState: 'Состояние устарело', recompute: '⟳ Пересчитать',
 });
