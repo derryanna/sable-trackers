@@ -1304,3 +1304,24 @@ the editor.
   footer button).
 - Tests: the footer has no colour control; the editor row writes the full
   `visual`; «auto» removes the entry; the T26 tests move accordingly.
+
+## 27a. Fourth hint: everything is changed in the cards
+
+Why (3 Oct 2026, her words after the first evening with 0.4): one more
+onboarding step saying that the cards themselves are where things change,
+and a short line in the settings saying the same.
+
+- The hint sequence of §27 becomes four steps: 1 «Проверь соединение»,
+  2 «Выбери, что нравится», 3 **«Всё меняется в карточках»** / "Everything
+  changes in the cards", 4 «Наслаждайся». Step 3 text: «Режим — чип на
+  карточке, период — в его меню, поля и цвет — карандаш, порядок и группы —
+  ручка» / "Mode: the chip on a card · period: in its menu · fields and
+  colour: the pen · order and groups: the handle". Counters read 1/4…4/4;
+  the checkbox and `settings.hints.done` rules are unchanged.
+- The settings block gets one muted line at its top, above the first group:
+  «Коротко: режим, период, цвет, правка и порядок меняются прямо в карточках
+  панели. Здесь — всё остальное.» / "In short: mode, period, colour, editing
+  and order are changed in the panel's cards. Everything else is here."
+  (`p.st-sable-settings-intro`, i18n `settings.intro`).
+- Tests: the hint sequence has four steps with the new third title; the
+  settings block starts with the intro line.

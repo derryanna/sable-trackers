@@ -361,6 +361,14 @@ to the editor), README (one sentence).
 Done when: `npm test` green; no `[data-control="color"]` in any footer; the editor row writes `visual.cardColors[id]`;
 `node --check`.
 
+## T30 — Fourth hint and the settings intro line  [ ]
+SPEC §27a (3 Oct 2026: «ещё пункт в онбординг, что в карточках можно поменять, а в самих настройках коротко»). The
+hint sequence grows to four (new third step «Всё меняется в карточках» with the chip / menu / pen / handle line,
+counters 1/4…4/4), and the settings block opens with one muted intro line (`settings.intro`). Files:
+`src/ui/drawer.js` (hints), `src/ui/settings.js`, `style.css` (if needed), i18n ru + en, tests (hints sequence, settings
+intro), README (one sentence).
+Done when: `npm test` green with the four-step hint test and the intro test; `node --check`.
+
 ## Notes from previous tasks
 (append here)
 - T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and
