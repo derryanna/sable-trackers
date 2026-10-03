@@ -336,7 +336,7 @@ Done when: `npm test` green with tests for the summary lines, the period row (wr
 colour row (writes the full `visual`), the banner (shown / hidden / imported); `node --check`; no change to prompt or
 storage beyond the banner flag.
 
-## T27 — Folder colours  [ ]
+## T27 — Folder colours  [x]
 SPEC §29 (3 Oct 2026, her feedback on 0.4: «нельзя менять цвет групп, что странно»). `settings.folders[i].color`
 (hex, normalised, preserved by every folder write), the group tinted like a coloured card (glyph, title, accent bar,
 border, aggregate chip; members keep their own colours), «Цвет…» in the folder footer and a colour input in the folder
@@ -523,3 +523,17 @@ Done when: `npm test` green with the pack tests updated for nine sections; `node
   wrong for male names; a neutral wording is a follow-up. `people.hint` is unused now but left in `src/i18n.js`. Sticky
   Save / Cancel needs `overflow: clip` on the card and the People group while a form is open (`:has`). Real Android
   feel (sticky bar over the keyboard, menu position near the screen edge) is unverified outside headless Chromium.
+- T27: `normalizeFolders` keeps `color` via `normalizeHex` (imported from `src/settings.js`; the import cycle is safe,
+  neither module calls the other at load) and omits the key when absent or invalid; `moveToFolder` / `planDrop` already
+  spread each folder, so they preserve it. Drawer: `applyGroupColor(group, color)` sets `--st-sable-folder-accent` and
+  `--st-sable-folder-accent-ink-rgb` plus `data-st-sable-tinted="1"` on the folder `section.st-sable-group` (from
+  `refreshGroup`; packs and People pass nothing). The colour is not put on `--st-sable-accent` of the group, so member
+  cards keep the shared accent; the `/* T27 */` CSS remaps `--st-sable-accent` only on the group's `::before` and its
+  header (glyph, title, aggregate chip and its menu), and mixes the border. `colorControls(key, colorId, name, folderId)`
+  serves folders too: key `folder:<id>`, row `[data-folder-color]`, input `name="folders.<id>.color"`, preview on input,
+  `updateSettings({ folders })` on change / «auto» (`writeFolderColor`). The folder footer reads «Цвет…» · «Редактировать
+  группу» · row. The folder editor has `input[name=color]` (`[data-control="folder-color"]`) and «auto»
+  (`[data-control="folder-color-auto"]`) after the icon field; an untouched colour field keeps whatever colour the
+  folder has at save time (the footer row may have changed it while the editor was open). Member cards' own «Цвет…» also
+  match `[data-control="color"]` inside a group, so tests scope to the footer that is a direct child of the group body.
+  Real rendering of `color-mix(…, currentColor)` on the title is unverified outside jsdom.

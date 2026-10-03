@@ -92,6 +92,15 @@ function applyCardColor(card, color) {
   }
   if (color) card.dataset.stSableTinted = '1'; else delete card.dataset.stSableTinted;
 }
+/** SPEC §29: a folder colour lives in its own properties, so member cards keep the shared accent unless they have their
+ *  own; style.css maps it onto the group's header, accent bar and border. */
+function applyGroupColor(group, color) {
+  for (const [key, value] of [['folder-accent', color], ['folder-accent-ink-rgb', color ? inkFor(color) : null]]) {
+    if (value) group.style.setProperty(`--st-sable-${key}`, value);
+    else group.style.removeProperty(`--st-sable-${key}`);
+  }
+  if (color) group.dataset.stSableTinted = '1'; else delete group.dataset.stSableTinted;
+}
 
 // Last background value per element: a data URL can be ~600 KB, so unchanged images are not re-set on every render.
 const appliedImages = new WeakMap();
@@ -1210,34 +1219,51 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     return heading;
   }
   // Card colour from the card (SPEC §28): «Цвет…» opens an inline row with the swatch and «auto» of Appearance → Cards →
-  // Card colours. `key` is the card (a section id or person:<id>), `colorId` the cardColors entry it writes.
+  // Card colours. `key` is the card (a section id or person:<id>), `colorId` the cardColors entry it writes. A folder
+  // (SPEC §29) passes `folderId` instead: key `folder:<id>`, and the row writes `folders[i].color`.
   const colorRows = new Set();
   let colorRowId = 0;
-  function colorControls(key, colorId, name) {
+  function writeFolderColor(folderId, color) {
+    // The whole array goes back, like every other folder write; «auto» removes the field.
+    const folders = runtime.snapshot().settings.folders.map(item => {
+      if (item.id !== folderId) return item;
+      const { color: _old, ...rest } = item;
+      return color ? { ...rest, color } : rest;
+    });
+    runtime.updateSettings({ folders });
+  }
+  function colorControls(key, colorId, name, folderId) {
     const open = colorRows.has(key), result = [];
-    const toggle = button('', 'card.color', () => {
+    const toggle = button('', folderId ? 'folders.colorLabel' : 'card.color', () => {
       if (colorRows.has(key)) colorRows.delete(key); else colorRows.add(key);
       render(view);
     }, 'edit');
     toggle.append(icon('palette'), document.createTextNode(` ${label('card.color')}`));
-    toggle.setAttribute('aria-label', `${label('card.colorLabel')}: ${name}`);
+    const colorLabel = label(folderId ? 'folders.colorLabel' : 'card.colorLabel');
+    toggle.setAttribute('aria-label', `${colorLabel}: ${name}`);
     toggle.setAttribute('aria-expanded', String(open));
     toggle.dataset.control = 'color';
     result.push(toggle);
     if (!open) return result;
-    const visual = normalizeVisual(view.settings.visual), current = visual.cardColors[colorId];
-    const row = node('div', 'color-row'); row.id = `st-sable-color-row-${++colorRowId}`; row.dataset.cardColor = colorId;
+    const visual = normalizeVisual(view.settings.visual);
+    const current = folderId ? view.settings.folders.find(item => item.id === folderId)?.color : visual.cardColors[colorId];
+    const row = node('div', 'color-row'); row.id = `st-sable-color-row-${++colorRowId}`;
+    if (folderId) row.dataset.folderColor = folderId; else row.dataset.cardColor = colorId;
     toggle.setAttribute('aria-controls', row.id);
-    const write = color => {
+    const write = folderId ? color => writeFolderColor(folderId, color) : color => {
       const now = normalizeVisual(runtime.snapshot().settings.visual), colors = { ...now.cardColors };
       if (color) colors[colorId] = color; else delete colors[colorId];
       // saveSettings does not deep-merge visual: the whole object goes back.
       runtime.updateSettings({ visual: normalizeVisual({ ...now, cardColors: colors }) });
     };
-    const input = node('input', 'color-input'); input.type = 'color'; input.name = `cardColors.${colorId}`;
+    const input = node('input', 'color-input'); input.type = 'color';
+    input.name = folderId ? `folders.${folderId}.color` : `cardColors.${colorId}`;
     input.value = current ?? visual.accent; input.dataset.control = 'color-input';
-    input.setAttribute('aria-label', `${name}: ${label('card.colorLabel')}`);
-    input.addEventListener('input', () => { const card = row.closest('.st-sable-card'); if (card) applyCardColor(card, input.value); });
+    input.setAttribute('aria-label', `${name}: ${colorLabel}`);
+    input.addEventListener('input', () => {
+      if (folderId) { const group = row.closest('.st-sable-group'); if (group) applyGroupColor(group, input.value); return; }
+      const card = row.closest('.st-sable-card'); if (card) applyCardColor(card, input.value);
+    });
     input.addEventListener('change', () => write(input.value));
     const auto = button(label('visual.auto'), 'visual.auto', () => { if (current) write(null); }, 'color-auto');
     auto.dataset.control = 'color-auto';
@@ -1341,6 +1367,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     group.setAttribute('aria-label', `${label(pack.kind === 'pack' ? 'packs.group' : 'folders.group')}: ${pack.title}`);
     group.firstElementChild.replaceWith(buildGroupHeader(pack));
     group.lastElementChild.hidden = folded;
+    applyGroupColor(group, pack.kind === 'folder' ? pack.color : undefined);
   }
   // People layout (SPEC §21): one person card per NPC, present first, then bonds and dossiers that match no NPC.
   function people(state) {
@@ -1784,7 +1811,10 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       folderEditors.get(folder.id)?.querySelector('input')?.focus();
     }, 'edit');
     edit.dataset.control = 'folder-edit'; edit.setAttribute('aria-pressed', String(folderEditors.has(folder.id)));
-    edit.append(icon('pen'), document.createTextNode(label('folders.edit'))); footer.append(edit); return footer;
+    edit.append(icon('pen'), document.createTextNode(label('folders.edit')));
+    // SPEC §29: «Цвет…» comes before «Редактировать группу»; the row opens after the footer buttons, as on cards.
+    const [color, ...row] = colorControls(`folder:${folder.id}`, null, folder.title, folder.id);
+    footer.append(color, edit, ...row); return footer;
   }
   function createFolderEditor(folder) {
     const form = node('form', 'editor'); form.dataset.folderEditor = folder.id;
@@ -1795,13 +1825,30 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     for (const [input, key] of [[title, 'custom.title'], [glyph, 'custom.icon']]) {
       const row = node('label', 'editor-field'); row.append(node('span', 'editor-label', label(key)), input); form.append(row);
     }
+    // The colour sits next to the icon field: a swatch and «auto»; «auto» saves the folder without a colour.
+    // Untouched, the save keeps whatever colour the folder has by then (the footer row may have changed it).
+    let auto = !folder.color, touched = false;
+    const colorField = node('div', 'editor-field'), colorRow = node('div', 'color-row');
+    const swatch = node('input', 'color-input'); swatch.type = 'color'; swatch.name = 'color';
+    swatch.value = folder.color ?? normalizeVisual(view.settings.visual).accent; swatch.dataset.control = 'folder-color';
+    swatch.setAttribute('aria-label', `${folder.title}: ${label('folders.colorLabel')}`);
+    const autoButton = button(label('visual.auto'), 'visual.auto', () => { auto = touched = true; autoButton.setAttribute('aria-pressed', 'true'); }, 'color-auto');
+    autoButton.dataset.control = 'folder-color-auto'; autoButton.setAttribute('aria-pressed', String(auto));
+    swatch.addEventListener('input', () => { auto = false; touched = true; autoButton.setAttribute('aria-pressed', 'false'); });
+    colorRow.append(swatch, autoButton);
+    colorField.append(node('span', 'editor-label', label('folders.color')), colorRow);
+    glyph.closest('.st-sable-editor-field').after(colorField);
     form.append(node('p', 'editor-note', label('custom.iconHint')));
     const actions = node('div', 'editor-actions');
     const save = button(label('edit.save'), 'edit.save', () => {
       if (!title.value.trim()) { title.focus(); return; }
       folderEditors.delete(folder.id);
-      runtime.updateSettings({ folders: view.settings.folders.map(item => item.id === folder.id
-        ? { ...item, title: title.value, icon: glyph.value } : item) });
+      runtime.updateSettings({ folders: view.settings.folders.map(item => {
+        if (item.id !== folder.id) return item;
+        if (!touched) return { ...item, title: title.value, icon: glyph.value };
+        const { color: _old, ...rest } = item;
+        return { ...rest, title: title.value, icon: glyph.value, ...(auto ? {} : { color: swatch.value }) };
+      }) });
     }, 'editor-save');
     form.addEventListener('submit', event => { event.preventDefault(); save.click(); });
     const cancel = button(label('edit.cancel'), 'edit.cancel', () => { folderEditors.delete(folder.id); render(view); }, 'editor-cancel');

@@ -478,3 +478,11 @@ Object.assign(STRINGS.ru, {
   'person.removePart': 'Убрать', 'person.changed': 'Данные обновились', 'person.reread': 'Перечитать', 'person.saveAnyway': 'Сохранить всё равно',
   'person.add': '+ Человек', 'person.name': 'Имя', 'person.addSave': 'Добавить',
 });
+// T27
+// Folder colours (SPEC §29): the footer «Цвет…» reuses card.color; these name the group colour.
+Object.assign(STRINGS.en, {
+  'folders.color': 'Colour', 'folders.colorLabel': 'Group colour',
+});
+Object.assign(STRINGS.ru, {
+  'folders.color': 'Цвет', 'folders.colorLabel': 'Цвет группы',
+});

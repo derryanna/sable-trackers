@@ -960,3 +960,22 @@
 .st-sable-people-add { display: flex; flex-direction: column; gap: 6px; margin: 0; }
 .st-sable-people-add[hidden], .st-sable-people-footer > [hidden] { display: none; }
 .st-sable-people-add .st-sable-input[aria-invalid="true"] { border-color: #f29d9d; }
+
+/* T27 */
+/* Folder colours (SPEC §29): the colour arrives as --st-sable-folder-accent on the group, so member cards keep the
+   shared accent (or their own). The header and the accent bar remap --st-sable-accent locally; the border mixes it in.
+   Nothing here animates, so the effects level `off` needs no override. */
+.st-sable-drawer .st-sable-group[data-st-sable-tinted="1"]:not(.st-sable-dragging) {
+  border-color: rgba(var(--st-sable-ink-rgb, 255,255,255), .4);
+  border-color: color-mix(in srgb, var(--st-sable-folder-accent) 40%, transparent);
+}
+.st-sable-drawer .st-sable-group[data-st-sable-tinted="1"]::before,
+.st-sable-drawer .st-sable-group[data-st-sable-tinted="1"] > .st-sable-group-header {
+  --st-sable-accent: var(--st-sable-folder-accent); --st-sable-accent-ink-rgb: var(--st-sable-folder-accent-ink-rgb);
+}
+.st-sable-drawer .st-sable-group[data-st-sable-tinted="1"] > .st-sable-group-header .st-sable-group-title > .st-sable-card-icon { color: var(--st-sable-folder-accent); }
+.st-sable-drawer .st-sable-group[data-st-sable-tinted="1"] > .st-sable-group-header .st-sable-group-title > .st-sable-card-label {
+  color: var(--st-sable-folder-accent); color: color-mix(in srgb, var(--st-sable-folder-accent) 70%, currentColor);
+}
+/* The editor's colour field: swatch and «auto» under the label, like the other fields. */
+.st-sable-drawer [data-folder] .st-sable-editor-field > .st-sable-color-row { justify-content: flex-start; }
