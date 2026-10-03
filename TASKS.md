@@ -229,6 +229,21 @@ Candidates noted the same day, not scheduled: a «по персонажам» la
 thoughts, bonds and dossiers), signed −100…+100 bond scales with a centre line, a 12-point history sparkline per
 scale (needs a small per-chat history store).
 
+## T18 — Bond scales: switchable built-ins and custom scales  [ ]
+SPEC §20 (3 Oct 2026, outside feedback: «репутация и уважение похожи, объединила бы»; maintainer: «как в паках,
+основные и допки вкл/выкл, добавить своё»). `settings.bondScales = { off, custom }` (normalised: `off` ⊂ built-in
+keys, `custom` ≤ 6 of `{ key, title, hint, friction }` with slug keys that never collide with built-ins),
+`bondScales(settings)` in `src/sections.js` (built-ins minus `off` in canonical order, then custom), the `bonds`
+section built from it in `getSections` / `getAllSections` (stats schema fields = active keys; instructions = base
+text + the active scales' definitions, byte-identical to today with default settings), `merge.js` recomputing over
+the registry's active keys, `renderBonds` and the reply panel iterating the active scales with titles and friction
+from the descriptors, a new settings group «Шкалы отношений» (`GROUP_IDS` + `scales`: a checkbox with a one-line
+hint per built-in scale, the rebuild hint, custom scale rows with a two-tap delete and «Добавить шкалу»). Done
+when: tests cover the normaliser, `bondScales`, the settings-dependent schema and instruction (default = today's
+text), merge over active keys, digest and drawer showing active scales only, a custom scale with friction tint, the
+settings group (toggle writes `off`, custom rows write `custom`), every existing test green, README ru + en and
+SPEC §2 mention the group.
+
 ## Notes from previous tasks
 (append here)
 - T13: the drawer's top-level children are `.st-sable-card` or `.st-sable-group`; find cards with

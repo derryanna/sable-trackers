@@ -715,3 +715,77 @@ field and the spoiler.
 
 A per-character layout, signed bond scales and history sparklines are
 separate candidates (see TASKS.md).
+
+## 20. Bond scales: switchable built-ins and custom scales
+
+Why (3 Oct 2026): first outside feedback on the bonds card: one reader finds
+«Репутация» and «Уважение» near-duplicates, another wants fewer scales, the
+maintainer wants to add her own. Like packs, the scale set becomes a choice:
+the built-in scales can be switched off one by one and custom scales added.
+
+### Data
+
+- `settings.bondScales = { off: [], custom: [] }`.
+  - `off`: built-in scale keys switched off (subset of `BOND_SCALES`, no
+    duplicates; an unknown key is dropped).
+  - `custom`: at most 6 of `{ key, title, hint, friction }`. `key` matches
+    `^[a-z][a-z0-9_]{1,15}$` and is not a built-in key; `title` 1–30
+    characters (shown as the row label, any language); `hint` ≤ 200
+    characters, one sentence telling the side model what the scale measures,
+    written like the built-in definitions («ревность = jealousy toward
+    toward»); `friction` boolean (true = a high value means friction, the
+    warm bar tint). A custom entry with a bad key or empty title is dropped.
+- `BOND_SCALES` stays the frozen list of built-in keys. New pure
+  `bondScales(settings)` in `src/sections.js` returns the active scales in
+  order: built-ins minus `off` in their canonical order, then custom entries
+  in their stored order, each as `{ key, builtin, title, hint, friction }`
+  where a built-in's `title` is its i18n key (`affection` etc.) and its
+  `hint` the definition sentence now embedded in the bonds instruction
+  (moved into a `BOND_SCALE_HINTS` map, en only, as every instruction).
+  `FRICTION` (suspicion, fear, grudge, tension) moves next to it.
+- The `bonds` section becomes settings-dependent in `getSections(settings,
+  …)` and `getAllSections(settings)`: `schema.item.fields.stats.fields` =
+  the active keys; `instructions` = the base rules text with the per-scale
+  definitions of the active scales joined in order («affection = …;
+  trust = …; jealousy = …»). With the default settings the text is
+  byte-for-byte today's instruction, so the existing prompt snapshots hold.
+  Everything downstream (prompt, parse, sanitize, the manual editor, the
+  digest) follows the schema and needs no scale knowledge of its own.
+- `src/merge.js` recomputes deltas over the active keys of the registry it is
+  given (`options.sections` / the `bonds` schema), not over `BOND_SCALES`; a
+  scale that was switched off disappears from the next state and from
+  `changes`; switching it back on starts it fresh (the «absent from PREVIOUS
+  STATE» rule).
+- The ring is untouched: old entries keep whatever keys they carried.
+
+### Drawer and panel
+
+- `renderBonds` iterates `bondScales(view.settings)`: label = i18n label for
+  a built-in, the stored title for a custom scale; the warm tint follows
+  `friction`. Keys missing from a bond are skipped as today. The reply panel
+  does the same.
+- The manual editor shows the active scales (schema-driven).
+
+### Settings
+
+- New collapsible group «Шкалы отношений» / "Bond scales" (`GROUP_IDS` gets
+  `scales`, placed after Sections), closed by default:
+  - one checkbox per built-in scale in canonical order, labelled with its
+    name and a short description (new i18n keys `scale.<key>.hint`, ru + en,
+    one line each, e.g. «Репутация — как NPC оценивает цель, не слава»),
+    checked unless the key is in `off`; writing toggles `off` as a whole
+    array;
+  - a hint line: «Инструкция по умолчанию пересобирается из включённых шкал;
+    своя инструкция в «Опасной зоне» заменяет её целиком» / "The default
+    instruction is rebuilt from the enabled scales; an override in the Danger
+    zone replaces it whole";
+  - «Свои шкалы» / "Custom scales": rows like custom blocks (key, title, hint,
+    friction checkbox, two-tap delete), «Добавить шкалу» / "Add scale"
+    disabled at 6; every write sends the whole `custom` array.
+- The Danger zone's bonds textarea shows the rebuilt default when there is no
+  override (`getPromptTexts` reads the settings-dependent section).
+
+### Non-goals
+
+Per-chat scale sets, reordering built-in scales, scales with a range other
+than 0–100, migrating values between a built-in and a custom key.
