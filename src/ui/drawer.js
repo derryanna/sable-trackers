@@ -1,5 +1,5 @@
 import { getSections, groupedOrder, bondScales } from '../sections.js';
-import { moveToFolder } from '../folders.js';
+import { dropIndex, moveToFolder, planDrop, slotFor } from '../folders.js';
 import { newCustomId } from './settings.js';
 import { t } from '../i18n.js';
 import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
@@ -12,6 +12,31 @@ export function displayNode(document, view, tag, className, text) {
   if (text !== undefined) element.textContent = String(text).replace(/\{\{(user|char)\}\}/g,
     (macro, key) => (key === 'user' ? view.name1 : view.name2) ?? macro);
   return element;
+}
+
+/** One-level undo (SPEC §24): `show(text, restore)` replaces any pill shown; the pill hides after UNDO_MS, on a tap of
+ *  its text, or once the button has called `restore()`. The snapshot lives in the closure only, nothing is persisted.
+ *  `label(key)` is read at show time, so the button follows the language. */
+export const UNDO_MS = 5000;
+export function createUndoPill(document, label, timers = document.defaultView) {
+  const element = document.createElement('div');
+  element.className = 'st-sable-undo'; element.setAttribute('role', 'status'); element.hidden = true;
+  const text = document.createElement('span'); text.className = 'st-sable-undo-text';
+  const action = document.createElement('button'); action.type = 'button'; action.className = 'st-sable-undo-button';
+  action.dataset.control = 'undo';
+  element.append(text, action);
+  let restore = null, timer;
+  function hide() { timers.clearTimeout(timer); timer = undefined; restore = null; element.hidden = true; }
+  text.addEventListener('click', hide);
+  action.addEventListener('click', () => { const run = restore; hide(); run?.(); });
+  function show(message, callback) {
+    timers.clearTimeout(timer);
+    restore = callback; text.textContent = String(message);
+    action.textContent = label('undo.restore'); action.title = label('undo.restore');
+    element.hidden = false;
+    timer = timers.setTimeout(hide, UNDO_MS);
+  }
+  return { element, show, hide, get shown() { return !element.hidden; } };
 }
 
 // Monochrome Font Awesome glyphs for card titles, like the reference; registry emoji are the fallback.
@@ -310,7 +335,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   // Rain overlay (SPEC §16): one CSS-only layer behind the cards, display: none unless the level is full and rain is on.
   const rain = node('div', 'rain');
   rain.setAttribute('aria-hidden', 'true');
-  drawer.append(rain, header, seed, cards, hiddenRow, status, sheet);
+  // The undo pill (SPEC §24) sits above the status line, in the flow, so it never covers a card.
+  const undo = createUndoPill(document, label);
+  drawer.append(rain, header, seed, cards, hiddenRow, undo.element, status, sheet);
   // Edge pull tab: glued to the screen edge when closed, to the panel's left edge when open.
   const tab = button('', 'open', () => { if (drawer.hidden) open(tab); else hide(false); }, 'tab');
   tab.append(icon('wand-magic-sparkles'), icon('chevron-right'));
@@ -373,6 +400,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   });
   listen(document, 'keydown', event => {
     if (event.key !== 'Escape') return;
+    if (drag?.moved) { event.preventDefault(); cancelDrag(); return; }
     if (modeMenu) { event.preventDefault(); closeModeMenu(); }
     else if (!sheet.hidden) { event.preventDefault(); closeSheet(); }
     else if (!drawer.hidden) hide();
@@ -1208,20 +1236,16 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     }, 'editor-save');
     form.addEventListener('submit', event => { event.preventDefault(); save.click(); });
     const cancel = button(label('edit.cancel'), 'edit.cancel', () => { folderEditors.delete(folder.id); render(view); }, 'editor-cancel');
-    let armed = false;
+    // One tap (SPEC §24): the undo pill brings the folder, its place in `order` and its fold state back.
     const remove = button(label('folders.delete'), 'folders.delete', () => {
-      if (armed) {
-        folderEditors.delete(folder.id);
-        runtime.updateSettings({ folders: view.settings.folders.filter(item => item.id !== folder.id) }); return;
-      }
-      armed = true; remove.textContent = label('folders.confirmDelete'); remove.setAttribute('aria-label', remove.textContent);
-      remove.classList.add('st-sable-armed');
+      const previous = structuredClone({ folders: view.settings.folders, order: view.settings.order }), key = `folder:${folder.id}`;
+      const wasFolded = view.settings.folded[key], name = view.settings.folders.find(item => item.id === folder.id)?.title ?? folder.title;
+      folderEditors.delete(folder.id);
+      runtime.updateSettings({ folders: view.settings.folders.filter(item => item.id !== folder.id) });
+      undo.show(label('undo.deleted').replace('{name}', name), () => runtime.updateSettings({ ...previous,
+        ...(wasFolded === undefined ? {} : { folded: { ...view.settings.folded, [key]: wasFolded } }) }));
     }, 'editor-remove');
     remove.dataset.control = 'folder-delete';
-    remove.addEventListener('blur', () => {
-      armed = false; remove.textContent = label('folders.delete'); remove.setAttribute('aria-label', remove.textContent);
-      remove.classList.remove('st-sable-armed');
-    });
     actions.append(save, cancel, remove); form.append(actions); return form;
   }
 
@@ -1359,8 +1383,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
 
   function render(next) {
     closeModeMenu();
-    // Notifications are the only source of state renders after initial mounting.
-    drag = undefined;
+    // Notifications are the only source of state renders after initial mounting; a render ends any drag.
+    stopDrag();
     const focused = document.activeElement;
     const focusId = focused?.closest('[data-section]')?.dataset.section;
     const focusPack = focused?.closest('.st-sable-group')?.dataset.container;
@@ -1530,7 +1554,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   function beginDrag(event, target) {
     if (event.currentTarget.disabled || event.button !== 0 || drag) return;
     event.preventDefault();
-    drag = { ...target, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+    drag = { ...target, handle: event.currentTarget, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false, detached: false, drop: null };
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
   const dragged = () => (drag.container ? groupNode(drag.container) : cards.querySelector(`.st-sable-card[data-section="${drag.section}"]`));
@@ -1540,26 +1564,148 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     ? containers().find(group => group.key === 'people')?.members ?? []
     : child.classList.contains('st-sable-group')
       ? [...child.lastElementChild.children].map(card => card.dataset.section).filter(Boolean) : [child.dataset.section]));
-  const endDrag = () => cards.querySelector('.st-sable-dragging')?.classList.remove('st-sable-dragging');
+
+  // Drag between containers (SPEC §24). A flat card or a folder member stays bounded by its parent (plain sorting) until
+  // it detaches: a member when the pointer leaves its folder's box by more than DETACH_PX, a flat card when the pointer
+  // is that deep inside a group (anywhere on a folded or empty one). Detached, the card stays where it is, lifted; one
+  // slot shows where it would land, packs and the People group dim, and the drop is one planDrop write with an undo.
+  const DETACH_PX = 24, SCROLL_BAND = 48, SCROLL_STEP = 12, CANCEL_LEFT = 40;
+  let slot, scrollFrame;
+  const box = element => element.getBoundingClientRect();
+  const within = (rect, y, pad = 0) => y >= rect.top - pad && y <= rect.bottom + pad;
+  const topGroups = () => [...cards.children].filter(child => child.classList.contains('st-sable-group'));
+  const emptyHint = group => group.lastElementChild.querySelector(':scope > .st-sable-folder-empty');
+  const homeGroup = () => { const home = containerOf(drag.section); return home?.kind === 'folder' ? groupNode(home.key) : null; };
+  const detachable = () => !!drag.section && !['pack', 'people'].includes(containerOf(drag.section)?.kind);
+  // The section a top-level block starts with, not counting the dragged card (it may be leaving that very folder).
+  const firstId = element => element.dataset.section
+    ?? grouped().find(id => id !== drag.section && containerOf(id)?.key === element.dataset.container) ?? null;
+  function shouldDetach(y) {
+    const home = homeGroup();
+    if (home) return drag.detached ? !within(box(home), y) : !within(box(home), y, DETACH_PX);
+    const group = topGroups().find(item => within(box(item), y));
+    if (!group || drag.detached) return !!group;
+    const rect = box(group);
+    return group.lastElementChild.hidden || !!emptyHint(group) || (y > rect.top + DETACH_PX && y < rect.bottom - DETACH_PX);
+  }
+  /** Where a detached card would land: { folderId, anchor, parent, before } for a slot, { group, full } or { blocked }. */
+  function dropTarget(y) {
+    const card = dragged(), group = topGroups().find(item => within(box(item), y));
+    if (!group) {
+      // A top-level gap: «без группы» before the block under the slot; empty folders always render last.
+      const items = [...cards.children].filter(child => child !== slot && child !== card && !(child.classList.contains('st-sable-group') && emptyHint(child)));
+      const index = slotFor(items.map(box), y), next = items[index];
+      return { folderId: null, anchor: items.slice(index).map(firstId).find(Boolean) ?? null, parent: cards,
+        before: next ?? topGroups().find(item => emptyHint(item)) ?? null };
+    }
+    const pack = containers().find(item => item.key === group.dataset.container);
+    if (pack?.kind !== 'folder') return { blocked: true };
+    const folder = view.settings.folders.find(item => item.id === pack.id);
+    if (folder.members.length >= 20 && !folder.members.includes(drag.section)) return { group, full: true };
+    const body = group.lastElementChild, hint = emptyHint(group);
+    if (hint) return { folderId: pack.id, anchor: null, parent: body, before: hint, hint };
+    // A folded folder accepts on its header and does not unfold.
+    if (body.hidden) return { folderId: pack.id, anchor: null, parent: group, before: body };
+    const footer = body.querySelector(':scope > .st-sable-card-footer');
+    const items = [...body.children].filter(child => child !== card && child.matches('.st-sable-card[data-section]'));
+    const next = within(box(group.firstElementChild), y) ? undefined : items[slotFor(items.map(box), y)];
+    return { folderId: pack.id, anchor: next?.dataset.section ?? null, parent: body, before: next ?? footer };
+  }
+  function clearMarks() {
+    slot?.remove();
+    for (const element of cards.querySelectorAll('.st-sable-full')) element.classList.remove('st-sable-full');
+    for (const element of cards.querySelectorAll('.st-sable-full-badge')) element.remove();
+    for (const element of cards.querySelectorAll('.st-sable-folder-empty[hidden]')) element.hidden = false;
+  }
+  function showTarget(target) {
+    clearMarks();
+    drag.drop = null;
+    if (target.full) {
+      const heading = target.group.firstElementChild;
+      heading.classList.add('st-sable-full');
+      heading.querySelector('.st-sable-card-title')?.append(node('span', 'full-badge', label('drag.full')));
+    }
+    if (!target.parent) return;
+    slot ??= node('div', 'slot');
+    slot.textContent = label('drag.here');
+    if (target.hint) target.hint.hidden = true;
+    target.parent.insertBefore(slot, target.before);
+    drag.drop = { folderId: target.folderId, anchor: target.anchor };
+  }
+  function setDetached(on) {
+    drag.detached = on;
+    for (const element of cards.querySelectorAll('[data-pack], [data-container="people"], .st-sable-person')) element.classList.toggle('st-sable-dim', on);
+    if (!on) { clearMarks(); drag.drop = null; }
+  }
+  // Auto-scroll: within SCROLL_BAND of the list's top or bottom edge, up to SCROLL_STEP px per frame by depth.
+  function scrollDepth(y) {
+    const rect = box(cards);
+    const depth = y < rect.top + SCROLL_BAND ? y - rect.top - SCROLL_BAND : y > rect.bottom - SCROLL_BAND ? y - rect.bottom + SCROLL_BAND : 0;
+    return Math.max(-1, Math.min(1, depth / SCROLL_BAND));
+  }
+  function autoScroll() {
+    scrollFrame = undefined;
+    const depth = drag?.moved ? scrollDepth(drag.lastY) : 0;
+    if (!depth) return;
+    cards.scrollTop += Math.round(SCROLL_STEP * depth) || Math.sign(depth);
+    if (drag.detached) showTarget(dropTarget(drag.lastY));
+    scrollFrame = win.requestAnimationFrame?.(autoScroll);
+  }
+  /** Ends a drag without touching the order: marks, lift, dimming and the scroll loop go. */
+  function stopDrag() {
+    if (scrollFrame !== undefined) win.cancelAnimationFrame?.(scrollFrame);
+    scrollFrame = undefined;
+    clearMarks(); slot = undefined;
+    for (const element of cards.querySelectorAll('.st-sable-dim')) element.classList.remove('st-sable-dim');
+    cards.querySelector('.st-sable-dragging')?.classList.remove('st-sable-dragging');
+    drag = undefined;
+  }
+  /** Cancel: the card returns to its place (the saved order re-renders); nothing is written. */
+  function cancelDrag() {
+    if (!drag) return;
+    const card = drag.moved ? dragged() : null;
+    stopDrag();
+    render(view);
+    if (!card?.isConnected || drawer.dataset.stSableEffects === 'off') return;
+    card.classList.add('st-sable-return');
+    win.setTimeout(() => card.classList.remove('st-sable-return'), 150);
+  }
   listen(document, 'pointermove', event => {
     if (!drag || event.pointerId !== drag.pointerId) return;
     if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 5 && !drag.moved) return;
-    drag.moved = true;
+    if (event.clientX < box(drawer).left - CANCEL_LEFT) { cancelDrag(); return; }
+    drag.moved = true; drag.lastY = event.clientY;
     const card = dragged(), parent = card.parentElement;
     card.classList.add('st-sable-dragging');
+    if (scrollFrame === undefined && scrollDepth(event.clientY)) scrollFrame = win.requestAnimationFrame?.(autoScroll);
+    if (detachable()) {
+      const detach = shouldDetach(event.clientY);
+      if (detach !== drag.detached) setDetached(detach);
+      if (detach) { showTarget(dropTarget(event.clientY)); return; }
+    }
     // Geometry works with pointer capture and touch; no HTML drag/drop API. The parent bounds the move: the list for a
     // flat card or a group, the group body for a member.
     const others = [...parent.children].filter(item => item !== card && (item.dataset.section || (item.dataset.container && !item.querySelector('.st-sable-handle').disabled)));
     const before = others.find(item => { const rect = item.getBoundingClientRect(); return event.clientY < rect.top + rect.height / 2; });
     parent.insertBefore(card, before ?? (parent.classList.contains('st-sable-group-body') ? parent.querySelector(':scope > .st-sable-card-footer') : parent.querySelector(':scope > .st-sable-group:has(.st-sable-folder-empty)')));
-    const rect = cards.getBoundingClientRect();
-    if (event.clientY < rect.top + 40) cards.scrollTop -= 20;
-    else if (event.clientY > rect.bottom - 40) cards.scrollTop += 20;
   });
   listen(document, 'pointerup', event => {
     if (!drag || event.pointerId !== drag.pointerId) return;
-    const completed = drag; drag = undefined;
-    endDrag();
+    const completed = drag;
+    if (completed.detached) {
+      const { section: id, drop } = completed, settings = view.settings;
+      const plan = drop && planDrop(settings, id, { folderId: drop.folderId, index: dropIndex(settings, id, drop.folderId, drop.anchor) });
+      if (!plan) { cancelDrag(); return; }
+      stopDrag();
+      const previous = structuredClone({ folders: settings.folders, order: settings.order });
+      if (JSON.stringify(plan) === JSON.stringify(previous)) { render(view); return; }
+      const section = sections().find(item => item.id === id);
+      const target = settings.folders.find(folder => folder.id === drop.folderId)?.title ?? label('folders.none');
+      runtime.updateSettings(plan);
+      undo.show(`${section ? sectionTitle(section) : id} → ${target}`, () => runtime.updateSettings(previous));
+      return;
+    }
+    stopDrag();
     if (completed.moved) {
       // Hidden cards keep their slots; the saved order is regrouped so pack blocks stay contiguous.
       const visible = shownIds(), ids = new Set(visible);
@@ -1567,13 +1713,15 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       runtime.updateSettings({ order: groupedOrder(order, sections(), enabled(), drawerFolders()) });
     }
   });
-  listen(document, 'pointercancel', () => {
-    if (!drag) return;
-    endDrag();
-    drag = undefined;
-    render(view);
+  listen(document, 'pointercancel', event => { if (drag && (event.pointerId === undefined || event.pointerId === drag.pointerId)) cancelDrag(); });
+  // Moving the card in the DOM can drop the capture while the finger is still down; take it back if the pointer is
+  // still active, otherwise the drag is lost and cancels. After pointerup the drag is already over.
+  listen(document, 'lostpointercapture', event => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    try { if (drag.handle.isConnected && drag.handle.setPointerCapture) { drag.handle.setPointerCapture(event.pointerId); return; } } catch { /* the pointer is gone */ }
+    cancelDrag();
   });
   render(view);
   const unsubscribe = runtime.subscribe(render);
-  return { open, close: hide, element: drawer, dispose() { unsubscribe(); stopTicks(); win.clearTimeout(rollTimer); cleanups.forEach(fn => fn()); drawer.remove(); tab.remove(); menu.remove(); } };
+  return { open, close: hide, element: drawer, undo, dispose() { unsubscribe(); stopTicks(); undo.hide(); stopDrag(); win.clearTimeout(rollTimer); cleanups.forEach(fn => fn()); drawer.remove(); tab.remove(); menu.remove(); } };
 }

@@ -279,7 +279,7 @@ the adult guard and the empty-value rule. Content only: `src/packs/index.js`, i1
 Done when: `npm test` green with the new pack in every pack test, the fixture validates through `sanitizeSection`
 for every new section, the digest snapshot includes the four inject sections, the sheet lists three packs.
 
-## T22 — Drag between containers and the undo pill  [ ]
+## T22 — Drag between containers and the undo pill  [x]
 SPEC §24 (3 Oct 2026, design round: «Undo хорош», «перенос — согласна»). One-level undo pill in the drawer
 (`undo.show(text, restore)`, 5 s, in memory, used by drops, folder delete (now one tap) and «Разложить по группам»);
 the handle drag detaches from its parent after 24 px of hysteresis and drops into user folders (header = end, gap =
@@ -338,6 +338,21 @@ storage beyond the banner flag.
 
 ## Notes from previous tasks
 (append here)
+- T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and
+  `dropIndex(settings, id, folderId, anchorId)` in `src/folders.js`; `createUndoPill(document, label, timers?)` and
+  `UNDO_MS` exported from `src/ui/drawer.js`; the drawer API gains `undo` (`ui.undo.show(text, restore)`), which §25
+  person delete should reuse. Decisions: the slot stores the card it sits before (`anchor`), and `dropIndex` converts
+  it to the `planDrop` index, so hidden cards, disabled packs in `order` and the People view do not shift the drop; a
+  flat card's "parent box" is the top level, so it detaches when the pointer is 24 px deep inside a group (anywhere on a
+  folded or empty one), while a member detaches 24 px outside its folder; a detached card stays in place (no ghost
+  following the finger) and a drop that changes nothing writes nothing. «Разложить по группам» lives in the settings
+  block, where the drawer's pill is out of sight, so the settings get their own pill instance under the button (same
+  factory). Folder delete restores the fold state too. `lostpointercapture` first tries to re-capture (moving the card
+  in the DOM may drop capture while the finger is down) and cancels only if that fails. The `folders.confirmDelete` /
+  `folders.confirmSuggested` strings are unused now but left in `src/i18n.js` to keep parallel merges trivial; delete
+  them in a cleanup. `test/effects.test.mjs` now ends the full-only CSS part at `/* End of full-only rules. */`, so
+  later blocks appended to `style.css` may carry subtle-level rules. Real geometry (touch on Android Chrome, the 24 px
+  feel, auto-scroll speed) is unverified outside jsdom.
 - T20: `store.history[bondId][scale]` via `recordHistory(data, bonds, mesId, keys)` / `pruneHistory(data, keep)` (keep = a
   chat length or a Set of mesIds) and `HISTORY_POINTS = 12` in `src/store.js`; `run.js` records after a parsed run result is
   stored (not on a skipped run with no due sections) and after `editState('bonds')`, prunes in `deleted`. A point is

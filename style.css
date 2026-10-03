@@ -794,3 +794,26 @@
 /* Pack groups: the glow stays on the group container; its nested members carry no shadow of their own. */
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="glow"] .st-sable-group { box-shadow: 0 6px 18px rgba(0,0,0,.16), 0 0 calc(6px + 16px * var(--st-sable-glow, .5)) rgba(var(--st-sable-glow-rgb, var(--st-sable-ink-rgb, 245,244,238)), calc(.15 + .45 * var(--st-sable-glow, .5))); }
 .st-sable-drawer[data-st-sable-effects="full"][data-st-sable-fx~="glow"] .st-sable-group .st-sable-card { box-shadow: none; }
+/* End of full-only rules. */
+
+/* T22 */
+/* Undo pill (SPEC §24): one glass row above the status line in the drawer, under the button in the settings; 36 px tall.
+   It slides in over 140 ms; at effects "off" the stop rules above remove the motion. */
+.st-sable-undo { display: flex; align-items: center; gap: 8px; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 4px 0 12px; border-radius: 999px; font-size: 13px; }
+.st-sable-undo[hidden] { display: none; }
+.st-sable-undo-text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+.st-sable-undo-button { flex: none; height: 30px; min-height: 30px; padding: 0 12px; border-radius: 999px; font-weight: 600; cursor: pointer; }
+.st-sable-drawer .st-sable-undo { flex: none; border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .2); background: rgba(var(--st-sable-base-rgb, 24,24,30), .78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 6px 18px rgba(0,0,0,.3); padding-right: 0; font-size: var(--st-sable-fs, 13px); }
+.st-sable-drawer .st-sable-undo-button { height: 36px; min-height: 36px; border: 1px solid rgba(var(--st-sable-ink-rgb, 255,255,255), .3); background: var(--st-sable-accent, rgba(var(--st-sable-ink-rgb, 255,255,255), .16)); color: var(--st-sable-accent-ink, inherit); }
+@keyframes st-sable-undo-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.st-sable-drawer .st-sable-undo:not([hidden]) { animation: st-sable-undo-in 140ms ease-out; }
+.st-sable-settings .st-sable-undo { margin-top: 6px; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,.2)); }
+.st-sable-settings .st-sable-undo-button { height: 36px; min-height: 36px; }
+/* Drag between containers: one dashed slot where the card would land, dimmed non-targets, the full-folder badge and the
+   150 ms return of a cancelled card. */
+.st-sable-drawer .st-sable-slot { display: flex; align-items: center; justify-content: center; height: 44px; box-sizing: border-box; margin: 4px 0; border: 2px dashed var(--st-sable-accent, rgba(var(--st-sable-ink-rgb, 255,255,255), .6)); border-radius: 12px; font-size: calc(var(--st-sable-fs) - 1px); opacity: .7; pointer-events: none; }
+.st-sable-drawer .st-sable-dim { opacity: .5; }
+.st-sable-drawer .st-sable-full-badge { flex: none; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; font-size: 11px; font-weight: 600; opacity: .8; }
+.st-sable-drawer .st-sable-card-header.st-sable-full { opacity: .6; }
+@keyframes st-sable-return { from { transform: translateY(-4px) scale(1.01); } to { transform: none; } }
+.st-sable-drawer .st-sable-card.st-sable-return, .st-sable-drawer .st-sable-group.st-sable-return { animation: st-sable-return 150ms ease-out; }

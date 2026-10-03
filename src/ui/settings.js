@@ -5,7 +5,7 @@ import { FX_DEFAULTS, FX_RANGES, FX_SPEEDS, GROUP_IDS, LAYOUTS, REASONING_LEVELS
 import { BG_MAX_STORED, BG_QUALITY, PRESET_IDS, THEME_FILE, applyPreset, exportTheme, fitWithin, parseTheme, presetOf } from '../themes.js';
 import { BUILTIN_PACKS, packScopeOf } from '../packs/index.js';
 import { copyPack, exportPack, importPack } from '../packs/io.js';
-import { applyVisual, glyphNode, inkFor, packTitle, sectionGlyph } from './drawer.js';
+import { applyVisual, createUndoPill, glyphNode, inkFor, packTitle, sectionGlyph } from './drawer.js';
 
 const CONTEXT_KEYS = ['messages', 'cardChars', 'loreChars', 'maxTokens', 'depth', 'keep'];
 const ZERO_ALLOWED = new Set(['cardChars', 'loreChars', 'depth']);
@@ -226,12 +226,11 @@ export function createSettings(runtime, { document = globalThis.document,
   sectionsGroup.append(table, text('p', 'st-sable-settings-hint', 'periodHint'));
   checkbox(sectionsGroup, 'spoilers');
 
-  let foldersArmed = false;
-  const suggested = button(sectionsGroup, () => label(foldersArmed ? 'folders.confirmSuggested' : 'folders.suggested'), 'folder-tree', () => {
-    if (view.settings.folders.length && !foldersArmed) {
-      foldersArmed = true; suggested.classList.add('st-sable-armed'); applyLabels(labels); return;
-    }
-    foldersArmed = false; suggested.classList.remove('st-sable-armed');
+  // One tap (SPEC §24): the previous folders and order go to an undo pill under the button (the drawer's pill is out of
+  // sight while the settings are open).
+  const suggestedUndo = createUndoPill(document, label);
+  const suggested = button(sectionsGroup, () => label('folders.suggested'), 'folder-tree', () => {
+    const previous = structuredClone({ folders: view.settings.folders, order: view.settings.order });
     const taken = new Set(view.settings.folders.map(folder => folder.id));
     const folders = [['world', 'fa-globe', ['world', 'offscreen', 'threads']],
       ['people', 'fa-users', ['npcs', 'thoughts', 'bonds', 'dossiers']],
@@ -240,9 +239,10 @@ export function createSettings(runtime, { document = globalThis.document,
         return { id, title: label(`folders.${key}`), icon, members };
       });
     runtime.updateSettings({ folders });
+    suggestedUndo.show(label('undo.suggested'), () => runtime.updateSettings(previous));
   });
   suggested.dataset.control = 'suggested-folders';
-  suggested.addEventListener('blur', () => { foldersArmed = false; suggested.classList.remove('st-sable-armed'); applyLabels(labels); });
+  sectionsGroup.append(suggestedUndo.element);
 
   // Bond scales (SPEC §20): built-ins switch off one by one, custom scales are rows; every write sends the whole object.
   const scalesGroup = group('scales', 'group.scales');
@@ -1107,7 +1107,7 @@ export function createSettings(runtime, { document = globalThis.document,
   render(view);
   const unsubscribe = runtime.subscribe(next => render(next));
   return { element, dispose() {
-    unsubscribe();
+    unsubscribe(); suggestedUndo.hide();
     if (event) ctx.eventSource.removeListener(event, refillProfiles);
     else toggle.removeEventListener('click', refillProfiles);
     element.remove();

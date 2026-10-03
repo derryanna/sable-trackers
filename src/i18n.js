@@ -389,3 +389,13 @@ Object.assign(STRINGS.ru, {
   layout: 'Раскладка панели', 'layout.topics': 'по темам', 'layout.people': 'по персонажам',
   people: 'Люди', 'field.role': 'Роль', 'people.hint': 'Редактирование: в раскладке по темам',
 });
+
+// T22
+Object.assign(STRINGS.en, {
+  'undo.restore': 'Undo', 'undo.deleted': 'Group “{name}” deleted', 'undo.suggested': 'Cards laid out in groups',
+  'drag.here': 'here', 'drag.full': 'full',
+});
+Object.assign(STRINGS.ru, {
+  'undo.restore': 'Вернуть', 'undo.deleted': 'Группа «{name}» удалена', 'undo.suggested': 'Карточки разложены по группам',
+  'drag.here': 'сюда', 'drag.full': 'полная',
+});

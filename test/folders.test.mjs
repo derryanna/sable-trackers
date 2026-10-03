@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { normalizeSettings, saveSettings } from '../src/settings.js';
 import { getSections, groupedOrder, orderedSectionIds } from '../src/sections.js';
-import { moveToFolder } from '../src/folders.js';
+import { dropIndex, moveToFolder, planDrop, slotFor } from '../src/folders.js';
 import { createRuntime } from '../src/run.js';
 import { createFakeST } from './fakes/st.mjs';
 
@@ -68,4 +68,48 @@ test('setFolderMode writes members once globally or once to chat overrides, incl
   assert.equal(runtime.snapshot().settings.sections.world.mode, 'show');
   runtime.setFolderMode(a, null); assert.deepEqual(runtime.snapshot().store.modeOverride, {});
   assert.equal(runtime.setFolderMode(a, 'bad'), false); assert.equal(runtime.setFolderMode('bad', 'show'), false);
+});
+
+test('planDrop moves into a folder at the end or an index, out to no folder at an index, and refuses illegal drops', () => {
+  const settings = normalizeSettings({ order: ['world', 'npcs', 'threads', 'bonds', 'story'],
+    folders: [folder(a, ['world', 'threads']), folder(b, [])] });
+  const original = structuredClone(settings);
+  const end = planDrop(settings, 'story', { folderId: a, index: Infinity });
+  assert.deepEqual(end.folders[0].members, ['world', 'threads', 'story']);
+  assert.deepEqual(end.order.slice(0, 5), ['world', 'threads', 'story', 'npcs', 'bonds']);
+  const at = planDrop(settings, 'story', { folderId: a, index: 1 });
+  assert.deepEqual(at.order.slice(0, 5), ['world', 'story', 'threads', 'npcs', 'bonds']);
+  assert.deepEqual(at.folders[0].members, ['world', 'threads', 'story'], 'members stay a set; order holds the position');
+  // Top-level blocks without the card: [world, threads] folder, npcs, bonds, … — index 2 lands before bonds.
+  const out = planDrop(settings, 'world', { folderId: null, index: 2 });
+  assert.deepEqual(out.folders[0].members, ['threads']);
+  assert.deepEqual(out.order.slice(0, 4), ['threads', 'npcs', 'world', 'bonds']);
+  assert.deepEqual(planDrop(settings, 'world', { folderId: null, index: 0 }).order.slice(0, 2), ['world', 'threads']);
+  const inside = planDrop(settings, 'threads', { folderId: a, index: 0 });
+  assert.deepEqual(inside.order.slice(0, 2), ['threads', 'world']); assert.deepEqual(inside.folders, settings.folders);
+  // An empty folder gains the card where it stood.
+  const empty = planDrop(settings, 'story', { folderId: b, index: 0 });
+  assert.deepEqual(empty.folders[1].members, ['story']); assert.deepEqual(empty.order.slice(0, 5), ['world', 'threads', 'npcs', 'bonds', 'story']);
+  assert.deepEqual(settings, original, 'no mutation');
+  assert.equal(planDrop(settings, 'combat_stats', { folderId: a }), null, 'a pack member');
+  assert.equal(planDrop(settings, 'missing', { folderId: a }), null);
+  assert.equal(planDrop(settings, 'story', { folderId: 'f_0000000f' }), null);
+  assert.equal(planDrop(settings, 'story', { folderId: 'people' }), null, 'the People group is not a folder');
+  const customSections = Array.from({ length: 20 }, (_, i) => ({ id: `c_${i.toString(16).padStart(8, '0')}`, title: 'Custom' }));
+  const full = normalizeSettings({ customSections, folders: [folder(a, customSections.map(item => item.id))] });
+  assert.equal(planDrop(full, 'world', { folderId: a }), null, 'a full folder');
+  assert.deepEqual(planDrop(full, 'c_00000000', { folderId: a, index: Infinity }).folders[0].members.length, 20, 'a member moves inside its full folder');
+});
+
+test('dropIndex maps an anchor card to the planDrop index; slotFor picks the gap by rectangle middles', () => {
+  const settings = normalizeSettings({ order: ['world', 'npcs', 'threads', 'bonds', 'story'], folders: [folder(a, ['world', 'threads'])] });
+  assert.equal(dropIndex(settings, 'story', a, 'threads'), 1);
+  assert.equal(dropIndex(settings, 'story', a, null), Infinity);
+  assert.equal(dropIndex(settings, 'world', null, 'bonds'), 2);
+  assert.equal(dropIndex(settings, 'world', null, 'threads'), 0, 'the anchor names its whole block');
+  assert.equal(dropIndex(settings, 'story', 'f_0000000f', 'threads'), Infinity);
+  const rects = [{ top: 0, height: 100 }, { top: 100, height: 40 }, { top: 140, bottom: 240 }];
+  assert.equal(slotFor(rects, -10), 0); assert.equal(slotFor(rects, 49), 0); assert.equal(slotFor(rects, 50), 1);
+  assert.equal(slotFor(rects, 119), 1); assert.equal(slotFor(rects, 121), 2); assert.equal(slotFor(rects, 189), 2);
+  assert.equal(slotFor(rects, 191), 3); assert.equal(slotFor([], 10), 0);
 });
