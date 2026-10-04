@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.4.2 — 4 October 2026
+
+### Исправления по независимому аудиту
+
+**Зарезервированные имена.** Ответ вспомогательной модели с id бонда или ключом стата `__proto__`, `constructor` или `prototype` раньше записывал историю статов в общий прототип объектов всей вкладки SillyTavern и мог сломать таверну и соседние расширения до перезагрузки страницы. Теперь парсер отбрасывает такие строки, а история пишет только собственные свойства.
+
+**Черновики принадлежат чату.** Открытый редактор секции, пилюля «Вернуть» после удаления персонажа и заметка о броске закрываются при смене чата; «Сохранить» и «Вернуть» из прошлого чата больше не могут записать его данные в новый.
+
+**Знаковые шкалы.** Редактор в раскладке по темам сохранял отрицательное значение знаковой шкалы как 0; теперь границы берутся из схемы.
+
+**Запятые внутри строк.** Починка висячих запятых применяется, только если JSON не читается как есть; строка вроде «A note , ] intact» больше не портится.
+
+**Сохранение во время сохранения.** Изменение, сделанное, пока предыдущее сохранение метаданных ещё в полёте, теперь досохраняется одним дополнительным запросом.
+
+**Рост состояния.** Накопленные NPC и бонды ограничены 80 записями, досье 150: лишними уходят самые старые, которых нет в свежем ответе; присутствующие NPC не удаляются.
+
+**Инъекция в одну строку.** Переводы строк и управляющие символы внутри значений состояния схлопываются в пробел перед вставкой в промпт основной модели.
+
+**Формулировки.** Подсказки шкал для вспомогательной модели говорят «toward the target» вместо «toward toward».
+
+### Fixes from the independent audit
+
+**Reserved names.** A side-model reply whose bond id or stat key was `__proto__`, `constructor` or `prototype` used to write the stat history onto the shared object prototype of the whole SillyTavern tab, able to break the tavern and other extensions until a reload. The parser now drops such rows and the history writes own properties only.
+
+**Drafts belong to a chat.** An open section editor, the Undo pill after a person delete and the roll note close on a chat switch; Save and Undo from the previous chat can no longer write its data into the new one.
+
+**Signed scales.** The editor in the topics layout saved a negative signed score as 0; bounds now come from the schema.
+
+**Commas inside strings.** Trailing-comma repair runs only when the JSON does not parse as is; a string like "A note , ] intact" is no longer damaged.
+
+**A save during a save.** A change made while the previous metadata save is still in flight is now saved by exactly one follow-up request.
+
+**State growth.** Accumulated NPCs and bonds are capped at 80, dossiers at 150: the oldest ones missing from the fresh reply go first; present NPCs are never dropped.
+
+**One-line injection.** Newlines and control characters inside state values collapse to a space before the text enters the main model's prompt.
+
+**Wording.** Scale hints for the side model say "toward the target" instead of "toward toward".
+
 ## 0.4.1 — 4 October 2026
 
 ### Какое состояние уходит в промпт; устойчивость запросов
