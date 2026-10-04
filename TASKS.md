@@ -391,6 +391,16 @@ state before the rewritten reply, set before prompts are combined, override clea
 Done when: `npm test` green with the swipe / normal / cleared-override tests, lag 1 and lag 2 tests, `lagOf` tests;
 `node --check`; the side-model request text is unchanged.
 
+## T33 — Audit fixes: reserved names, chat-bound drafts, caps (0.4.2)  [x]
+SPEC §33 (4 Oct 2026: independent review of 0.4.1 by two code auditors and CodeQL; both refused to install because of
+`addPoint` in `src/store.js`). Reserved names `__proto__` / `constructor` / `prototype` rejected by the parser for `id`,
+`key` and `changes` keys and ignored by the history, which writes own properties only; section editors, the undo pill
+and the roll note cleared on a store change, an editor remembers its store; score editor bounds from the schema;
+`extractJson` repairs only unparsable text; `saveStore` queues one follow-up save for mutations during a flight; `CAPS`
+in `src/merge.js`; digest values flattened to one line; scale hints «toward the target». Files: `src/sections.js`,
+`src/parse.js`, `src/store.js`, `src/merge.js`, `src/digest.js`, `src/i18n.js`, `src/ui/drawer.js`, tests.
+Done when: `npm test` green with `test/reserved-keys.test.mjs`, `test/chat-switch-ui.test.mjs`, `test/hardening.test.mjs`.
+
 ## Notes from previous tasks
 (append here)
 - T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and
@@ -618,3 +628,10 @@ Done when: `npm test` green with the swipe / normal / cleared-override tests, la
   (before would make the override pick one entry too early; `MESSAGE_DELETED` after it is handled, since pruning
   leaves the right entry latest). A stopped generation leaves the flag on until the next message event or the next
   `GENERATION_STARTED`.
+- T33: `RESERVED_KEYS` / `isSafeKey` live in `src/sections.js` (parse and store both import the registry); `own(map, key,
+  make)` in `src/store.js` is the only writer of the history maps. The drawer clears drafts on `view.store !== previousStore`
+  in `render()`, removing the editor card nodes first so that render builds fresh cards; `createEditor` stores
+  `store: view.store` and `saveEditor` drops a foreign draft. `capped(list, cap, protect)` in `src/merge.js` keeps array
+  order and drops from the front; incoming items and present NPCs are protected, so a list can exceed its cap when
+  everything is protected. `buildDigest` flattens a copy of the state (`flat`) before rendering. Unverified live:
+  SillyTavern's `saveMetadata` serialising at call time (the save queue assumes it).
