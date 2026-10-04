@@ -1,4 +1,5 @@
 import { getPacks } from './packs/index.js';
+import { isSafeKey } from './sections.js';
 
 export const STORE_KEY = 'sableTrackers';
 
@@ -18,17 +19,20 @@ export function loadStore(ctx) {
   return data;
 }
 
-// Coalesce synchronous mutations without leaving a timer attached to an old chat.
+// Coalesce synchronous mutations without leaving a timer attached to an old chat. A mutation made while a save is in
+// flight queues exactly one more save after it (SPEC §33): the request already on the wire serialised the old data.
 const pending = new WeakMap();
 export function saveStore(ctx) {
-  if (!pending.has(ctx.chatMetadata)) {
-    const metadata = ctx.chatMetadata;
-    const promise = Promise.resolve().then(() => ctx.saveMetadata()).catch(error => {
-      console.warn('Sable Trackers: metadata save failed', error);
-    }).finally(() => pending.delete(metadata));
-    pending.set(metadata, promise);
-  }
-  return pending.get(ctx.chatMetadata);
+  const metadata = ctx.chatMetadata;
+  const current = pending.get(metadata);
+  if (current) { if (current.started) current.again = true; return current.promise; }
+  const entry = { started: false, again: false, promise: null };
+  const warn = error => { console.warn('Sable Trackers: metadata save failed', error); };
+  const once = () => { entry.started = true; return ctx.saveMetadata(); };
+  const more = () => { if (!entry.again) return undefined; entry.again = false; return Promise.resolve().then(() => ctx.saveMetadata()).catch(warn).then(more); };
+  entry.promise = Promise.resolve().then(once).catch(warn).then(more).finally(() => pending.delete(metadata));
+  pending.set(metadata, entry);
+  return entry.promise;
 }
 
 export function findEntry(data, mesId, swipeId = 0) {
@@ -94,9 +98,13 @@ export function recordHistory(data, bonds, mesId, keys) {
   }
 }
 
+// Own properties only: `history['__proto__']` would be Object.prototype, and a reserved name a setter (SPEC §33).
+const own = (map, key, make) => (Object.hasOwn(map, key) ? map[key] : (map[key] = make()));
 function addPoint(history, id, line, mesId, value) {
+  if (!isSafeKey(id) || !isSafeKey(line)) return;
   if (typeof value !== 'number' || !Number.isFinite(value)) return;
-  const points = (history[id] ??= {})[line] ??= [];
+  const points = own(own(history, id, () => ({})), line, () => []);
+  if (!Array.isArray(points)) return;
   if (points.at(-1)?.mesId === mesId) points.pop();
   points.push({ mesId, value });
   if (points.length > HISTORY_POINTS) points.splice(0, points.length - HISTORY_POINTS);
@@ -114,7 +122,7 @@ export function recordStatHistory(data, sectionId, items, mesId) {
     present.add(key);
     if (typeof item.max === 'number' && Number.isFinite(item.max)) addPoint(history, sectionId, key, mesId, item.value);
   }
-  const lines = history[sectionId];
+  const lines = Object.hasOwn(history, sectionId) ? history[sectionId] : undefined;
   if (!lines) return;
   for (const key of Object.keys(lines)) if (!present.has(key)) delete lines[key];
   if (!Object.keys(lines).length) delete history[sectionId];

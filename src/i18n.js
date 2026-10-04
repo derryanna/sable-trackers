@@ -359,7 +359,7 @@ Object.assign(STRINGS.en, {
   'scales.key': 'Key', 'scales.title': 'Title', 'scales.hint': 'What it measures (for the side model)', 'scales.friction': 'High value = friction', 'scales.signed': '−100…+100',
   'scales.delete': 'Delete', 'scales.confirmDelete': 'Delete for good?',
   'scales.keyHint': 'Latin lower-case letters, digits and _, starts with a letter, 2–16 characters, not a built-in scale; it names the JSON field.',
-  'scales.hintPlaceholder': 'E.g.: jealousy toward toward',
+  'scales.hintPlaceholder': 'E.g.: jealousy toward the target',
 });
 Object.assign(STRINGS.ru, {
   'group.scales': 'Шкалы отношений',
@@ -373,7 +373,7 @@ Object.assign(STRINGS.ru, {
   'scales.key': 'Ключ', 'scales.title': 'Название', 'scales.hint': 'Что измеряет (для вспомогательной модели)', 'scales.friction': 'Высокое значение = трение', 'scales.signed': '−100…+100',
   'scales.delete': 'Удалить', 'scales.confirmDelete': 'Точно удалить?',
   'scales.keyHint': 'Строчные латинские буквы, цифры и _, начинается с буквы, 2–16 знаков, не встроенная шкала; это имя поля в JSON.',
-  'scales.hintPlaceholder': 'Например: jealousy toward toward',
+  'scales.hintPlaceholder': 'Например: jealousy toward the target',
 });
 
 // Drawer layout (SPEC §21): the settings select, the People group and the person card footer.

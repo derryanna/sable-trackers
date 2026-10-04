@@ -1698,7 +1698,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     const kept = history ? { [bondId]: lines ? structuredClone(lines) : null } : undefined;
     personForms.delete(id);
     if (runtime.editSections(values, { history }) === false) return;
-    undo.show(label('person.deleted').replace('{name}', person.name), () => runtime.editSections(previous, { history: kept }));
+    const store = view.store;
+    undo.show(label('person.deleted').replace('{name}', person.name), () => { if (view.store === store) runtime.editSections(previous, { history: kept }); });
     undo.element.querySelector('[data-control="undo"]')?.focus();
   }
   // «+ Человек» (SPEC §25): the People group footer; one node kept across renders, so the typed name survives.
@@ -1866,7 +1867,8 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       }
       case 'integer': case 'score': {
         const input = node('input', 'input'); input.type = 'number'; input.step = '1'; input.inputMode = 'numeric';
-        const [min, max] = schema.type === 'score' ? [0, 100] : [schema.min, schema.max];
+        // Signed scales (SPEC §22) carry min: -100; the editor used to clamp them to 0 on Save (SPEC §33).
+        const [min, max] = schema.type === 'score' ? [schema.min ?? 0, schema.max ?? 100] : [schema.min, schema.max];
         if (min !== undefined) input.min = String(min);
         if (max !== undefined) input.max = String(max);
         input.value = Number.isFinite(value) ? String(value) : '';
@@ -1959,12 +1961,14 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       button(label('edit.cancel'), 'edit.cancel', () => { editors.delete(section.id); rebuildCard(section.id); }, 'editor-cancel'));
     element.append(warning, root.element ?? node('span'), error, colorRow(section.id, sectionTitle(section)), actions);
     const empty = { string: '', array: [] }[section.schema.type] ?? {};
-    return { element, warning, error, base: JSON.stringify(original ?? null), read: () => root.read() ?? empty };
+    return { element, warning, error, store: view.store, base: JSON.stringify(original ?? null), read: () => root.read() ?? empty };
   }
   function saveEditor(id) {
     const editor = editors.get(id);
     const section = sections().find(item => item.id === id);
     if (!editor || !section) return;
+    // The draft was opened in another chat (SPEC §33): drop it instead of writing it here.
+    if (editor.store !== view.store) { editors.delete(id); rebuildCard(id); return; }
     // Same schema as model output: rows missing required fields drop, strings trim, numbers clamp.
     const value = sanitizeSection(section, editor.read());
     // Removed first: a successful save publishes, and that render must rebuild the card from the new state.
@@ -1999,6 +2003,13 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     if (entryKey !== lastEntryKey || view.store !== previousStore || !view.entry) revealed.clear();
     // Person forms (SPEC §25) belong to a chat.
     if (view.store !== previousStore) personForms.clear();
+    // Section editors, the undo pill and the roll note belong to a chat as well (SPEC §33): a Save or an Undo after a
+    // chat switch would write the old chat's draft into the new one.
+    if (view.store !== previousStore) {
+      for (const editor of editors.values()) editor.card?.remove();
+      editors.clear(); undo.hide();
+      rollNote = null; rolling = null; rolled = null; win.clearTimeout(rollTimer);
+    }
     containerList = describeContainers();
     drawer.lang = view.settings.language;
     banner.hidden = !view.canSeedLegacy || !!view.legacyBannerHidden;

@@ -2,14 +2,25 @@ import { BOND_SCALES, SECTIONS } from './sections.js';
 
 const clone = value => value === undefined ? undefined : structuredClone(value);
 
+// Caps on the accumulated collections (SPEC §33): the schema bounds each reply, the merged lists were unbounded.
+export const CAPS = Object.freeze({ npcs: 80, bonds: 80, dossiers: 150 });
+/** Drops the oldest unprotected items (array order is arrival order) until `list` fits `cap`; protected items may exceed it. */
+function capped(list, cap, protect) {
+  if (!(list.length > cap)) return list;
+  const victims = new Set();
+  for (const item of list) { if (victims.size >= list.length - cap) break; if (!protect(item)) victims.add(item); }
+  return list.filter(item => !victims.has(item));
+}
+
 function mergeDossiers(previous = [], incoming = []) {
   const result = clone(previous) ?? [];
   const known = new Set(result.map(item => item.name?.trim().toLocaleLowerCase()).filter(Boolean));
+  const fresh = new Set();
   for (const dossier of incoming) {
     const key = dossier.name?.trim().toLocaleLowerCase();
-    if (key && !known.has(key)) { result.push(clone(dossier)); known.add(key); }
+    if (key && !known.has(key)) { const copy = clone(dossier); result.push(copy); fresh.add(copy); known.add(key); }
   }
-  return result;
+  return capped(result, CAPS.dossiers, item => fresh.has(item));
 }
 
 function mergeBanlist(previous = [], incoming = []) {
@@ -23,14 +34,15 @@ function mergeBanlist(previous = [], incoming = []) {
   return result.slice(-8);
 }
 
-function mergeById(previous = [], incoming = []) {
+function mergeById(previous = [], incoming = [], cap = Infinity, protect = () => false) {
   const result = clone(previous);
+  const touched = new Set(incoming.map(item => item.id));
   for (const item of incoming) {
     const index = result.findIndex(old => old.id === item.id);
     if (index < 0) result.push(clone(item));
     else result[index] = clone(item);
   }
-  return result;
+  return capped(result, cap, item => touched.has(item.id) || protect(item));
 }
 
 function recomputeBonds(previous = [], incoming = [], scales = BOND_SCALES) {
@@ -54,7 +66,7 @@ function recomputeBonds(previous = [], incoming = [], scales = BOND_SCALES) {
     return { ...clone(bond), stats, changes };
   });
   // Bonds the model did not return keep their numbers, but last turn's deltas are stale.
-  return mergeById(previous.map(bond => ({ ...clone(bond), changes: {} })), updated);
+  return mergeById(previous.map(bond => ({ ...clone(bond), changes: {} })), updated, CAPS.bonds);
 }
 
 // The active bond scales are the stats fields of the registry's bonds schema (SPEC §20).
@@ -75,7 +87,7 @@ export function mergeState(previousState = {}, parsed = {}, options = {}) {
     if (!known.has(id) || !valid.has(id) || incoming?.[id] === undefined) continue;
     if (id === 'dossiers') next[id] = mergeDossiers(previousState.dossiers, incoming[id]);
     else if (id === 'banlist') next[id] = mergeBanlist(previousState.banlist, incoming[id]);
-    else if (id === 'npcs') next[id] = mergeById(previousState.npcs, incoming[id]);
+    else if (id === 'npcs') next[id] = mergeById(previousState.npcs, incoming[id], CAPS.npcs, item => item.present === true);
     else if (id === 'bonds') next[id] = recomputeBonds(previousState.bonds, incoming[id], activeScales(registry));
     else if (registry.find(s => s.id === id)?.shape === 'stats') {
       const before = new Map((Array.isArray(previousState[id]) ? previousState[id] : []).map(item => [item.key, item.value]));

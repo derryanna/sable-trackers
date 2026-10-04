@@ -15,7 +15,7 @@ import { createRuntime } from '../src/run.js';
 import { createFakeST } from './fakes/st.mjs';
 
 // Today's bonds instruction, copied literally: the default rebuilt text must stay byte-for-byte equal (SPEC §20).
-const TODAY = 'Independent scales toward the named target only: affection = emotional attachment, not necessarily romance; trust = confidence and willingness to rely; desire = attraction toward toward, not love or general arousal; love = romantic feelings toward toward (being in love), distinct from affection and from desire; reputation = how this NPC rates toward, not global fame; suspicion = suspicion toward toward; respect = respect for toward; fear = fear of toward; grudge = resentment toward toward, not general anger; tension = current tension with toward, which can drop independently of affection. Known scores are integers 0-100: 0 means known absence, null means unknown. Do not fill everything with 50. Keep the previous known value without new basis; derive new starting values cautiously from canon. A scale absent from PREVIOUS STATE is new: give it a starting value from canon and shown behaviour instead of null. Change by at most 10 per reply unless a clearly major event warrants more; no automatic affection growth. desire = null for minors, without sexual interpretations; love = null for minors as well. changes contains changed scales only, with short concrete reasons; return {} if unchanged.';
+const TODAY = 'Independent scales toward the named target only: affection = emotional attachment, not necessarily romance; trust = confidence and willingness to rely; desire = attraction toward the target, not love or general arousal; love = romantic feelings toward the target (being in love), distinct from affection and from desire; reputation = how this NPC rates the target, not global fame; suspicion = suspicion toward the target; respect = respect for the target; fear = fear of the target; grudge = resentment toward the target, not general anger; tension = current tension with the target, which can drop independently of affection. Known scores are integers 0-100: 0 means known absence, null means unknown. Do not fill everything with 50. Keep the previous known value without new basis; derive new starting values cautiously from canon. A scale absent from PREVIOUS STATE is new: give it a starting value from canon and shown behaviour instead of null. Change by at most 10 per reply unless a clearly major event warrants more; no automatic affection growth. desire = null for minors, without sexual interpretations; love = null for minors as well. changes contains changed scales only, with short concrete reasons; return {} if unchanged.';
 const jealousy = { key: 'jealousy', title: 'Ревность', hint: 'jealousy toward toward', friction: true };
 const custom = { bondScales: { off: ['reputation'], custom: [jealousy] } };
 const statKeys = section => Object.keys(section.schema.item.fields.stats.fields);
@@ -62,7 +62,7 @@ test('the bonds section follows the settings: stats fields = active keys, rebuil
   assert.equal(getAllSections(custom).find(s => s.id === 'bonds').instructions, section.instructions);
   assert.deepEqual(statKeys(section), [...BOND_SCALES.filter(k => k !== 'reputation'), 'jealousy']);
   assert.doesNotMatch(section.instructions, /reputation =/);
-  assert.match(section.instructions, /tension = current tension with toward, which can drop independently of affection; jealousy = jealousy toward toward\. Known scores/);
+  assert.match(section.instructions, /tension = current tension with the target, which can drop independently of affection; jealousy = jealousy toward toward\. Known scores/);
   // Without a hint, the title tells the side model what the scale is.
   const untitled = bondsSection({ bondScales: { custom: [{ key: 'pride', title: 'Гордость' }] } });
   assert.match(untitled.instructions, /pride = Гордость\. /);
@@ -175,7 +175,7 @@ test('settings: built-in checkboxes write the whole off array; the rebuild hint 
   assert.ok(!boxes[4].checked);
   const danger = group.parentElement.querySelector('textarea[name="prompts.bonds"]');
   assert.doesNotMatch(danger.value, /reputation =/, 'the Danger zone shows the rebuilt default');
-  assert.match(danger.value, /respect = respect for toward/);
+  assert.match(danger.value, /respect = respect for the target/);
   runtime.updateSettings({ language: 'ru' });
   assert.equal(group.querySelector('summary > h4').textContent, 'Шкалы отношений');
   assert.equal(boxes[4].parentElement.textContent, 'Репутация — как NPC оценивает цель, не слава');
