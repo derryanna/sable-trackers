@@ -1,4 +1,4 @@
-import { SECTIONS } from './sections.js';
+import { SECTIONS, isSafeKey } from './sections.js';
 
 const trim = (value, max = 500) => typeof value === 'string' ? value.trim().slice(0, max) : undefined;
 
@@ -42,7 +42,7 @@ function sanitize(value, schema) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     const out = {};
     for (const [key, change] of Object.entries(value)) {
-      if (!change || typeof change !== 'object') continue;
+      if (!isSafeKey(key) || !change || typeof change !== 'object') continue;
       const delta = Number(change.delta); if (!Number.isFinite(delta)) continue;
       out[key] = { delta: Math.round(delta), reason: trim(change.reason, 300) ?? '' };
     }
@@ -60,6 +60,8 @@ function sanitize(value, schema) {
       if (!out.id && out.name) out.id = out.name.toLowerCase().replace(/[^\p{L}\p{N}\s_]/gu, '').replace(/\s+/g, '_').slice(0, schema.fields.id.max);
       if (!out.id) return undefined;
     }
+    // A reserved name would reach Object.prototype as a key of the history and merge maps (SPEC §33).
+    if (['id', 'key'].some(field => out[field] !== undefined && !isSafeKey(out[field]))) return undefined;
     if (schema.required?.some(key => out[key] === undefined)) return undefined;
     return out;
   }
@@ -74,7 +76,8 @@ export function extractJson(text) {
   const tagged = text.match(/<sable_state\b[^>]*>([\s\S]*?)<\/sable_state\s*>/i)?.[1];
   let candidate = tagged ?? text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
   candidate = candidate.replace(/^\s*```(?:json)?/i, '').replace(/```\s*$/i, '').trim();
-  return candidate.replace(/,\s*([}\]])/g, '$1');
+  // Trailing commas are repaired only when the text does not parse as is: inside a string, a comma before a bracket is data.
+  try { JSON.parse(candidate); return candidate; } catch { return candidate.replace(/,\s*([}\]])/g, '$1'); }
 }
 
 /** Parse untrusted model text. Never throws. */

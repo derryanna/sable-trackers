@@ -1429,3 +1429,66 @@ an arbitrarily old entry in the prompt.
 - Lag 1 → digest prepended with the note; lag 2 → empty prompt, status
   text, `snapshot().lag === 2`.
 - `lagOf` unit tests (no entries, entry for the last reply, swipe override).
+
+## 33. Audit fixes: reserved names, chat-bound drafts, caps
+
+Why (4 Oct 2026): an independent review of 0.4.1 by two code auditors and
+CodeQL. Both auditors refused to install the extension for one line,
+`(history[id] ??= {})[line] ??= []` in `src/store.js`: with a bond id of
+`__proto__` from the side model it wrote onto `Object.prototype` of the
+whole SillyTavern page. The rest of this section lists the other confirmed
+findings and what changed.
+
+### Reserved names
+
+- `RESERVED_KEYS = ['__proto__', 'constructor', 'prototype']` and
+  `isSafeKey(key)` in `src/sections.js`.
+- The parser drops an object row whose `id` or `key` is reserved, including
+  an id derived from `name`, and skips reserved keys inside `changes`.
+- `addPoint` (bond and stat history) ignores reserved ids and lines and only
+  ever touches own properties (`own(map, key, make)`); `recordStatHistory`
+  reads its section's lines as an own property too.
+
+### Drafts belong to a chat
+
+- On a store change (`view.store !== previousStore`) the drawer removes the
+  open section editors (their card nodes first, so the next render builds
+  fresh cards), hides the undo pill and drops the roll note with its timer, in
+  addition to the person forms it already cleared.
+- An editor remembers the store it was opened in; `saveEditor` discards a
+  draft from another store instead of writing it. The person-delete undo
+  callback checks the store before restoring.
+
+### Editors and parsing
+
+- The score editor reads `schema.min ?? 0` and `schema.max ?? 100`, so a
+  signed scale (§22) keeps a negative value on Save; it used to clamp to 0.
+- `extractJson` repairs trailing commas only when the candidate does not
+  parse as is: inside a string a comma before a bracket is data.
+
+### Saving and size
+
+- `saveStore` keeps same-tick coalescing; a call made while `saveMetadata`
+  is in flight queues exactly one more save after it, with the data as it
+  is then. (Assumes SillyTavern serialises at call time, as it does today.)
+- `CAPS = { npcs: 80, bonds: 80, dossiers: 150 }` in `src/merge.js`. When a
+  merged list exceeds its cap, the oldest items that are neither in the
+  incoming reply nor, for NPCs, present are dropped (array order is arrival
+  order). Protected items may exceed the cap.
+- `buildDigest` flattens every string value of a copy of the state to one
+  line (control characters, newlines and line separators become a space)
+  before rendering; the drawer still shows the original text.
+
+### Wording
+
+- Built-in scale hints say "toward the target" instead of "toward toward";
+  the custom-scale placeholder follows.
+
+### Tests
+
+- `test/reserved-keys.test.mjs`: parse, history and an end-to-end run with
+  a `__proto__` bond leave `Object.prototype` untouched and do not throw.
+- `test/chat-switch-ui.test.mjs`: an open editor and a pending undo cannot
+  write into the chat switched to; a negative signed score survives Save.
+- `test/hardening.test.mjs`: the save queue, `extractJson`, the one-line
+  digest and the caps.

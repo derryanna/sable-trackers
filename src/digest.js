@@ -6,6 +6,11 @@ const join = values => values.filter(value => value !== '' && value != null).joi
 const clip = (value, max) => value.length <= max ? value : `${value.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
 const modeOf = (id, modes) => typeof modes?.[id] === 'string' ? modes[id] : modes?.[id]?.mode;
 const signed = delta => delta < 0 ? `−${Math.abs(delta)}` : `+${delta}`;
+// Every model or user string becomes one line inside the injection (SPEC §33): a newline or a control character in a
+// value could otherwise open a forged heading or a fake section in the main model's prompt.
+const flat = value => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').replace(/ {2,}/g, ' ').trim()
+  : Array.isArray(value) ? value.map(flat)
+    : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, flat(item)])) : value;
 
 function customText(section, value) {
   if (section.shape === 'text') return value;
@@ -44,6 +49,7 @@ const renderers = {
 
 /** Create compact injection text from inject-mode sections only. */
 export function buildDigest(state = {}, modes = {}, options = {}) {
+  state = flat(state ?? {});
   const sections = options.sections ?? SECTIONS;
   const sectionMap = Object.fromEntries(sections.map(section => [section.id, section]));
   const language = options.language ?? 'ru';

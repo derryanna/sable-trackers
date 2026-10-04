@@ -1,17 +1,21 @@
 import { getPacks, packSections } from './packs/index.js';
 
 const s = (max = 500) => ({ type: 'string', max });
+// Names that become object keys downstream (bond ids, stat keys, change keys) must never reach Object.prototype (SPEC §33).
+export const RESERVED_KEYS = Object.freeze(['__proto__', 'constructor', 'prototype']);
+export const isSafeKey = key => typeof key === 'string' && key !== '' && !RESERVED_KEYS.includes(key);
+
 const npcBase = { id: s(80), name: s(120) };
 const scales = ['affection', 'trust', 'desire', 'love', 'reputation', 'suspicion', 'respect', 'fear', 'grudge', 'tension'];
 
 // Per-scale definitions for the side model (SPEC §20); the bonds instruction joins those of the active scales.
 export const BOND_SCALE_HINTS = Object.freeze({
   affection: 'emotional attachment, not necessarily romance', trust: 'confidence and willingness to rely',
-  desire: 'attraction toward toward, not love or general arousal',
-  love: 'romantic feelings toward toward (being in love), distinct from affection and from desire',
-  reputation: 'how this NPC rates toward, not global fame', suspicion: 'suspicion toward toward', respect: 'respect for toward',
-  fear: 'fear of toward', grudge: 'resentment toward toward, not general anger',
-  tension: 'current tension with toward, which can drop independently of affection',
+  desire: 'attraction toward the target, not love or general arousal',
+  love: 'romantic feelings toward the target (being in love), distinct from affection and from desire',
+  reputation: 'how this NPC rates the target, not global fame', suspicion: 'suspicion toward the target', respect: 'respect for the target',
+  fear: 'fear of the target', grudge: 'resentment toward the target, not general anger',
+  tension: 'current tension with the target, which can drop independently of affection',
 });
 // Scales where a high value means friction; their bars get the warm tint.
 export const FRICTION_SCALES = Object.freeze(['suspicion', 'fear', 'grudge', 'tension']);
