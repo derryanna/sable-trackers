@@ -980,7 +980,16 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     wrap.dataset.value = String(value);
     return { element: wrap, changed };
   }
-  /** Bond groups keyed `bonds:<id>`; a person card (SPEC §21) keys them `person:<id>` and leaves the name to its header. */
+  /** Folded state of a named bond group (SPEC §34): saved under `bond:<id>`; by default folded when its NPC is away. */
+  function bondFolded(bond) {
+    const saved = view.settings.folded[`bond:${bond.id}`];
+    if (typeof saved === 'boolean') return saved;
+    const npcs = view.entry?.state?.npcs;
+    const npc = Array.isArray(npcs) ? npcs.find(item => item?.id === bond.id) : undefined;
+    return !!npc && !npc.present;
+  }
+  /** Bond groups keyed `bonds:<id>`; a person card (SPEC §21) keys them `person:<id>` and leaves the name to its header.
+   *  Named groups (the Bonds card) fold by tapping their name line (SPEC §34). */
   function renderBonds(body, value, prefix = 'bonds', named = true) {
     for (const child of [...body.children]) if (!child.classList.contains('st-sable-bond')) child.remove();
     const groups = keyedChildren(body, ':scope > .st-sable-bond'), seen = new Set();
@@ -988,9 +997,27 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     for (const bond of value) {
       const groupKey = unique(seen, `${prefix}:${bond.id}`);
       let group = groups.get(groupKey); groups.delete(groupKey);
-      if (!group) { group = node('div', 'bond'); group.dataset.key = groupKey; group.append(node('div', 'bond-name')); }
-      const head = group.firstElementChild;
+      if (!group) {
+        group = node('div', 'bond'); group.dataset.key = groupKey; group.append(node('div', 'bond-name'));
+        if (named) group.firstElementChild.addEventListener('click', () => {
+          const key = group.dataset.fold;
+          if (key) runtime.updateSettings({ folded: { ...view.settings.folded, [key]: group.dataset.folded !== '1' } });
+        });
+      }
+      const head = group.firstElementChild, folded = named && bondFolded(bond);
       head.replaceChildren(...(named ? [node('span', 'name', bond.name || bond.id)] : []), muted(`${named ? ' ' : ''}→ ${bond.toward || '—'}`));
+      if (named) {
+        group.dataset.fold = `bond:${bond.id}`; group.dataset.folded = folded ? '1' : '0';
+        head.classList.add('st-sable-bond-toggle');
+        // A folded group keeps a dot when this reply moved one of its scales.
+        const dot = node('span', 'change-dot'); dot.setAttribute('role', 'img'); dot.setAttribute('aria-label', label('changed'));
+        dot.hidden = !folded || !bondScales(view.settings).some(({ key }) => Number(bond.changes?.[key]?.delta));
+        // The click goes to the name line's listener; the button only carries the label, the chevron and the state.
+        const fold = button('', 'bondFold', () => {}, 'fold');
+        fold.append(icon('chevron-down'));
+        fold.dataset.control = 'bond-fold'; fold.setAttribute('aria-expanded', String(!folded));
+        head.append(dot, fold);
+      }
       const rows = keyedChildren(group, ':scope > details');
       let previous = head;
       // Active scales only (SPEC §20); the warm tint follows each scale's `friction`.
@@ -1002,6 +1029,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
           value: score, max: 100, plain: true, delta: change?.delta, reason: change?.reason,
           history: view.store?.history?.[bond.id]?.[scale] });
         rows.delete(key); changedAny ||= changed;
+        element.hidden = folded;
         place(group, element, previous); previous = element;
       }
       for (const leftover of rows.values()) dropRow(leftover);

@@ -996,3 +996,10 @@
 .st-sable-status-lag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 2px; color: #e9c16f; }
 .st-sable-drawer .st-sable-status:has(.st-sable-status-lag) { opacity: 1; }
 .st-sable-drawer[data-st-sable-tone="light"] :is(.st-sable-lag, .st-sable-status-lag) { color: #8a6100; }
+
+/* T34: a character in the Bonds card folds by tapping its name line (SPEC §34). */
+.st-sable-drawer .st-sable-bond-toggle { display: flex; align-items: center; gap: 6px; min-height: 36px; margin-bottom: 0; cursor: pointer; user-select: none; }
+.st-sable-drawer .st-sable-bond-toggle > .st-sable-muted { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-sable-drawer .st-sable-bond-toggle > .st-sable-fold { margin-left: auto; }
+.st-sable-drawer .st-sable-bond[data-folded="0"] > .st-sable-bond-toggle { margin-bottom: 4px; }
+.st-sable-drawer .st-sable-bond[data-folded="1"] + .st-sable-bond { margin-top: 4px; padding-top: 4px; }

@@ -1492,3 +1492,22 @@ findings and what changed.
   write into the chat switched to; a negative signed score survives Save.
 - `test/hardening.test.mjs`: the save queue, `extractJson`, the one-line
   digest and the caps.
+
+## 34. Folding a character in the Bonds card
+
+Why (5 Oct 2026, a user request): in a long RP the Bonds card in the topics
+layout grows a group per character, each with up to ten scale rows, and the
+one you look for is hard to find.
+
+- Each character group in the Bonds card (`.st-sable-bond`, topics layout)
+  folds by tapping its name line or the chevron at its right
+  (`[data-control="bond-fold"]`, label `bondFold`). A folded group shows only
+  «Name → toward»; its scale rows are hidden.
+- The state is saved per character in `settings.folded` under `bond:<id>`
+  (all groups of one id fold together); `normalizeSettings` keeps these keys
+  like `person:<id>` (§21).
+- Without a saved state a group is folded when its NPC is in `npcs` and not
+  present, open otherwise (present NPCs and characters without an NPC row),
+  the same default as person cards.
+- A folded group shows the change dot when this reply moved one of its scales.
+- Person cards (§21) keep their own fold; their bond part gets no toggle.

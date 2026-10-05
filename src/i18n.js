@@ -528,3 +528,11 @@ Object.assign(STRINGS.ru, {
   lagNote: 'Состояние сцены на момент ответа #{n} (на 1 ответ позже событий в чате; новые сообщения главнее)',
   'lag.behind': 'Состояние отстаёт на {n} ответов',
 });
+// T34
+// Folding a character in the Bonds card (SPEC §34).
+Object.assign(STRINGS.en, {
+  bondFold: 'Fold / unfold this character',
+});
+Object.assign(STRINGS.ru, {
+  bondFold: 'Свернуть / развернуть персонажа',
+});

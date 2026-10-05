@@ -401,6 +401,12 @@ in `src/merge.js`; digest values flattened to one line; scale hints «toward the
 `src/parse.js`, `src/store.js`, `src/merge.js`, `src/digest.js`, `src/i18n.js`, `src/ui/drawer.js`, tests.
 Done when: `npm test` green with `test/reserved-keys.test.mjs`, `test/chat-switch-ui.test.mjs`, `test/hardening.test.mjs`.
 
+## T34 — Fold a character in the Bonds card  [x]
+SPEC §34 (5 Oct 2026, user request). Name line and chevron fold a character group in the Bonds card; saved under
+`bond:<id>` in `settings.folded`; away NPCs start folded; a folded group keeps the change dot. Files:
+`src/ui/drawer.js` (`bondFolded`, `renderBonds`), `src/settings.js`, `src/i18n.js`, `style.css`, tests.
+Done when: `npm test` green with `test/bond-fold.test.mjs`.
+
 ## Notes from previous tasks
 (append here)
 - T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and

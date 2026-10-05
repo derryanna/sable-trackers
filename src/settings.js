@@ -86,9 +86,10 @@ export function normalizeSettings(value = {}) {
   result.packScope = Object.fromEntries(packIds.filter(id => ['all', 'user', 'others'].includes(value.packScope?.[id])).map(id => [id, value.packScope[id]]));
   const all = getAllSections({ ...result, prompts: {} });
   const ids = all.map(section => section.id);
-  // Fold keys are section ids plus pack and folder container keys (SPEC §15/§18), the People group and person cards (§21).
+  // Fold keys are section ids plus pack and folder container keys (SPEC §15/§18), the People group, person cards (§21)
+  // and character groups in the Bonds card (§34).
   const foldKeys = [...ids, ...packIds.map(id => `pack:${id}`), ...result.folders.map(folder => `folder:${folder.id}`), 'people'];
-  const isPerson = id => /^person:.{1,200}$/s.test(id);
+  const isPerson = id => /^(person|bond):.{1,200}$/s.test(id);
   result.folded = Object.fromEntries(Object.keys(value.folded && typeof value.folded === 'object' ? value.folded : {})
     .filter(id => (foldKeys.includes(id) || isPerson(id)) && typeof value.folded[id] === 'boolean').map(id => [id, value.folded[id]]));
   result.groups = { ...DEFAULTS.groups, ...Object.fromEntries(GROUP_IDS
