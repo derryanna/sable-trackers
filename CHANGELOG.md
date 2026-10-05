@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.3 — 5 October 2026
+
+### Сворачивание персонажей в «Отношениях»
+
+В раскладке по темам каждого персонажа в карточке «Отношения» можно свернуть тапом по строке «Имя → цель» или по стрелке справа: остаётся одна строка, шкалы прячутся. Состояние запоминается для каждого персонажа. NPC, которых нет в сцене, по умолчанию свёрнуты; если у свёрнутого персонажа в последнем ответе сдвинулась шкала, рядом с именем горит точка.
+
+### Fold a character in Bonds
+
+In the topics layout each character in the Bonds card folds by tapping its "Name → target" line or the chevron at the right: one line stays, the scales hide. The state is remembered per character. NPCs who are away start folded; a folded character whose scale moved in the latest reply shows a dot next to the name.
+
 ## 0.4.2 — 4 October 2026
 
 ### Исправления по независимому аудиту
