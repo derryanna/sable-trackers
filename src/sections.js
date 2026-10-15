@@ -101,7 +101,7 @@ export function normalizeCustomSections(value) {
 
 export function shapeSchema(shape, max = 8) {
   if (shape === 'text') return s(600);
-  const item = shape === 'list' ? s(200) : shape === 'tags' ? { ...s(40), min: 1 }
+  const item = shape === 'list' ? s(200) : shape === 'tags' ? { ...s(80), min: 1 }
     : shape === 'stats' ? { type: 'object', fields: {
       key: { ...s(40), min: 1 }, value: { type: 'integer', min: 0, max: 9999, numberOnly: true },
       max: { type: 'integer', min: 1, max: 9999, numberOnly: true, nullable: true }, unit: s(8), note: s(120),

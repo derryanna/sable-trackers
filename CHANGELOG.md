@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.4 — 15 October 2026
+
+### Длинные метки и подписи показателей
+
+**Метки до 80 символов.** Метка (например, в карточках «Кинки» и «Антикинки» пака Интим+) обрезалась на 40 символах: фраза вроде «Имя · тесный телесный контакт и тренировки» теряла хвост, а редактор не давал ввести больше. Теперь потолок 80 символов, редактор подтягивает его сам.
+
+**Подписи показателей переносятся.** Ключ вида «Имя · arousal» в строках «Возбуждение», «Счётчики» и других карточках-показателях на телефоне прятался за многоточием. Теперь подпись переносится на вторую строку, и многоточие ставится только после неё; колонка подписи на узких экранах той же ширины, что и на широких.
+
+### Longer tags and wrapped stat keys
+
+**Tags up to 80 characters.** A tag (for example in the Intimacy+ «Kinks» and «Dislikes» cards) was cut at 40 characters: a phrase like «Name · close physical contact and training» lost its tail, and the editor refused longer input. The cap is now 80 and the editor follows it.
+
+**Stat keys wrap.** A «Name · arousal» key in «Arousal», «Counters» and other stat cards hid behind an ellipsis on a phone. The key now wraps to a second line before the ellipsis, and the key column on narrow screens is as wide as on wide ones.
+
 ## 0.4.3 — 5 October 2026
 
 ### Сворачивание персонажей в «Отношениях»

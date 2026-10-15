@@ -392,7 +392,7 @@ shapes exist for packs and for custom sections alike:
   previous value with the same key (missing before → no delta); the model never
   sees `delta` and the sanitizer drops it from model output. Digest:
   `TITLE: HP 40/100 (−12 blade cut) · stamina 70/100 · climaxes 2`.
-- `tags`: up to `max` strings ≤ 40, rendered as chips (like the ban list),
+- `tags`: up to `max` strings ≤ 80, rendered as chips (like the ban list),
   digested `TITLE: bleeding · stunned`.
 
 Storage: built-in packs are pure data in `src/packs/<id>.js` (titles and
@@ -1511,3 +1511,18 @@ one you look for is hard to find.
   the same default as person cards.
 - A folded group shows the change dot when this reply moved one of its scales.
 - Person cards (§21) keep their own fold; their bond part gets no toggle.
+
+## 35. Longer tags, wrapped stat keys
+
+Why (15 Oct 2026, two user reports): the Intimacy+ «Kinks» chips came out cut
+mid-word because a tag was capped at 40 characters («Name · phrase» in Russian
+hits that fast, and the editor refused longer input), and the «Name · metric»
+keys of stat rows were unreadable on a phone behind an ellipsis.
+
+- A `tags` item is a string of at most 80 characters (was 40). The sanitizer
+  still trims, deduplicates and caps the list; the editor's `maxLength` follows
+  the schema.
+- A stat row key (`.st-sable-stat-row > .st-sable-scale-name`) wraps to two
+  lines and clips with an ellipsis after that. The key column is
+  `minmax(4em, 7.5em)` at every width; the ≤ 379 px layout only lets the bar
+  shrink to 20 px. Other scale rows keep their one-line label.

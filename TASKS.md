@@ -407,6 +407,12 @@ SPEC §34 (5 Oct 2026, user request). Name line and chevron fold a character gro
 `src/ui/drawer.js` (`bondFolded`, `renderBonds`), `src/settings.js`, `src/i18n.js`, `style.css`, tests.
 Done when: `npm test` green with `test/bond-fold.test.mjs`.
 
+## T35 — Longer tags, wrapped stat keys  [x]
+SPEC §35 (15 Oct 2026, user reports). `tags` items ≤ 80 characters instead of 40; stat row keys wrap to two lines
+instead of hiding behind an ellipsis, same key column on phones. Files: `src/sections.js`, `style.css`, `SPEC.md`,
+`test/packs.test.mjs`.
+Done when: `npm test` green.
+
 ## Notes from previous tasks
 (append here)
 - T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and

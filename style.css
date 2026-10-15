@@ -622,6 +622,8 @@
    A fifth auto column holds the dice; rows without a die keep their width through the empty track. */
 .st-sable-stats { display: flex; flex-direction: column; }
 .st-sable-stat-row { grid-template-columns: minmax(4em, 7.5em) minmax(24px, 1fr) auto auto auto; gap: 6px; }
+/* A stat key is «Name · metric» and rarely fits one line on a phone: it wraps to two lines and clips with an ellipsis after that. */
+.st-sable-stat-row > .st-sable-scale-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
 .st-sable-stat-row > .st-sable-score { min-width: 2.1em; }
 .st-sable-stat-row > .st-sable-badge { justify-self: end; }
 .st-sable-bar-gap { display: block; height: 6px; }
@@ -634,7 +636,7 @@
 .st-sable-roll-result[data-st-sable-roll="done"] { opacity: .5; }
 .st-sable-kv-dice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .st-sable-kv-dice .st-sable-dice { margin: -8px 0; }
-@media (max-width: 379px) { .st-sable-stat-row { grid-template-columns: minmax(3.5em, 6em) minmax(20px, 1fr) auto auto auto; } }
+@media (max-width: 379px) { .st-sable-stat-row { grid-template-columns: minmax(4em, 7.5em) minmax(20px, 1fr) auto auto auto; } }
 /* Packs settings group: the list reuses the custom-block rows; the summary adds the badge and a one-line description. */
 .st-sable-pack > .st-sable-custom-summary { flex-wrap: wrap; row-gap: 0; }
 .st-sable-pack > .st-sable-custom-summary > .st-sable-custom-name { flex: 0 1 auto; }

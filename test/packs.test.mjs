@@ -210,7 +210,7 @@ test('stats sanitization drops untrusted keys and invalid items, deduplicates an
 test('tags trim, keep text, deduplicate and cap valid items for packs and custom sections', () => {
   assert.deepEqual(sanitizeSection(tags, [' bleeding ', '', 3, null, 'bleeding', '<b>stunned</b>']), ['bleeding', '<b>stunned</b>']);
   assert.equal(sanitizeSection(tags, Array.from({ length: 20 }, (_, i) => `tag${i}`)).length, 10);
-  assert.deepEqual(sanitizeSection(tags, ['a'.repeat(41), 'a'.repeat(40)]), ['a'.repeat(40)]);
+  assert.deepEqual(sanitizeSection(tags, ['a'.repeat(81), 'a'.repeat(80)]), ['a'.repeat(80)]);
   const custom = getSections({ customSections: [{ id: 'c_00000001', shape: 'tags', max: 1 }] }).at(-1);
   assert.deepEqual(sanitizeSection(custom, ['a', 'b']), ['a']);
 });
