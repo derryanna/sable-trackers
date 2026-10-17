@@ -512,11 +512,13 @@ Object.assign(STRINGS.en, {
   reasoningRejected: 'The model rejected the reasoning parameters; retried without them',
   cutOutput: 'The reply was cut: the model did not finish the JSON. Raise Max tokens (now {n}) or reduce reasoning',
   emptyOutput: 'The model returned nothing (content filter?)',
+  brokenOutput: 'The model returned broken JSON that could not be repaired (the reply was complete, so Max tokens is not the cause). Try again or pick another model for the trackers',
 });
 Object.assign(STRINGS.ru, {
   reasoningRejected: 'Параметры размышлений отклонены моделью, запрос повторён без них',
   cutOutput: 'Ответ обрезан: модель не дописала JSON. Увеличьте «Макс. токенов» (сейчас {n}) или уменьшите размышления',
   emptyOutput: 'Модель вернула пустой ответ (фильтр содержимого?)',
+  brokenOutput: 'Модель вернула некорректный JSON, починить не удалось (ответ дописан до конца, лимит токенов ни при чём). Попробуйте ещё раз или выберите для трекеров другую модель',
 });
 // T32
 // Which state is injected (SPEC §32): the lag-1 digest line and the lag ≥ 2 notes.

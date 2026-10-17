@@ -107,7 +107,7 @@ test('helpers: rejection detection, output problems and the max tokens default',
   const parse = text => outputProblem(text, parseStateOutput(text, ['world']));
   assert.equal(parse(''), 'empty'); assert.equal(parse('  \n'), 'empty'); assert.equal(parse(null), 'empty');
   assert.equal(parse('<sable_state>{"world":{"location":"A"'), 'cut');
-  assert.equal(parse('<sable_state>{"world": nope}</sable_state>'), 'cut');
+  assert.equal(parse('<sable_state>{"world": nope}</sable_state>'), 'broken');
   assert.equal(parse(answer('A')), null); assert.equal(parse('garbage'), null);
   assert.equal(DEFAULTS.maxTokens, 8000);
   assert.equal(normalizeSettings({}).maxTokens, 8000);

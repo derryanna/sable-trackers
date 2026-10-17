@@ -232,7 +232,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       if (problem) {
         // Specific reasons reach both the log entry and the status footer (SPEC §31).
         const error = new Error(problem === 'cut' ? t('cutOutput', settings.language).replace('{n}', settings.maxTokens)
-          : t('emptyOutput', settings.language));
+          : problem === 'broken' ? t('brokenOutput', settings.language) : t('emptyOutput', settings.language));
         error.shown = true;
         record('invalid', error);
         throw error;

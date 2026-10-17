@@ -413,8 +413,23 @@ instead of hiding behind an ellipsis, same key column on phones. Files: `src/sec
 `test/packs.test.mjs`.
 Done when: `npm test` green.
 
+## T36 — Repair broken side-model JSON, honest failure message  [x]
+SPEC §31 «Broken JSON» (17 Oct 2026, her tavern). `repairJson` / `salvageSections` in `src/parse.js`; `outputProblem`
+tells `cut` (no closing tag) from `broken` (complete reply, JSON unrecoverable); `brokenOutput` in `src/i18n.js`;
+`src/run.js` maps the new problem. Files: `src/parse.js`, `src/run.js`, `src/i18n.js`, `SPEC.md`, `README.md`,
+`test/json-repair.test.mjs`, `test/resilience.test.mjs`.
+Done when: `npm test` green.
+
 ## Notes from previous tasks
 (append here)
+- T36: replayed against the 64 real side-model replies of 17 Oct 2026 (kept outside the repository): 21 replies of
+  one model were clean; of the 43 replies of the other, 13 were clean, 9 repaired whole, 20 salvaged by section
+  (7 sections dropped in 6 replies), 1 genuinely truncated. Still unrepaired, by design of the global regexes: an
+  extra closer in the middle (`}}},"legacy_stats"`), an unknown key inside an array that never closed
+  (`},"npcs_placeholder":null`), garbage tokens between items (`},](id: "gai"`). A next step, if those grow: a local
+  fixer that walks the parse error position (V8 and Firefox both report it) and tries delete / insert `,` `"` `{`
+  there, a few rounds, each validated by a parse — more general than adding regexes one by one. `extractJson` keeps
+  its old contract (the legacy import uses it); `salvageSections` and `repairJson` are exported for tests.
 - T22: `planDrop(settings, id, { folderId, index })`, `slotFor(rects, y)`, `dropBlocks(settings, folderId, skip)` and
   `dropIndex(settings, id, folderId, anchorId)` in `src/folders.js`; `createUndoPill(document, label, timers?)` and
   `UNDO_MS` exported from `src/ui/drawer.js`; the drawer API gains `undo` (`ui.undo.show(text, restore)`), which §25

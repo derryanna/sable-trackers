@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.5 — 17 October 2026
+
+### Починка битого JSON и честная подпись ошибки
+
+**Ответ с опечатками больше не пропадает.** Некоторые вспомогательные модели дописывают ответ до конца, но ошибаются в синтаксисе JSON: лишняя кавычка перед персонажем, незакрытая кавычка в значении, незакрытая скобка. Раньше такой прогон падал целиком, и панель оставалась на прошлом состоянии. Теперь ответ чинится, а если починить целиком нельзя, разделы спасаются по одному: что удалось разобрать, сохраняется, остальное остаётся с прошлого раза и запрашивается снова. В журнале видно, что именно починено или отброшено.
+
+**«Ответ обрезан» только когда он обрезан.** Раньше любой неразобранный ответ подписывался «обрезан, увеличьте Макс. токенов», даже если модель дописала его до конца и лимит ни при чём. Теперь это сообщение остаётся за обрезанными ответами без закрывающего тега, а некорректный JSON, который не удалось починить, называется своим именем с советом сменить модель трекеров.
+
+### Broken JSON repair and an honest failure message
+
+**A reply with slips is no longer lost.** Some side models finish the reply and still slip in the JSON: a stray quote before a character, an unclosed quote in a value, an unclosed bracket. Such a run used to fail as a whole and the drawer stayed on the previous state. The reply is now repaired, and when it cannot be repaired as a whole, its sections are salvaged one by one: what parses is stored, the rest keeps its previous value and is requested again. The log shows what was repaired or dropped.
+
+**"The reply was cut" only when it was cut.** Any unparsed reply used to be labelled "cut, raise Max tokens", even when the model had finished it and the limit had nothing to do with it. That message now stays with truncated replies that lack the closing tag; broken JSON that could not be repaired is named as such, with a hint to pick another model for the trackers.
+
 ## 0.4.4 — 15 October 2026
 
 ### Длинные метки и подписи показателей

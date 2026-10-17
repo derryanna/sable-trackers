@@ -1350,13 +1350,41 @@ tokens, the JSON was cut, and the parser reported only the generic
   session that profile id is kept in an in-memory set and the payload is
   skipped from the start (one wasted request per reload is acceptable; no
   persistence). The level «как у модели» still sends nothing.
-- **Cut output.** When the response contains `<sable_state>` but the JSON
-  cannot be parsed (no closing tag or a parse error), the run fails with
-  «Ответ обрезан: модель не дописала JSON. Увеличьте «Макс. токенов»
-  (сейчас N) или уменьшите размышления» / "The reply was cut: the model did
-  not finish the JSON. Raise Max tokens (now N) or reduce reasoning". N is
-  `settings.maxTokens`. The status footer shows this text as it shows
-  `lastRun.error` today.
+- **Cut output.** When the response opens `<sable_state>` and never closes
+  it, the run fails with «Ответ обрезан: модель не дописала JSON. Увеличьте
+  «Макс. токенов» (сейчас N) или уменьшите размышления» / "The reply was cut:
+  the model did not finish the JSON. Raise Max tokens (now N) or reduce
+  reasoning". N is `settings.maxTokens`. The status footer shows this text as
+  it shows `lastRun.error` today. A truncated reply is never repaired or
+  salvaged, so the output limit stays visible.
+- **Broken JSON (17 Oct 2026).** Why: on her tavern one side model finished
+  every reply (`finish_reason: stop`, a third of the limit used) and still
+  failed two runs in three; the JSON had syntax slips — a stray quote before
+  an array item (`},"{"id"`), a value missing its closing quote before the
+  item bracket, a bracket never closed — and the run reported «Ответ обрезан…
+  увеличьте Макс. токенов», which was wrong on both counts. A complete reply
+  (closing tag present, or no tag at all) whose JSON does not parse goes
+  through `repairJson` in `src/parse.js`: trailing commas, control characters
+  inside strings, a stray straight or typographic quote before an item, a
+  doubled opener (`{"{"id"`, `{""id"`), a key opened with a single quote, an
+  item without its `{`, an empty key before a bracket, a bare word with a
+  full-width colon, a missing closing quote before the container's bracket,
+  a closer of the wrong kind, closers never written — one repair alone, then
+  the repairs cumulatively; a repair is kept only when its result parses, so
+  a reply that was valid is never changed. A whole-text repair that swallowed
+  the tail into one string loses to the section salvage below when the
+  salvage recovers more of the sections named in the text. When the object still does not
+  parse, `salvageSections` recovers it section by section: the value after
+  each known `"id":` key up to the next known key, parsed and repaired on its
+  own. Recovered sections are stored (a dropped section keeps its previous
+  value and is requested again next time, as any section missing from a
+  reply); the log entry gets a warning `Repaired JSON syntax` or `Salvaged
+  sections: …; dropped: …`. Only when nothing can be recovered does the run
+  fail, with «Модель вернула некорректный JSON, починить не удалось (ответ
+  дописан до конца, лимит токенов ни при чём). Попробуйте ещё раз или
+  выберите для трекеров другую модель» / "The model returned broken JSON
+  that could not be repaired (the reply was complete, so Max tokens is not
+  the cause). Try again or pick another model for the trackers".
 - **Empty output.** A response with no text at all fails with «Модель
   вернула пустой ответ (фильтр содержимого?)» / "The model returned nothing
   (content filter?)".
