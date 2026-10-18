@@ -420,7 +420,7 @@ tells `cut` (no closing tag) from `broken` (complete reply, JSON unrecoverable);
 `test/json-repair.test.mjs`, `test/resilience.test.mjs`.
 Done when: `npm test` green.
 
-## T37 — Story secrets: the author's notebook kept by the extension  [ ]
+## T37 — Story secrets: the author's notebook kept by the extension  [x]
 SPEC §36 (18 Oct 2026, maintainer: «мне нравится его идея, что секреты отдельно… надо это тоже скрывать и от
 юзеров»). New built-in section `secrets` («Тайны сюжета» / "Story secrets", `source: 'main'`, default `off`,
 after `story` in `SECTION_ORDER`, in the suggested «Сюжет» group). The story model writes a `<sable_secrets>`
@@ -449,7 +449,8 @@ into the state the side-model merge starts from, and `carrySecretsMeta` keeps `s
 call (tests and tools read the last one). Blocks are cut in every mode, `off` included, so a stray block never stays in the
 chat. Design review (second model) added to the rules: check before ending, no leak into narration / monologue / dialogue
 until the reveal, recorded truths are facts referred to by id; and to the core: a `+` line reusing a live id is a reference,
-`clueFound` matches by exact word or a 4+ letter prefix covering 70 % of the longer word, two words for a multi-word clue.
+`clueFound` matches by exact word or a 4+ letter prefix covering 80 % of the shorter word (the builder's correction, see test/secrets.test.mjs), two words for a multi-word clue.
+Done 18 Oct 2026: 388 tests green (53 core, 10 glue, 8 UI); core and UI built by Sonnet 4.6 agents from the brief, glue and docs by hand.
 
 ## Notes from previous tasks
 (append here)

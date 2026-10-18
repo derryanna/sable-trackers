@@ -51,6 +51,7 @@ model), `render(state)` for the drawer, and `digest(state)` for injection.
 | `offscreen` | absent known NPCs: `{name, doing}` one line each, max 8. The line says what they are doing now **only if established or strongly implied**, otherwise their last known activity | show | 1 |
 | `threads` | open questions and conflicts: `{text, priority: high\|mid\|low}`, max 6 | inject | 1 |
 | `story` | 🌱 seeds `{text, planted_turn}` (planted, not yet paid off, max 6); ⏳ timers `{text, due}` (in-world deadlines, max 4); `arc_phase`, `scene_phase` (short labels) | inject | 1 |
+| `secrets` | the author's notebook (§36): up to 3 live hidden truths `{id, text, hiddenFrom, when, changes, clues}` plus revealed ones; written by the story model in a tail block, never requested from the side model (`source: 'main'`) | off | — |
 | `npcs` | per NPC: `id, name, present, outfit, position, mood, agenda, action, wants_toward, secret, truth` | inject | 1 |
 | `thoughts` | per present NPC: private first-person thought, ≤30 words (≈ "NPC Inner Chatter") | show | 1 |
 | `bonds` | per NPC: `toward` + scales 0–100 or null: affection, trust, desire, love, reputation, suspicion, respect, fear, grudge, tension; plus `changes` (only changed scales: `{delta, reason}`); built-ins can be switched off and custom scales added in the «Шкалы отношений» / "Bond scales" settings group (§20) | inject | 1 |
