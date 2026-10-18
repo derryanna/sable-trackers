@@ -35,8 +35,6 @@ export function cutSecrets(text) {
 // ─── parseSecretsBlock ───────────────────────────────────────────────────────
 
 // Tolerant id extraction: T<n> with optional #, *, _, `, spaces, brackets.
-const FULL_ID_RE = /[Tt][*_`#\s\[\]()]*(\d+)/;
-
 function extractId(str) {
   const cleaned = str.replace(/[*_`#\[\]()]/g, '');
   const m = cleaned.match(/[Tt]\s*(\d+)/);
@@ -72,7 +70,6 @@ function parseLine(raw, notes) {
     if (idHeadMatch) {
       ref = `T${idHeadMatch[1]}`;
       // Advance payload past the id token in the original string
-      const end = noMarker.search(/(?<=[Tt][*_`#\[\]()\s]*\d+)[*_`#\[\]()\s]*[:：]?\s*/i);
       const m = noMarker.match(/[Tt][*_`#\[\]()\s]*\d+[*_`#\[\]()\s]*[:：]?\s*/i);
       payload = m ? noMarker.slice(m[0].length) : noMarker;
     }
