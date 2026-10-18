@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0 — 18 October 2026
+
+### Тайны сюжета
+
+**Новая карточка «Тайны сюжета».** Основная модель ведёт авторский блокнот: две-три скрытые правды, от кого скрыты, при каком условии выйдут и какие подсказки посеяны. В режиме «в промпт» она каждый ход получает живые тайны и короткие правила, а в конце ответа, который создал тайну, дал подсказку, кого-то посвятил или раскрыл её, дописывает маленький блок `<sable_secrets>`. Расширение вырезает блок из сообщения в момент прихода и хранит блокнот рядом с остальным состоянием чата: в тексте чата, у вспомогательной модели, в векторах и саммари его нет. По умолчанию карточка выключена.
+
+**Правила держит код, а не только промпт.** Живых тайн не больше трёх, одинаковая правда второй раз не создаётся, модель не может переписать тайну (только вы из карточки), подсказка сверяется со словами ответа и помечается «в тексте не найдена», если её там нет. Свайпы и перегенерации откатывают ровно то, что записал тот ответ.
+
+**Спойлеров нет.** Блокнот в ящике спрятан за нажатием, вышедшие тайны лежат в «Отыграно», их можно вернуть в игру. При первом включении ставится одно правило отображения, чтобы блок не мелькал во время стриминга.
+
+### Story secrets
+
+**A new card, «Story secrets».** The story model keeps an author's notebook: two or three hidden truths, who they are hidden from, the condition that brings each one out and the clues it has planted. In **inject** mode it gets the live truths and a short rule set every turn, and a reply that creates, hints at, teaches or reveals a truth ends with a small `<sable_secrets>` block. The extension cuts that block out of the message the moment it arrives and keeps the notebook with the rest of the chat state: nothing of it stays in the chat text or reaches the side model, the vectors or the summaries. The card is off by default.
+
+**The rules live in code, not only in the prompt.** At most three truths are live, the same truth is never created twice, the model cannot rewrite a truth (you can, from the card), and every clue is checked against the words of the reply and marked «not found in the reply» when it is missing. Swipes and regenerations undo exactly what that reply recorded.
+
+**No spoilers.** The notebook sits behind a tap in the drawer, revealed truths move to «Revealed» and can be put back into play. The first switch-on adds one display-only regex rule so the block does not flash while the reply streams.
+
 ## 0.4.5 — 17 October 2026
 
 ### Починка битого JSON и честная подпись ошибки

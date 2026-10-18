@@ -42,5 +42,17 @@
     { "pattern": "closing aphorism", "example": "Some doors, once opened, stay open." },
     { "pattern": "filter verbs", "example": "she noticed that the wind…" }
   ],
+  "secrets": {
+    "next": 3,
+    "truths": [
+      { "id": "T1", "text": "Maren cut the boat's rope herself", "hiddenFrom": ["Tomas", "the visitor"],
+        "when": "the missing logbook page is found", "changes": "Tomas stops trusting her",
+        "clues": [ { "text": "the knife on the shelf is still wet", "mesId": 25, "found": true }, { "text": "she flinches at the word rope", "mesId": 27, "found": false } ],
+        "createdMesId": 23, "revealedMesId": null },
+      { "id": "T2", "text": "the chapel key opens the lamp room", "hiddenFrom": ["Tomas"], "when": "", "changes": "",
+        "clues": [ { "text": "the key is too long for the chapel door", "mesId": 21, "found": true } ],
+        "createdMesId": 20, "revealedMesId": 26, "revealedHow": "out" }
+    ]
+  },
   "meta": { "turn": 14, "updatedAt": "2026-03-03T21:10:00Z", "forMesId": 27, "forSwipeId": 0 }
 }

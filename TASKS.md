@@ -442,6 +442,13 @@ Files: `src/secrets.js` (new), `src/sections.js`, `src/prompt.js`, `src/merge.js
 Done when: `npm test` green with the tests listed in SPEC §36, `node --check` on every changed file, README ru + en
 describe the card and the block (one paragraph each), the SPEC §2 table has the `secrets` row, CHANGELOG has the
 0.5.0 entry (ru + en, date left for the release).
+Notes (skeleton + glue, done): `merge.js` is untouched — the run copies the entry's own `secrets` (written at receive time)
+into the state the side-model merge starts from, and `carrySecretsMeta` keeps `secretsLines` / `secretsNotes` across
+`putEntry`. The notebook prompt is set BEFORE the digest in `publish()`, so the digest stays the last `setExtensionPrompt`
+call (tests and tools read the last one). Blocks are cut in every mode, `off` included, so a stray block never stays in the
+chat. Design review (second model) added to the rules: check before ending, no leak into narration / monologue / dialogue
+until the reveal, recorded truths are facts referred to by id; and to the core: a `+` line reusing a live id is a reference,
+`clueFound` matches by exact word or a 4+ letter prefix covering 70 % of the longer word, two words for a multi-word clue.
 
 ## Notes from previous tasks
 (append here)

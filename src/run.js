@@ -5,7 +5,8 @@ import { getPacks } from './packs/index.js';
 import { buildPrompt } from './prompt.js';
 import { parseStateOutput, sanitizeSection, outputProblem } from './parse.js';
 import { mergeState } from './merge.js';
-import { buildDigest } from './digest.js';
+import { buildDigest, buildSecretsPrompt } from './digest.js';
+import { cutSecrets, parseSecretsBlock, applySecrets } from './secrets.js';
 import { t } from './i18n.js';
 import { ROLES, loadSettings, saveSettings, effectiveModes, reasoningPayload } from './settings.js';
 import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry, restoreCounters, lagOf, putEntry, pruneEntries, recordHistory, recordStatHistory, pruneHistory } from './store.js';
@@ -13,6 +14,8 @@ import { STORE_KEY, loadStore, saveStore, enabledPacks, findEntry, currentEntry,
 export const LOG_LIMIT = 5;
 // A state more replies behind the chat than this is not injected at all (SPEC §32).
 export const MAX_INJECT_LAG = 1;
+// The display-only regex that hides the story model's notebook block while a reply streams (SPEC §36).
+export const SECRETS_REGEX_NAME = 'Sable Trackers: story secrets';
 // Generation types that rewrite the last character reply (SPEC §32): they get the state from before it.
 const REWRITE_TYPES = new Set(['swipe', 'regenerate', 'continue']);
 const RECEIVED_TYPES = new Set(['normal', 'swipe', 'regenerate', 'continue', 'edit']);
@@ -37,6 +40,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   const noReasoning = new Set();
   // The `GENERATION_STARTED` override (SPEC §32): true while a swipe / regenerate / continue is being generated.
   let rewriting = false;
+  // The last notebook prompt set (text, depth, role), so publish() skips the call when nothing changed (SPEC §36).
+  let secretsSent;
   const listeners = new Set();
   const bindings = [];
   const cancel = () => { if (active) { active.record?.('dropped'); active.controller.abort(); active = undefined; publish(); } };
@@ -81,9 +86,20 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         lag: view.lag, asOf: view.injectedEntry?.mesId }) : '';
   }
 
+  // The story model's notebook (SPEC §36): its own prompt, only while the section injects and the state is fresh enough.
+  function secretsText(view, ctx) {
+    if (!view.settings.enabled || isGroup(ctx) || view.modes.secrets !== 'inject' || view.lag > MAX_INJECT_LAG) return '';
+    return buildSecretsPrompt(view.injectedEntry?.state.secrets, { language: view.settings.language, rules: view.settings.prompts?.sections?.secrets });
+  }
+
   function publish() {
     const ctx = getContext(), view = snapshot(), text = injection(view, ctx);
-    ctx.setExtensionPrompt('sable_trackers', text, 1, view.settings.depth, false, Math.max(0, ROLES.indexOf(view.settings.role)));
+    const role = Math.max(0, ROLES.indexOf(view.settings.role));
+    // The notebook goes first, so the digest stays the last prompt set (tests and tools read the last call), and only
+    // when its text or place changed: most publishes do not touch it.
+    const notebook = JSON.stringify([secretsText(view, ctx), view.settings.depth, role]);
+    if (notebook !== secretsSent) { secretsSent = notebook; ctx.setExtensionPrompt('sable_trackers_secrets', JSON.parse(notebook)[0], 1, view.settings.depth, false, role); }
+    ctx.setExtensionPrompt('sable_trackers', text, 1, view.settings.depth, false, role);
     for (const listener of listeners) listener(view);
     return view;
   }
@@ -172,6 +188,8 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       // Refresh replaces this ring entry; preserve disabled pack values already stored in it.
       const previousState = { ...base?.state };
       const cached = findEntry(data, mesId, swipeId);
+      // The notebook for this reply came with the message (SPEC §36); the side model never writes it.
+      if (cached?.state.secrets !== undefined) previousState.secrets = cached.state.secrets;
       for (const pack of getPacks(settings).filter(p => !sections.some(s => s.pack === p.id))) {
         for (const section of pack.sections) {
           const id = `${pack.id}_${section.key}`;
@@ -186,6 +204,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         const state = mergeState(previousState, {}, { sections, requestedSections: [],
           meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
         putEntry(data, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
+        carrySecretsMeta(cached, findEntry(data, mesId, swipeId));
         data.lastRun = { mesId, ok: true, at: Date.now(), skipped: true };
         record('skipped');
         publish();
@@ -242,6 +261,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
         meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } });
       for (const id of parsed.validSections) counters[id] = 0;
       putEntry(current, { mesId, swipeId, turn, state, turnsSince: counters }, settings.keep);
+      carrySecretsMeta(cached, findEntry(current, mesId, swipeId));
       recordHistory(current, state.bonds, mesId, bondScales(settings).map(scale => scale.key));
       for (const section of sections) if (isStats(section)) recordStatHistory(current, section.id, state[section.id], mesId);
       const content = typeof result === 'string' ? result : result.content;
@@ -318,6 +338,24 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
     publish();
   }
 
+  // The streaming guard (SPEC §36): one display-only regex script in SillyTavern's regex list, added once when the
+  // secrets section is first switched on; the only write outside the extension's own settings. Never re-added after
+  // the user deletes it unless asked (`force`, the settings button).
+  function installSecretsRegex({ force = false } = {}) {
+    const ctx = getContext(), settings = loadSettings(ctx);
+    if (!force && settings.secretsRegexInstalled) return 'skipped';
+    const list = Array.isArray(ctx.extensionSettings.regex) ? ctx.extensionSettings.regex : (ctx.extensionSettings.regex = []);
+    let status = 'exists';
+    if (!list.some(script => script?.scriptName === SECRETS_REGEX_NAME)) {
+      const id = globalThis.crypto?.randomUUID?.() ?? `r_${Math.floor(random() * 2 ** 32).toString(16)}`;
+      list.push({ id, scriptName: SECRETS_REGEX_NAME, findRegex: '/<sable_secrets>[\\s\\S]*?(?:<\\/sable_secrets>|$)/i', replaceString: '',
+        trimStrings: [], placement: [2], disabled: false, markdownOnly: true, promptOnly: false, runOnEdit: true,
+        substituteRegex: 0, minDepth: null, maxDepth: null });
+      status = 'added';
+    }
+    saveSettings(ctx, { secretsRegexInstalled: true });
+    return status;
+  }
   function setMode(id, mode, chatOnly = loadSettings(getContext()).perChatOverrides) {
     // null removes a chat override so the global mode becomes effective again.
     const ctx = getContext(), settings = loadSettings(ctx), data = loadStore(ctx);
@@ -327,6 +365,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       else loadStore(ctx).modeOverride[id] = mode;
       void saveStore(ctx);
     } else saveSettings(ctx, { sections: { [id]: { mode } } });
+    if (id === 'secrets' && mode === 'inject') installSecretsRegex();
     publish();
   }
 
@@ -399,8 +438,45 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
       void saveStore(ctx);
       publish();
     } else if (disarmed) publish();
+    noteSecrets(ctx, data, id);
     void run(id, { type });
   }
+
+
+  /** The story model's notebook block (SPEC §36): cut from the reply the moment it arrives and kept in this reply's entry,
+   *  before the side model runs and whether or not a profile is set. SillyTavern saves the chat right after
+   *  MESSAGE_RECEIVED, so the cut text is what the file keeps; `swipes[]` is cut too, or a swipe back would restore it. */
+  function noteSecrets(ctx, data, mesId) {
+    const message = ctx.chat[mesId];
+    if (!Number.isInteger(mesId) || !characterMessage(message) || isGroup(ctx) || typeof message.mes !== 'string') return false;
+    const { text, block } = cutSecrets(message.mes);
+    if (!block) return false;
+    message.mes = text;
+    if (Array.isArray(message.swipes)) message.swipes[message.swipe_id ?? 0] = text;
+    const settings = loadSettings(ctx), swipeId = message.swipe_id ?? 0;
+    const base = currentEntry(data, ctx.chat, mesId, { skipStale: true });
+    let entry = findEntry(data, mesId, swipeId);
+    const { secrets, notes, applied } = applySecrets(entry?.state.secrets ?? base?.state.secrets, parseSecretsBlock(block).ops,
+      { mesId, prose: text, applied: entry?.secretsLines ?? [] });
+    if (!entry) {
+      // A provisional entry: the state before this reply plus its notebook; the side-model run replaces it and keeps the notebook.
+      const turn = ctx.chat.slice(0, mesId + 1).filter(characterMessage).length;
+      putEntry(data, { mesId, swipeId, turn, turnsSince: structuredClone(data.turnsSince),
+        state: { ...(base?.state ?? {}), meta: { turn, updatedAt: Date.now(), forMesId: mesId, forSwipeId: swipeId } } }, settings.keep);
+      entry = findEntry(data, mesId, swipeId);
+    }
+    entry.state.secrets = secrets; entry.secretsLines = applied; entry.secretsNotes = notes;
+    delete entry.stale;
+    publish();
+    void saveStore(ctx);
+    return true;
+  }
+  // `secretsLines` / `secretsNotes` live on the entry, which putEntry rebuilds: carry them over.
+  const carrySecretsMeta = (from, to) => {
+    if (!from || !to || from === to) return;
+    if (from.secretsLines) to.secretsLines = from.secretsLines;
+    if (from.secretsNotes) to.secretsNotes = from.secretsNotes;
+  };
 
   /** Manual edit of several sections at once (SPEC §25): `values = { [sectionId]: value }`, all or nothing. Every value
    *  goes through the section schema; an unknown section or an invalid value returns false and writes nothing.
@@ -496,7 +572,7 @@ export function createRuntime(getContext = () => globalThis.SillyTavern.getConte
   return { start, run, refresh: () => run(lastCharacterId(getContext()), { force: true }),
     idle: () => active?.promise ?? Promise.resolve(),
     preview, clearLog() { log = []; publish(); },
-    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setSectionsMode, setPack, seedLegacy, hideLegacyBanner, editState, editSections, rollDice,
+    snapshot, publish, updateSettings, setMode, setPackMode, setFolderMode, setSectionsMode, setPack, seedLegacy, hideLegacyBanner, editState, editSections, rollDice, installSecretsRegex,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { cancel(); bindings.splice(0).forEach(remove => remove()); listeners.clear(); },
   };

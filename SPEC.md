@@ -1642,8 +1642,9 @@ secrets: { next: 4,
   This happens before the side-model run and does not need a connection
   profile. A `continue` re-cuts; a second block for the same entry is applied
   on top and lines already applied (same text) are skipped.
-- The side-model merge never touches `secrets`: `merge.js` carries the
-  entry's own `secrets` when the entry exists, else the base's. `prompt.js`
+- The side-model merge never touches `secrets`: the run copies the entry's
+  own `secrets` (written at receive time) into the state the merge starts
+  from, so `merge.js` stays as it is. `prompt.js`
   never requests it: the section carries `source: 'main'`, and
   `getDueSectionIds`, the requested schemas, the enabled list and the
   instruction list skip such sections. `sanitizeSection` still validates it

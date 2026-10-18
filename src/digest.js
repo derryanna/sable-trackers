@@ -78,3 +78,19 @@ export function buildDigest(state = {}, modes = {}, options = {}) {
 }
 
 export const digest = buildDigest;
+
+/** The story model's notebook (SPEC §36): the live truths and the writing rules, as one bracketed text. The caller
+ *  decides when it goes out at all (mode, lag, group chats); `rules` overrides the i18n default. `{{user}}` stays a
+ *  macro for SillyTavern to fill. */
+export function buildSecretsPrompt(secrets, options = {}) {
+  const language = options.language ?? 'ru', tr = key => t(key, language);
+  const live = (secrets?.truths ?? []).filter(truth => truth && typeof truth.text === 'string' && truth.revealedHow == null);
+  const part = (key, value) => value ? `${tr(key)}: ${value}` : '';
+  const line = truth => {
+    const details = [part('secrets.hiddenFrom', (truth.hiddenFrom ?? []).join(', ')), part('secrets.when', truth.when), part('secrets.changes', truth.changes)].filter(Boolean).join('; ');
+    return `${truth.id} «${truth.text}»${details ? ` (${details})` : ''}`;
+  };
+  const head = live.length ? `${tr('secrets.header')} ${tr('secrets.liveList')} ${live.map(line).join(' · ')}` : `${tr('secrets.header')} ${tr('secrets.none')}`;
+  const rules = typeof options.rules === 'string' && options.rules.trim() ? options.rules.trim() : tr('secretsRules');
+  return `[${head}\n${rules}]`;
+}
