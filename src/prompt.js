@@ -19,6 +19,7 @@ function modeOf(id, modes) {
 export function getDueSectionIds({ modes = {}, turnsSince = {}, dueSections, sections = SECTIONS } = {}) {
   const forced = dueSections ? new Set(dueSections) : null;
   return sections.filter(section => {
+    if (section.source === 'main') return false; // written by the story model, never requested (SPEC §36)
     if ((modeOf(section.id, modes) ?? section.defaultMode) === 'off') return false;
     if (forced) return forced.has(section.id);
     if (section.id === 'dossiers') return true;
@@ -35,7 +36,7 @@ export function buildPrompt(options = {}) {
   const sectionMap = Object.fromEntries(sections.map(section => [section.id, section]));
   const due = getDueSectionIds({ modes: options.modes ?? settings.sections, turnsSince: options.turnsSince, dueSections: options.dueSections, sections });
   const configuredModes = options.modes ?? settings.sections ?? {};
-  const enabled = sections.filter(section => (modeOf(section.id, configuredModes) ?? section.defaultMode) !== 'off').map(section => section.id);
+  const enabled = sections.filter(section => section.source !== 'main' && (modeOf(section.id, configuredModes) ?? section.defaultMode) !== 'off').map(section => section.id);
   const requested = Object.fromEntries(due.map(id => [id, sectionMap[id].schema]));
   const texts = getPromptTexts(settings, sections);
   const packs = options.packs ?? getPacks(settings);

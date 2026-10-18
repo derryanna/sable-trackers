@@ -43,7 +43,7 @@ export function createUndoPill(document, label, timers = document.defaultView) {
 
 // Monochrome Font Awesome glyphs for card titles, like the reference; registry emoji are the fallback.
 export const SECTION_ICONS = Object.freeze({
-  world: 'globe', offscreen: 'user-clock', threads: 'code-branch', story: 'seedling', npcs: 'masks-theater',
+  world: 'globe', offscreen: 'user-clock', threads: 'code-branch', story: 'seedling', secrets: 'feather-pointed', npcs: 'masks-theater',
   thoughts: 'comment-dots', bonds: 'handshake', dossiers: 'address-card', planner: 'compass', banlist: 'ban',
 });
 

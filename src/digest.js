@@ -59,6 +59,8 @@ export function buildDigest(state = {}, modes = {}, options = {}) {
   const lines = options.lag === 1 && options.asOf != null ? [tr('lagNote').replace('{n}', options.asOf)] : [];
   lines.push(`[${tr('digestHeader')}]`);
   for (const id of orderedSectionIds(options.order, sections)) {
+    // Story secrets travel in their own prompt (SPEC §36), never in the digest.
+    if (sectionMap[id]?.source === 'main') continue;
     if ((modeOf(id, modes) ?? sectionMap[id]?.defaultMode) !== 'inject' || state[id] == null) continue;
     const section = sectionMap[id], value = state[id];
     // A definition's shape may change while its old value remains in the ring.

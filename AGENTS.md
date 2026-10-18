@@ -33,6 +33,7 @@ named in your prompt, nothing else. Small focused diffs; no drive-by refactors.
 manifest.json  index.js  style.css  settings.html (optional)
 src/
   sections.js   registry (pure)        prompt.js  request builder (pure)
+  secrets.js    story secrets: cut, parse, rules (pure)
   clean.js      message cleaner (pure) parse.js   side-model output parser (pure)
   merge.js      state merge (pure)     digest.js  injection text (pure)
   settings.js   defaults + load/save   store.js   chat_metadata ring
@@ -52,6 +53,10 @@ docs/            reference material (read-only)
 - All model output is untrusted text: escape before inserting into the DOM
   (`textContent` or an `escapeHtml` helper). No `eval`, no `innerHTML` with raw values.
 - Never modify `message.mes` or `message.extra`, and never touch other extensions' settings.
+  Two scoped exceptions, both in SPEC §36: the `<sable_secrets>` block the extension itself
+  asked the story model to write is removed from `mes` and `swipes[]` on arrival (nothing
+  else in the message, `extra` untouched), and the one display-only regex script it adds to
+  SillyTavern's regex list, once, when story secrets are first switched on.
 - Mobile first: the main user is on Android Chrome. Tap targets ≥ 36 px, and the drawer
   becomes full width under 700 px.
 - User-facing strings go through `src/i18n.js`. Default language: Russian.

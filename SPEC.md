@@ -1554,3 +1554,207 @@ keys of stat rows were unreadable on a phone behind an ellipsis.
   lines and clips with an ellipsis after that. The key column is
   `minmax(4em, 7.5em)` at every width; the ≤ 379 px layout only lets the bar
   shrink to 20 px. Other scale rows keep their one-line label.
+
+## 36. Story secrets: the author's notebook kept by the extension
+
+Why (18 Oct 2026): the maintainer liked the Author's Notebook idea in Megumin
+Suite V11: the story decides two or three hidden truths early, plants small
+clues and pays them off, and the extension keeps the notebook so the model
+neither forgets a secret nor blurts it out. She wants the same reading
+experience in Sable, in the «Сюжет» folder, written by the story model and
+never visible in the chat («надо это тоже скрывать и от юзеров»). Rejected:
+the side model inventing truths (the registrar records what is established,
+it does not plot) and the user writing them by hand (then there is nothing to
+discover).
+
+Design: the story model writes a short block at the end of the reply; the
+extension removes it from the message on arrival and keeps its content in
+`chat_metadata`, like every other section. Nothing of it stays in the chat
+text, so the main prompt, the side model, vectors and summaries never see it,
+and no regex is needed for them. The block is requested only while the
+section is on.
+
+### The block the story model writes
+
+Tag `<sable_secrets>`, after the prose, only when there is something to
+record. Plain lines, one op per line, in the story language; the markers are
+fixed and accepted in English and Russian:
+
+```
+<sable_secrets>
++ T3: <the truth> | hidden from: Maren, Tomas | comes out when: <condition> | changes: <what it changes>
+clue T1: <the clue this reply actually shows>
+learned T1: Maren
+out T1
+</sable_secrets>
+```
+
+- `+` (ru also «новая»): a new truth. The model's number is a placeholder:
+  the extension assigns the next id and maps the placeholder for the other
+  lines of the same block. Fields after the first `|` are optional except
+  `hidden from` («скрыто от»); `comes out when` = «выйдет», `changes` =
+  «меняет».
+- `clue T<n>` («подсказка»): a clue planted in this reply. `learned T<n>:
+  <names>` («узнал», «узнала», «узнали»): those names leave the Hidden from
+  list. `out T<n>` («вышла», «раскрыта»): the truth came out.
+- A line that matches nothing is dropped with a note. There is no edit line:
+  the model cannot change a truth, only the user can, from the card.
+
+### Rules kept by the extension (`src/secrets.js`, pure)
+
+- `LIVE_CAP = 3` live truths; a fourth is dropped with a note. A truth hidden
+  from no one is dropped. The same text again (normalised: case,
+  punctuation, spaces) is the same truth, not a new one.
+- First wins: one clue, one learned and one out per truth per reply.
+- A truth is revealed by `out`, or when `learned` empties its Hidden from
+  list (`revealedHow: 'out' | 'learned' | 'user'`, `revealedMesId`).
+- Names in `learned` and `hidden from` match case-insensitively, by the first
+  word, tolerant of Russian endings (five-letter prefix); an unknown name is
+  a note.
+- Clue check: a clue whose content words (4 letters or more, outside a small
+  stop list, compared by five-letter prefix) share nothing with the reply
+  prose after the cut is kept with `found: false` and shown as «в тексте не
+  найдена» / "not found in the reply".
+- Notes (dropped lines) are kept on the entry (`secretsNotes`, latest reply
+  only) for the drawer's small «не принято» line and `console.debug`; never
+  shown to the model.
+
+### Data
+
+The section lives in the ring entry's `state.secrets`, like every other
+section, so §32 (swipes, regenerations, lag), `keep`, the stale rule and the
+manual editor apply unchanged:
+
+```
+secrets: { next: 4,
+  truths: [ { id: 'T1', text, hiddenFrom: ['Maren'], when, changes,
+              clues: [{ text, mesId, found }], createdMesId,
+              revealedMesId: null, revealedHow: null } ] }
+```
+
+- On `MESSAGE_RECEIVED` for a character message (not user, not system, not a
+  group chat): `cutSecrets(mes)` → `{ text, block }`. When a block is present
+  the message's `mes` and `swipes[swipe_id]` get `text`; the ops are applied
+  to a clone of the base state's `secrets` (base = `currentEntry(data, chat,
+  mesId, { skipStale: true })`, the state before this reply, the same base
+  the side-model merge uses) and written into the entry for this
+  `(mesId, swipeId)`, created if missing the way `editSections` creates one.
+  This happens before the side-model run and does not need a connection
+  profile. A `continue` re-cuts; a second block for the same entry is applied
+  on top and lines already applied (same text) are skipped.
+- The side-model merge never touches `secrets`: `merge.js` carries the
+  entry's own `secrets` when the entry exists, else the base's. `prompt.js`
+  never requests it: the section carries `source: 'main'`, and
+  `getDueSectionIds`, the requested schemas, the enabled list and the
+  instruction list skip such sections. `sanitizeSection` still validates it
+  with a schema fragment in `sections.js` (extend the sanitizer, with tests,
+  if it lacks arrays of strings or a nullable integer), so the editor and
+  `editState('secrets', value)` work as for any section.
+- `clean.js` adds `sable_secrets` to `BLOCK_NAMES` as a safety net; the block
+  is normally gone before the side model runs.
+- The AGENTS.md rule "never modify `message.mes`" gets its one exception: the
+  extension removes the block it asked for, nothing else, and `extra` stays
+  untouched.
+
+### Injection
+
+- Modes: `off` (default for everyone: the story model is not asked to write
+  anything), `inject` (active), `show` = paused: the card shows the notebook,
+  nothing is injected, no block is requested; a block that arrives anyway is
+  still cut and applied.
+- In `inject` mode `publish()` sets a second extension prompt, key
+  `sable_trackers_secrets`, same position, depth and role as the digest: the
+  live truths and the writing rules, in the output language, about 150
+  tokens plus one line per truth. Cleared (empty string) in every other case
+  and under the same lag rule as the digest (§32). The truths are not part
+  of the digest: the digest header says "not instructions", and this text is
+  one. Russian text (English mirrors it):
+
+  ```
+  [Тайны сюжета — только для автора. Живые: T1 «…» (скрыто от: Maren; выйдет: …; меняет: …) · T2 «…» (…).
+  Держи историю согласной с ними. Персонаж знает тайну, только если его нет в «скрыто от». Тайна выходит на страницу, когда выполнено её условие или {{user}} до неё добрался: тайну берегут, пряча там, куда трудно или дорого попасть, но ответ, перед которым {{user}} стоит, не отказывают. Подсказка мелкая и могла бы значить другое; в большинстве ответов её нет. Раскрытую тайну отыгрывают до конца.
+  В конце ответа, после прозы, добавь <sable_secrets>…</sable_secrets>, только если есть что записать, по строке на запись: «+ T<n>: правда | скрыто от: имена | выйдет: условие | меняет: что», «подсказка T<n>: …», «узнал T<n>: имя», «вышла T<n>». Живых тайн не больше трёх; переписать тайну нельзя. Читатель этот блок не видит.]
+  ```
+
+  The rules part is the section's `instructions` (`t('secretsRules',
+  language)`), editable through the existing instruction override
+  (`settings.prompts.sections.secrets`, the «Инструкции модели» list); the
+  truths line is built by the extension. The prompt preview (§14) shows both
+  texts.
+- With no live truths and the mode `inject`, the text still goes out: it is
+  what asks the model to open the notebook.
+
+### Drawer
+
+- Card «Тайны сюжета» / "Story secrets", icon `fa-feather-pointed` (🪶 in
+  emoji mode), in `SECTION_ORDER` after `story`; the «Сюжет» group that
+  «Разложить по группам» creates (§18: story, planner, banlist) gains it. The
+  title row shows «2 живых · 1 отыграно» / "2 live · 1 revealed", the mode
+  chip as on every card, and a «пауза» hint when the mode is `show`.
+- The body is one spoiler block (the §19 pattern, `settings.spoilers`): a
+  button «Показать тайны» / "Show secrets" (`fa-eye-slash` → `fa-eye`, 🙊 in
+  emoji mode, `data-control="spoiler"`, `aria-expanded`); the text of the
+  truths is absent from the DOM until revealed; the revealed state is kept
+  in memory per chat and reset on chat change, not on a new entry (a reader
+  who opened the notebook keeps reading it). Spoilers off → plain.
+- Each live truth: its text, then a `dl.kv` with «Скрыто от», «Выйдет»,
+  «Меняет» (non-empty only), then the clues as a list: `🌱 <text> · #<mesId>`
+  with tap-to-jump (§26) and a «✗ в тексте не найдена» pill when `found` is
+  false. Pencil menu (§25 pattern): «Править» (the schema editor for this
+  truth: text, hidden from, when, changes, clues), «Раскрыть» (reveal now,
+  `revealedHow: 'user'`), «Забыть» (delete, with the undo pill of §24).
+- «Отыграно» / "Revealed": a folded `details` with the past truths: text,
+  how and where («вышла в #N», «узнали все в #N», «раскрыта вручную»), their
+  clues; «Вернуть в игру» / "Back into play" (restore; refused with a hint
+  while three are live).
+- A small «не принято: …» / "not accepted: …" line under the card when the
+  latest entry has notes.
+- The reply panel (§7) is unchanged.
+
+### Settings
+
+- The section row in the Sections list like the others (mode select, no
+  period). Under it a hint: «Тайны пишет основная модель в конце ответа;
+  блок вырезается из сообщения и в чат не попадает. При первом включении
+  ставится правило отображения, чтобы блок не мелькал во время стриминга» /
+  "The story model writes the secrets at the end of its reply; the block is
+  cut from the message and never enters the chat. The first time you switch
+  it on, a display rule is added so the block does not flash while the reply
+  streams."
+- The streaming guard: on the first switch to `inject` the extension adds
+  one display-only regex script to SillyTavern's regex list
+  (`extension_settings.regex`): name «Sable Trackers: тайны сюжета», find
+  `/<sable_secrets>[\s\S]*?(?:<\/sable_secrets>|$)/i`, replace with nothing,
+  `markdownOnly: true`, `promptOnly: false`, placement AI output,
+  `runOnEdit: true`. Added once (`settings.secretsRegexInstalled`), skipped
+  when a script with that name exists, never re-added after the user deletes
+  it; a button «Поставить правило снова» / "Add the display rule again" under
+  the hint. This is the one write outside the extension's own settings, noted
+  in AGENTS.md. Without it the lines show for a moment while the reply
+  streams and vanish on arrival.
+
+### Non-goals
+
+The side model noting clues (the story model writes its own); per-reply
+Revert / Restore buttons (swipes and regenerations already do it); group
+chats; `extra.display_text` written by other extensions; a notebook without
+the story model (manual entry already works through the editor).
+
+### Tests
+
+Pure: parse (en/ru markers, bullets, bold, stray spaces, a copied header
+line), the cap, same-text dedupe, first wins, learned → reveal, the unknown
+name note, user ops (edit, reveal, forget, restore, restore refused at the
+cap), the clue check (found, not found, Russian endings), the cut (closed,
+unclosed tail, two blocks, a block mid-text after a continue, prose intact,
+idempotent). Prompt: a snapshot of the side-model request is unchanged with
+the section on. Injection: the second prompt text with 0 / 1 / 3 truths,
+nothing in `show` and `off`, lag 2 → empty. Glue with the fakes:
+`MESSAGE_RECEIVED` with a block → `mes` and `swipes[swipe_id]` cut, the entry
+carries `secrets`, the side-model merge keeps it; a swipe → the base state;
+`GENERATION_STARTED` swipe → the override; no profile → still stored. Drawer
+with jsdom: concealed by default, reveal, the past list, the pencil ops,
+spoilers off, the counts. Settings: the regex installed once, the flag, not
+re-added, the button. i18n: every new key in ru and en.
+`fixtures/state-full.json` gets a `secrets` section (synthetic, the
+lighthouse story).

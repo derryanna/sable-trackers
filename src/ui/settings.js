@@ -220,6 +220,8 @@ export function createSettings(runtime, { document = globalThis.document,
       control.glyph.replaceChildren(sectionGlyph(document, section, view.settings.visual?.icons));
       setValue(control.mode, view.modes[id]);
       setValue(control.period, section.custom && !section.pack ? section.period : view.settings.sections[id].period);
+      // A story-model section has no cadence: the block comes with every reply that has something to record (SPEC §36).
+      control.period.disabled = section.source === 'main';
       control.up.disabled = index === 0;
       control.down.disabled = index === order.length - 1;
     }
@@ -235,7 +237,7 @@ export function createSettings(runtime, { document = globalThis.document,
     const taken = new Set(view.settings.folders.map(folder => folder.id));
     const folders = [['world', 'fa-globe', ['world', 'offscreen', 'threads']],
       ['people', 'fa-users', ['npcs', 'thoughts', 'bonds', 'dossiers']],
-      ['story', 'fa-book', ['story', 'planner', 'banlist']]].map(([key, icon, members]) => {
+      ['story', 'fa-book', ['story', 'secrets', 'planner', 'banlist']]].map(([key, icon, members]) => {
         const id = newCustomId(taken, crypto, 'f_'); taken.add(id);
         return { id, title: label(`folders.${key}`), icon, members };
       });

@@ -1,4 +1,4 @@
-const BLOCK_NAMES = 'plan|think|checklist|Blocks|details';
+const BLOCK_NAMES = 'plan|think|checklist|Blocks|details|sable_secrets';
 
 /** Remove private/helper markup from a chat message before it reaches the side model. */
 export function cleanMessage(value) {

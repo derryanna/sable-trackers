@@ -420,6 +420,29 @@ tells `cut` (no closing tag) from `broken` (complete reply, JSON unrecoverable);
 `test/json-repair.test.mjs`, `test/resilience.test.mjs`.
 Done when: `npm test` green.
 
+## T37 — Story secrets: the author's notebook kept by the extension  [ ]
+SPEC §36 (18 Oct 2026, maintainer: «мне нравится его идея, что секреты отдельно… надо это тоже скрывать и от
+юзеров»). New built-in section `secrets` («Тайны сюжета» / "Story secrets", `source: 'main'`, default `off`,
+after `story` in `SECTION_ORDER`, in the suggested «Сюжет» group). The story model writes a `<sable_secrets>`
+block after the prose while the section is in `inject` mode; `src/secrets.js` (pure) parses it (en/ru markers),
+applies the ops to the base state's `secrets` under the rules (cap 3, no edits by the model, first wins,
+`learned` emptying Hidden from → revealed, the clue check against the prose), and `cutSecrets` removes the block
+from `mes` and `swipes[swipe_id]` on `MESSAGE_RECEIVED`, before the side-model run and without a connection
+profile. The section is never requested from the side model (`prompt.js` skips `source: 'main'`), `merge.js`
+carries it, `clean.js` strips the tag as a safety net. `publish()` sets a second extension prompt
+`sable_trackers_secrets` (live truths + writing rules, i18n ru/en, the rules editable via
+`settings.prompts.sections.secrets`). Drawer: a spoiler card with the live truths, clues (🌱, `#mesId` jump,
+«не найдена» pill), the pencil menu (edit / reveal / forget with undo), «Отыграно» with restore, a «не принято»
+line. Settings: the section row, the hint, the display-only regex installed once (`settings.secretsRegexInstalled`)
+with a re-add button. AGENTS.md: the one `mes` exception and the regex write.
+Files: `src/secrets.js` (new), `src/sections.js`, `src/prompt.js`, `src/merge.js`, `src/clean.js`, `src/run.js`,
+`src/digest.js` (or a new `src/secretsPrompt.js`), `src/settings.js`, `src/ui/drawer.js`, `src/ui/settings.js`,
+`src/i18n.js`, `style.css`, `fixtures/state-full.json`, tests, `README.md` (ru + en), `CHANGELOG.md` (0.5.0),
+`SPEC.md` §2 table, `AGENTS.md`.
+Done when: `npm test` green with the tests listed in SPEC §36, `node --check` on every changed file, README ru + en
+describe the card and the block (one paragraph each), the SPEC §2 table has the `secrets` row, CHANGELOG has the
+0.5.0 entry (ru + en, date left for the release).
+
 ## Notes from previous tasks
 (append here)
 - T36: replayed against the 64 real side-model replies of 17 Oct 2026 (kept outside the repository): 21 replies of

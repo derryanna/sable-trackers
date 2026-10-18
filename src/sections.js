@@ -23,13 +23,22 @@ export const FRICTION_SCALES = Object.freeze(['suspicion', 'fear', 'grudge', 'te
 const bondSchema = (keys, signed = []) => ({ type:'array',max:50,item:{type:'object',fields:{...npcBase,toward:s(120),stats:{type:'object',fields:Object.fromEntries(keys.map(k=>[k,signed.includes(k)?{type:'score',min:-100}:{type:'score'}]))},changes:{type:'changes'},legacy_stats:{type:'object',allowUnknown:true}},required:['id']} });
 const bondInstructions = definitions => `Independent scales toward the named target only: ${definitions.join('; ') || 'none'}. Known scores are integers 0-100: 0 means known absence, null means unknown. Do not fill everything with 50. Keep the previous known value without new basis; derive new starting values cautiously from canon. A scale absent from PREVIOUS STATE is new: give it a starting value from canon and shown behaviour instead of null. Change by at most 10 per reply unless a clearly major event warrants more; no automatic affection growth. desire = null for minors, without sexual interpretations; love = null for minors as well. changes contains changed scales only, with short concrete reasons; return {} if unchanged.`;
 
-export const SECTION_ORDER = ['world', 'offscreen', 'threads', 'story', 'npcs', 'thoughts', 'bonds', 'dossiers', 'planner', 'banlist'];
+export const SECTION_ORDER = ['world', 'offscreen', 'threads', 'story', 'secrets', 'npcs', 'thoughts', 'bonds', 'dossiers', 'planner', 'banlist'];
 
 const definitions = {
   world: { icon: '🌍', defaultMode: 'inject', period: 1, schema: { type: 'object', fields: { time:s(), location:s(), weather:s(), summary:s(800), pc:{ type:'object', fields:{ outfit:s(), position:s(), visible_condition:s(), carrying:s() } } } }, instructions: 'Record only known time, location, weather and visible user-character state. Unknown stays unknown; never invent user thoughts or actions.' },
   offscreen: { icon: '👥', defaultMode: 'show', period: 1, schema: { type:'array', max:8, item:{ type:'object', fields:{ name:s(120), doing:s(500) }, required:['name'] } }, instructions: 'Keep at most 8 absent known NPCs. State current activity only when established or strongly implied; otherwise use the last known activity.' },
   threads: { icon: '🧵', defaultMode: 'inject', period: 1, schema: { type:'array', max:6, item:{ type:'object', fields:{ text:s(500), priority:{ type:'enum', values:['high','mid','low'], fallback:'mid' } }, required:['text','priority'] } }, instructions: 'Keep at most 6 unresolved questions or conflicts. Do not invent new events.' },
   story: { icon: '🌱', defaultMode: 'inject', period: 1, schema: { type:'object', fields:{ seeds:{type:'array',max:6,item:{type:'object',fields:{text:s(500),planted_turn:{type:'integer',min:0,max:100000}},required:['text']}}, timers:{type:'array',max:4,item:{type:'object',fields:{text:s(500),due:s(120)},required:['text']}}, arc_phase:s(120), scene_phase:s(120) } }, instructions: 'Track planted but unpaid seeds, established in-world deadlines, and short arc/scene phase labels. Do not invent timers.' },
+  // Story secrets (SPEC §36): written by the story model in a <sable_secrets> tail block, never requested from the side
+  // model (`source: 'main'`); the schema validates the kept notebook for the editor. `revealedHow` absent = live.
+  secrets: { icon: '🪶', defaultMode: 'off', period: 0, source: 'main', instructions: null, schema: { type:'object', fields:{
+    next:{ type:'integer', min:1, max:100000 },
+    truths:{ type:'array', max:40, item:{ type:'object', fields:{ id:{ type:'string', max:8, min:1 }, text:s(400),
+      hiddenFrom:{ type:'array', max:12, item:{ type:'string', max:120, min:1 } }, when:s(300), changes:s(300),
+      clues:{ type:'array', max:20, item:{ type:'object', fields:{ text:s(300), mesId:{ type:'integer', min:0, max:100000, nullable:true }, found:{ type:'boolean' } }, required:['text'] } },
+      createdMesId:{ type:'integer', min:0, max:100000, nullable:true }, revealedMesId:{ type:'integer', min:0, max:100000, nullable:true },
+      revealedHow:{ type:'enum', values:['out','learned','user'] } }, required:['id','text'] } } } } },
   npcs: { icon: '🎭', defaultMode: 'inject', period: 1, schema: { type:'array',max:50,item:{type:'object',fields:{...npcBase,present:{type:'boolean'},outfit:s(),position:s(),mood:s(160),agenda:s(),action:s(),wants_toward:s(120),secret:s(),truth:s(160)},required:['id']} }, instructions: 'Keep stable ids and all known NPCs; add new NPCs only after they appear in the story. User character is not an NPC. present is true only in the current scene; absent NPCs retain last known data without invented off-screen activity. outfit/position/action describe established visible facts; mood is emotion. Desire is not action. agenda is a concrete intention now; wants_toward is its target. secret contains only already-established hidden knowledge or intentions; never invent facts to fill it. Preserve disguises and knowledge boundaries. truth is one short phrase of at most 12 words naming what this NPC actually feels right now beneath the shown behaviour, grounded in canon and shown behaviour; leave it empty without a basis. agenda is what the NPC is about to do next.' },
   thoughts: { icon: '💭', defaultMode: 'show', period: 1, schema: { type:'array',max:50,item:{type:'object',fields:{...npcBase,thought:s(240)},required:['id','thought']} }, instructions: 'For present NPCs only, write one private first-person thought of at most 30 words. Preserve knowledge boundaries.' },
   bonds: { icon: '🤝', defaultMode: 'inject', period: 1, schema: bondSchema(scales), instructions: bondInstructions(scales.map(key => `${key} = ${BOND_SCALE_HINTS[key]}`)) },
@@ -38,6 +47,8 @@ const definitions = {
   banlist: { icon: '🚫', defaultMode: 'inject', period: 3, schema: { type:'array',max:8,item:{type:'object',fields:{pattern:s(300),example:s(300)},required:['pattern']} }, instructions: 'List repeated phrases or rhetorical patterns from recent replies. Keep it concise.' },
 };
 
+// `source: 'main'` marks a section the story model writes and the side model never sees (SPEC §36).
+export const isMainSection = section => section?.source === 'main';
 export const SECTIONS = Object.freeze(SECTION_ORDER.map(id => Object.freeze({ id, title: `section.${id}`, ...definitions[id] })));
 export const SECTION_MAP = Object.freeze(Object.fromEntries(SECTIONS.map(section => [section.id, section])));
 export const BOND_SCALES = Object.freeze(scales);

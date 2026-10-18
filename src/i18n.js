@@ -538,3 +538,35 @@ Object.assign(STRINGS.en, {
 Object.assign(STRINGS.ru, {
   bondFold: 'Свернуть / развернуть персонажа',
 });
+// T37
+// Story secrets (SPEC §36): the card, the editor labels, the settings hint and the text the story model gets.
+Object.assign(STRINGS.en, {
+  'section.secrets': 'Story secrets',
+  'secrets.header': 'Story secrets — for the author only. Live:', 'secrets.none': 'No live secrets yet.',
+  'secrets.hiddenFrom': 'hidden from', 'secrets.when': 'comes out when', 'secrets.changes': 'changes',
+  secretsRules: 'Keep the story consistent with them. A character knows a secret only if they are not in its "hidden from" list. A secret reaches the page when its condition is met or {{user}} gets to it: protect a secret by keeping it somewhere hard or costly to reach, but never refuse an answer {{user}} is standing in front of. A clue is small and could mean something else; most replies carry none. A revealed secret is played out to the end.\nAt the end of the reply, after the prose, add <sable_secrets>…</sable_secrets> only when there is something to record, one line per entry: "+ T<n>: the truth | hidden from: names | comes out when: condition | changes: what", "clue T<n>: …", "learned T<n>: name", "out T<n>". At most three live secrets; a secret cannot be rewritten. The reader never sees this block.',
+  'secrets.live': 'live', 'secrets.revealed': 'revealed', 'secrets.show': 'Show secrets', 'secrets.hide': 'Hide secrets',
+  'secrets.clues': 'Clues', 'secrets.notFound': 'not found in the reply', 'secrets.past': 'Revealed',
+  'secrets.outAt': 'came out in #{n}', 'secrets.learnedAt': 'everyone learned it by #{n}', 'secrets.byUser': 'revealed by hand',
+  'secrets.restore': 'Back into play', 'secrets.restoreRefused': 'Three secrets are already live',
+  'secrets.reveal': 'Reveal', 'secrets.forget': 'Forget', 'undo.secret': 'Secret forgotten',
+  'secrets.paused': 'paused: no new secrets are requested', 'secrets.notAccepted': 'not accepted',
+  'hint.secrets': 'The story model writes the secrets at the end of its reply; the block is cut from the message and never enters the chat. The first time you switch it on, a display rule is added so the block does not flash while the reply streams.',
+  'secrets.regexAgain': 'Add the display rule again',
+  'field.hiddenFrom': 'Hidden from', 'field.when': 'Comes out when', 'field.clues': 'Clues',
+});
+Object.assign(STRINGS.ru, {
+  'section.secrets': 'Тайны сюжета',
+  'secrets.header': 'Тайны сюжета — только для автора. Живые:', 'secrets.none': 'Живых тайн пока нет.',
+  'secrets.hiddenFrom': 'скрыто от', 'secrets.when': 'выйдет', 'secrets.changes': 'меняет',
+  secretsRules: 'Держи историю согласной с ними. Персонаж знает тайну, только если его нет в «скрыто от». Тайна выходит на страницу, когда выполнено её условие или {{user}} до неё добрался: тайну берегут, пряча там, куда трудно или дорого попасть, но ответ, перед которым {{user}} стоит, не отказывают. Подсказка мелкая и могла бы значить другое; в большинстве ответов её нет. Раскрытую тайну отыгрывают до конца.\nВ конце ответа, после прозы, добавь <sable_secrets>…</sable_secrets>, только если есть что записать, по строке на запись: «+ T<n>: правда | скрыто от: имена | выйдет: условие | меняет: что», «подсказка T<n>: …», «узнал T<n>: имя», «вышла T<n>». Живых тайн не больше трёх; переписать тайну нельзя. Читатель этот блок не видит.',
+  'secrets.live': 'живых', 'secrets.revealed': 'отыграно', 'secrets.show': 'Показать тайны', 'secrets.hide': 'Скрыть тайны',
+  'secrets.clues': 'Подсказки', 'secrets.notFound': 'в тексте не найдена', 'secrets.past': 'Отыграно',
+  'secrets.outAt': 'вышла в #{n}', 'secrets.learnedAt': 'узнали все в #{n}', 'secrets.byUser': 'раскрыта вручную',
+  'secrets.restore': 'Вернуть в игру', 'secrets.restoreRefused': 'Уже три живых тайны',
+  'secrets.reveal': 'Раскрыть', 'secrets.forget': 'Забыть', 'undo.secret': 'Тайна забыта',
+  'secrets.paused': 'пауза: новые тайны не запрашиваются', 'secrets.notAccepted': 'не принято',
+  'hint.secrets': 'Тайны пишет основная модель в конце ответа; блок вырезается из сообщения и в чат не попадает. При первом включении ставится правило отображения, чтобы блок не мелькал во время стриминга.',
+  'secrets.regexAgain': 'Поставить правило снова',
+  'field.hiddenFrom': 'Скрыто от', 'field.when': 'Выйдет', 'field.clues': 'Подсказки',
+});
