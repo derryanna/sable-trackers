@@ -46,7 +46,7 @@ test('drawer renders full fixture safely and mode menu updates settings and dige
   query('.st-sable-tab').click();
   assert.equal(ui.element.hidden, false);
   assert.equal(query('.st-sable-cards').children.length, 10);
-  for (const id of runtime.snapshot().settings.order) assert.ok(card(id).querySelector('.st-sable-card-body').textContent.trim());
+  for (const id of runtime.snapshot().settings.order.filter(id => card(id))) assert.ok(card(id).querySelector('.st-sable-card-body').textContent.trim());
   assert.ok(card('world').textContent.includes(xss));
   assert.equal(ui.element.querySelector('img, script'), null);
   assert.equal(card('npcs').querySelectorAll('details')[0].open, true);
@@ -105,14 +105,14 @@ test('pointer reorder persists and changes digest order; cancel restores saved o
   pointer(document, 'pointerup', 10, 180);
   assert.equal(query('.st-sable-dragging'), null);
   assert.deepEqual(runtime.snapshot().settings.order.slice(0, 3), ['offscreen', 'world', 'threads']);
-  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section), runtime.snapshot().settings.order);
+  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section), runtime.snapshot().settings.order.filter(id => card(id)));
   runtime.setMode('offscreen', 'inject');
   assert.ok(fake.calls.prompts.at(-1)[1].indexOf('ЗА СЦЕНОЙ:') < fake.calls.prompts.at(-1)[1].indexOf('МИР:'));
   pointer(card('world').querySelector('.st-sable-handle'), 'pointerdown', 10, 25);
   pointer(document, 'pointermove', 10, 2000);
   pointer(document, 'pointercancel', 10, 2000);
   assert.equal(query('.st-sable-dragging'), null);
-  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section), runtime.snapshot().settings.order);
+  assert.deepEqual([...query('.st-sable-cards').children].map(item => item.dataset.section), runtime.snapshot().settings.order.filter(id => card(id)));
   assert.equal(order[0], 'world');
 });
 
@@ -661,7 +661,7 @@ test('off sections use effective modes, reveal in order, survive renders and dro
   assert.equal(runtime.snapshot().settings.sections.world.mode, 'inject');
   assert.equal(card('world'), null); assert.equal(card('threads'), null);
   assert.equal(draft.isConnected, false);
-  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 2');
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 3');
   const before = JSON.stringify(runtime.snapshot().settings);
   query('.st-sable-hidden-toggle').click();
   assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыть');
@@ -676,11 +676,11 @@ test('off sections use effective modes, reveal in order, survive renders and dro
   assert.equal(document.activeElement, card('world').querySelector('[data-control="mode"]'));
   query('.st-sable-hidden-toggle').click();
   assert.ok(card('world')); assert.equal(card('threads'), null);
-  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 1');
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 2');
   runtime.updateSettings({ language: 'en' });
-  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Hidden: 1');
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Hidden: 2');
   query('.st-sable-hidden-toggle').click(); assert.equal(query('.st-sable-hidden-toggle').textContent, 'Hide');
-  runtime.setMode('threads', 'show'); assert.equal(query('.st-sable-hidden-row').hidden, true);
+  runtime.setMode('threads', 'show'); runtime.setMode('secrets', 'show'); assert.equal(query('.st-sable-hidden-row').hidden, true);
   runtime.setMode('threads', 'off'); runtime.updateSettings({ hideOff: false });
   assert.ok(card('threads')); assert.equal(query('.st-sable-hidden-row').hidden, true);
 });
@@ -701,7 +701,7 @@ test('switching a card off from menu focuses reveal button and drag preserves hi
   pointer(card('world').querySelector('.st-sable-handle'), 'pointerdown', 10, 25);
   pointer(document, 'pointermove', 10, 2000);
   pointer(document, 'pointercancel', 10, 2000);
-  assert.deepEqual([...query('.st-sable-cards').children].map(el => el.dataset.section), runtime.snapshot().settings.order.filter(id => id !== 'offscreen'));
+  assert.deepEqual([...query('.st-sable-cards').children].map(el => el.dataset.section), runtime.snapshot().settings.order.filter(id => card(id)));
   assert.equal(query('.st-sable-cards').textContent.includes('null'), false);
 });
 

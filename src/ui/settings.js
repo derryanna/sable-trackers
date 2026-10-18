@@ -206,6 +206,24 @@ export function createSettings(runtime, { document = globalThis.document,
     row.append(name, mode, period, moves);
     return { row, glyph, mode, period, up, down, labels: rowLabels };
   }
+  // Sub-row under the secrets section: a hint and a button to re-install the regex (SPEC §36).
+  let secretsSubRow;
+  function ensureSecretsSubRow() {
+    if (secretsSubRow) return secretsSubRow;
+    secretsSubRow = node('div', 'st-sable-settings-secrets-hint');
+    secretsSubRow.append(text('p', 'st-sable-settings-hint', 'hint.secrets'));
+    const statusEl = node('span', 'st-sable-settings-hint st-sable-secrets-status');
+    statusEl.hidden = true;
+    const btn = button(secretsSubRow, 'secrets.regexAgain', 'shield-halved', () => {
+      const status = runtime.installSecretsRegex({ force: true });
+      statusEl.textContent = label(status === 'added' ? 'ok' : 'secrets.regexExists');
+      statusEl.hidden = false;
+      document.defaultView.setTimeout(() => { statusEl.hidden = true; }, 2000);
+    });
+    btn.dataset.control = 'secrets-regex-again';
+    secretsSubRow.append(statusEl);
+    return secretsSubRow;
+  }
   function renderSections() {
     const sections = activeSections(), order = orderedSectionIds(view.settings.order, sections);
     for (const [id, control] of sectionControls) if (!order.includes(id)) { control.row.remove(); sectionControls.delete(id); }
@@ -224,6 +242,12 @@ export function createSettings(runtime, { document = globalThis.document,
       control.period.disabled = section.source === 'main';
       control.up.disabled = index === 0;
       control.down.disabled = index === order.length - 1;
+      // Secrets-specific sub-row (hint + regex button) lives directly after the secrets row.
+      if (id === 'secrets') {
+        const sub = ensureSecretsSubRow();
+        if (control.row.nextSibling !== sub) table.insertBefore(sub, control.row.nextSibling);
+        previous = sub;
+      }
     }
   }
   sectionsGroup.append(table, text('p', 'st-sable-settings-hint', 'periodHint'));
@@ -968,7 +992,10 @@ export function createSettings(runtime, { document = globalThis.document,
     const row = node('details', 'st-sable-prompt'); row.dataset.promptSection = section.id;
     const summary = node('summary'), glyph = node('span', 'st-sable-settings-glyph');
     summary.append(glyph, text('span', '', () => sectionTitle(section.id))); row.append(summary);
-    promptField(row, section.id, section.pack ? BUILTIN_PACKS.find(p => p.id === section.pack).sections.find(s => `${section.pack}_${s.key}` === section.id).instructions : section.instructions, summary);
+    const fallback = section.source === 'main' ? t('secretsRules', view.settings.language)
+      : section.pack ? BUILTIN_PACKS.find(p => p.id === section.pack).sections.find(s => `${section.pack}_${s.key}` === section.id).instructions
+      : section.instructions;
+    promptField(row, section.id, fallback, summary);
     Object.assign(promptControls.get(section.id), { glyph, container }); container.append(row);
   }
   for (const section of builtinSections()) if (!section.pack) promptRow(section, promptList);

@@ -123,7 +123,7 @@ test('all four off: the group hides under hideOff and the reveal row brings it b
   runtime.setSectionsMode(PEOPLE, 'off');
   assert.equal(group(), null); assert.deepEqual(persons(), []);
   const reveal = query('.st-sable-hidden-toggle');
-  assert.equal(reveal.closest('.st-sable-hidden-row').hidden, false); assert.match(reveal.textContent, /4/);
+  assert.equal(reveal.closest('.st-sable-hidden-row').hidden, false); assert.match(reveal.textContent, /5/);
   reveal.click();
   assert.ok(group()); assert.ok(group().classList.contains('st-sable-off')); assert.equal(group().dataset.mode, 'off');
   reveal.click(); assert.equal(group(), null);
@@ -181,6 +181,6 @@ test('the People handle moves the whole block among top-level items', t => {
   const handle = control(group(), 'handle');
   handle.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
   const order = runtime.snapshot().settings.order;
-  assert.deepEqual(order.slice(0, 8), ['world', 'offscreen', 'threads', ...PEOPLE, 'story']);
-  assert.equal(group().nextElementSibling.dataset.section, 'story');
+  assert.deepEqual(order.slice(0, 8), ['world', 'offscreen', 'threads', 'story', ...PEOPLE]);
+  assert.equal(group().nextElementSibling.dataset.section, 'planner');
 });

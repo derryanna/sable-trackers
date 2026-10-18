@@ -553,6 +553,7 @@ Object.assign(STRINGS.en, {
   'secrets.paused': 'paused: no new secrets are requested', 'secrets.notAccepted': 'not accepted',
   'hint.secrets': 'The story model writes the secrets at the end of its reply; the block is cut from the message and never enters the chat. The first time you switch it on, a display rule is added so the block does not flash while the reply streams.',
   'secrets.regexAgain': 'Add the display rule again',
+  'secrets.regexExists': 'the rule is already there',
   'field.hiddenFrom': 'Hidden from', 'field.when': 'Comes out when', 'field.clues': 'Clues',
 });
 Object.assign(STRINGS.ru, {
@@ -568,5 +569,6 @@ Object.assign(STRINGS.ru, {
   'secrets.paused': 'пауза: новые тайны не запрашиваются', 'secrets.notAccepted': 'не принято',
   'hint.secrets': 'Тайны пишет основная модель в конце ответа; блок вырезается из сообщения и в чат не попадает. При первом включении ставится правило отображения, чтобы блок не мелькал во время стриминга.',
   'secrets.regexAgain': 'Поставить правило снова',
+  'secrets.regexExists': 'правило уже есть',
   'field.hiddenFrom': 'Скрыто от', 'field.when': 'Выйдет', 'field.clues': 'Подсказки',
 });

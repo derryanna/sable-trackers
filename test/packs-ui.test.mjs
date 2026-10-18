@@ -301,7 +301,7 @@ test('pack cards fold, hide when off, reorder from the keyboard, take card colou
   assert.ok(card('combat_stats').querySelector('.st-sable-card-body').hidden);
   runtime.setMode('combat_effects', 'off');
   assert.equal(card('combat_effects'), null);
-  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 1');
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 2');
   query('.st-sable-hidden-toggle').click();
   assert.ok(card('combat_effects').classList.contains('st-sable-off'));
   runtime.setMode('combat_effects', 'inject');
@@ -312,7 +312,7 @@ test('pack cards fold, hide when off, reorder from the keyboard, take card colou
   assert.deepEqual(members('combat'), ['combat_stats', 'combat_scene', 'combat_effects', 'combat_odds']);
   runtime.setPack('combat', false); runtime.setPack('combat', true);
   assert.deepEqual(members('combat').slice(-2), ['combat_effects', 'combat_odds']);
-  assert.equal(shown().indexOf('pack:combat'), 10, 'explicit positions survive a toggle');
+  assert.equal(shown().indexOf('pack:combat'), 11, 'explicit positions survive a toggle');
   runtime.updateSettings({ visual: { cardColors: { combat_stats: '#abcdef' } } });
   assert.equal(card('combat_stats').style.getPropertyValue('--st-sable-accent'), '#abcdef');
   card('combat_scene').querySelector('[data-control="edit"]').click();
@@ -630,7 +630,7 @@ test('group chip: aggregate of the member modes, «mixed» otherwise; the menu s
   assert.equal(runtime.snapshot().settings.sections.combat_odds.mode, 'show');
   chip().click(); query('[role="menu"] [data-mode="off"]').click();
   assert.equal(group('combat'), null, 'a group whose members are all off hides with hideOff');
-  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 4');
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 5');
   assert.equal(document.activeElement, query('.st-sable-hidden-toggle'));
   query('.st-sable-hidden-toggle').click();
   assert.ok(group('combat').classList.contains('st-sable-off'));
@@ -686,7 +686,7 @@ test('hideOff inside groups: off members hide and count, an all-off group hides,
   runtime.setMode('combat_effects', 'off');
   assert.equal(card('combat_effects'), null);
   assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_odds']);
-  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 1');
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 2');
   query('.st-sable-hidden-toggle').click();
   assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds'], 'revealed in its slot');
   assert.ok(card('combat_effects').classList.contains('st-sable-off'));
@@ -695,7 +695,7 @@ test('hideOff inside groups: off members hide and count, an all-off group hides,
   runtime.setMode('offscreen', 'off');
   for (const id of ['combat_scene', 'combat_stats', 'combat_odds']) runtime.setMode(id, 'off');
   assert.equal(group('combat'), null, 'all members off: no group');
-  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 5');
+  assert.equal(query('.st-sable-hidden-toggle').textContent, 'Скрыто: 6');
   query('.st-sable-hidden-toggle').click();
   assert.ok(group('combat'));
   assert.deepEqual(members('combat'), ['combat_scene', 'combat_stats', 'combat_effects', 'combat_odds']);
@@ -744,7 +744,7 @@ test('order: the group handle moves the block among flat cards, a member handle 
   stub(query('.st-sable-cards'));
   drag(handle(), 30);
   assert.deepEqual(shown().slice(0, 2), ['pack:combat', 'world'], 'the group dropped at the top');
-  assert.deepEqual(runtime.snapshot().settings.order.slice(0, 5), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene', 'world']);
+  assert.deepEqual(runtime.snapshot().settings.order.slice(0, 5), ['combat_stats', 'combat_effects', 'combat_odds', 'combat_scene', 'secrets']);
   assert.equal(query('.st-sable-dragging'), null);
   stub(group('combat').querySelector('.st-sable-group-body'));
   drag(member('combat_scene'), 30);

@@ -442,6 +442,7 @@ Files: `src/secrets.js` (new), `src/sections.js`, `src/prompt.js`, `src/merge.js
 Done when: `npm test` green with the tests listed in SPEC §36, `node --check` on every changed file, README ru + en
 describe the card and the block (one paragraph each), the SPEC §2 table has the `secrets` row, CHANGELOG has the
 0.5.0 entry (ru + en, date left for the release).
+Notes (UI): `case 'secrets'` added to `fillBody` in `drawer.js` (spoiler toggle, live truths with kv + clues + pencil menu, past details with restore, count line); `settings.js` already had the hint sub-row and `regexAgain` button; `promptRow` fallback uses `t('secretsRules', ...)` for `source: 'main'`; `revealedSecrets` Set tracks spoiler toggle state per render cycle; `truthForms` Map manages open edit forms; new tests in `test/secrets-ui.test.mjs` (8 tests); 15 pre-existing test expectations updated to account for secrets being a new default-off section (offCount, order, card-list length).
 Notes (skeleton + glue, done): `merge.js` is untouched — the run copies the entry's own `secrets` (written at receive time)
 into the state the side-model merge starts from, and `carrySecretsMeta` keeps `secretsLines` / `secretsNotes` across
 `putEntry`. The notebook prompt is set BEFORE the digest in `publish()`, so the digest stays the last `setExtensionPrompt`

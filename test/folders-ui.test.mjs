@@ -92,7 +92,7 @@ test('empty folders render last with disabled handles and editors; hideOff count
   assert.equal(query('.st-sable-cards').lastElementChild, group(b));
   assert.ok(control(group(b), 'handle').disabled); assert.match(group(b).textContent, /Пусто/);
   control(group(b), 'folder-edit').click(); assert.ok(group(b).querySelector('[data-folder-editor]'));
-  runtime.setMode('threads', 'off'); assert.deepEqual(members(), ['world']); assert.match(query('.st-sable-hidden-toggle').textContent, /1/);
+  runtime.setMode('threads', 'off'); assert.deepEqual(members(), ['world']); assert.match(query('.st-sable-hidden-toggle').textContent, /2/);
   runtime.setMode('world', 'off'); assert.equal(group(), null); assert.ok(group(b));
   query('.st-sable-hidden-toggle').click(); assert.deepEqual(members(), ['world', 'threads']);
   assert.equal(group().dataset.mode, 'off'); assert.equal(query('.st-sable-cards').lastElementChild, group(b));
@@ -125,7 +125,7 @@ test('suggested folders create localized presets, preserve order, replace in one
   const { settingsUi, runtime } = setup(t, { folders: [] });
   const button = settingsUi.element.querySelector('[data-control="suggested-folders"]'), order = runtime.snapshot().settings.order;
   button.click(); assert.deepEqual(runtime.snapshot().settings.folders.map(f => f.title), ['Мир', 'Люди', 'Сюжет']);
-  assert.deepEqual(runtime.snapshot().settings.folders.map(f => f.members), [['world', 'offscreen', 'threads'], ['npcs', 'thoughts', 'bonds', 'dossiers'], ['story', 'planner', 'banlist']]);
+  assert.deepEqual(runtime.snapshot().settings.folders.map(f => f.members), [['world', 'offscreen', 'threads'], ['npcs', 'thoughts', 'bonds', 'dossiers'], ['story', 'secrets', 'planner', 'banlist']]);
   assert.deepEqual(runtime.snapshot().settings.order, order);
   const pill = settingsUi.element.querySelector('.st-sable-undo');
   assert.equal(pill.hidden, false); assert.equal(pill.textContent, 'Карточки разложены по группамВернуть');

@@ -182,7 +182,7 @@ test('settings render all fields with safe profile names and only cc profiles en
     ['Connection', 'Context', 'Sections', 'Bond scales', 'Custom blocks', 'Appearance', 'Actions', 'Packs', 'Danger zone']);
   assert.ok(ui.element.classList.contains('st-sable-settings'));
   assert.deepEqual([...query('[data-group="sections"]').querySelectorAll('[data-section]')].map(row => row.dataset.section),
-    ['world', 'offscreen', 'threads', 'story', 'npcs', 'thoughts', 'bonds', 'dossiers', 'planner', 'banlist']);
+    ['world', 'offscreen', 'threads', 'story', 'secrets', 'npcs', 'thoughts', 'bonds', 'dossiers', 'planner', 'banlist']);
   assert.equal(query('[data-section="world"] .st-sable-settings-section-name').textContent, 'World State');
   assert.ok(query('[data-section="world"] .st-sable-settings-glyph > i.fa-solid.fa-globe'));
   assert.equal(query('[data-group="context"] .st-sable-settings-grid').querySelectorAll('input[type="number"]').length, 6);
@@ -430,7 +430,7 @@ test('Sections table moves built-ins and custom blocks, edits effective modes an
   move('world', 'moveDown').click();
   assert.deepEqual(ids().slice(0, 3), ['offscreen', 'world', 'threads']);
   assert.deepEqual(calls.patches.at(-1), { order: ids() });
-  assert.deepEqual([...drawer.element.querySelectorAll('[data-section]')].map(el => el.dataset.section), ids());
+  assert.deepEqual([...drawer.element.querySelectorAll('[data-section]')].map(el => el.dataset.section), ids().filter(id => runtime.snapshot().modes[id] !== 'off'));
   move('world', 'moveUp').click();
   const id = 'c_0123abcd', title = '<img src=x onerror=alert(1)>';
   runtime.updateSettings({ customSections: [{ id, title, shape: 'text', mode: 'show', period: 3 }], order: ['unknown', 'world', id, 'world'] });
@@ -494,8 +494,8 @@ test('card colour rows follow sections, write colours, reset and refresh custom 
   change('[name="accent"]', '#112233'); assert.equal(query(selector).value, '#112233');
   button('Add block').click();
   assert.deepEqual(rows().map(row => row.dataset.cardColor), runtime.snapshot().settings.order);
-  assert.equal(rows().length, 12);
-  runtime.updateSettings({ customSections: [] }); assert.equal(rows().length, 10);
+  assert.equal(rows().length, 13);
+  runtime.updateSettings({ customSections: [] }); assert.equal(rows().length, 11);
 });
 
 test('injection role select sits after depth, lists the three roles and writes through runtime.updateSettings', t => {

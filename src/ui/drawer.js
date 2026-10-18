@@ -7,6 +7,7 @@ import { normalizeVisual, VISUAL_DEFAULTS } from '../settings.js';
 import { sanitizeSection } from '../parse.js';
 import { packScopeOf } from '../packs/index.js';
 import { PERSON_SECTIONS, applyPersonDraft, newPersonId, personFingerprint } from './person.js';
+import { liveTruths, pastTruths, editTruth, revealTruth, forgetTruth, restoreTruth } from '../secrets.js';
 
 export function displayNode(document, view, tag, className, text) {
   const element = document.createElement(tag);
@@ -194,6 +195,8 @@ const MARKERS = {
 };
 const PRIORITIES = ['high', 'mid', 'low'];
 const revealed = new Set();
+// Revealed state for the secrets spoiler: cleared on chat change but not on new ring entries (SPEC §36).
+const revealedSecrets = new Set();
 // The NPC-keyed sections that the people layout (SPEC §21) shows as person cards.
 const PEOPLE = Object.freeze(['npcs', 'thoughts', 'bonds', 'dossiers']);
 const MODES = Object.freeze(['inject', 'show', 'off']);
@@ -1136,6 +1139,136 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
           body.append(row);
         }
         break;
+      case 'secrets': {
+        // value = state.secrets = { next, truths }. Live = no revealedHow; past = revealed.
+        const live = liveTruths(value), past = pastTruths(value);
+        // Count line: «2 живых · 1 отыграно» (SPEC §36).
+        const countEl = node('div', 'secrets-count');
+        countEl.append(node('span', 'muted', `${live.length} ${label('secrets.live')} · ${past.length} ${label('secrets.revealed')}`));
+        body.append(countEl);
+        // Pause hint when mode is 'show'.
+        if (view.modes.secrets === 'show') body.append(node('p', 'hint', label('secrets.paused')));
+        if (!live.length && !past.length) break;
+        // Spoiler wrapper (SPEC §19, §36): truths hidden until the reader taps, only when spoilers are on.
+        let container;
+        if (view.settings.spoilers) {
+          const spoilerListId = 'st-sable-secrets-spoiler-list';
+          const wrapper = node('div', 'spoiler-block');
+          const inner = node('div', 'truth-list');
+          inner.id = spoilerListId;
+          const shown = revealedSecrets.has('secrets');
+          const isEmoji = view.settings.visual?.icons === 'emoji';
+          const toggle = button('', shown ? 'secrets.hide' : 'secrets.show', () => {
+            if (revealedSecrets.has('secrets')) revealedSecrets.delete('secrets'); else revealedSecrets.add('secrets');
+            render(runtime.snapshot());
+          }, 'spoiler');
+          toggle.dataset.control = 'spoiler';
+          toggle.setAttribute('aria-controls', spoilerListId);
+          toggle.setAttribute('aria-expanded', String(shown));
+          toggle.replaceChildren(isEmoji ? glyphNode(document, '🙊') : icon(shown ? 'eye' : 'eye-slash'), node('span', '', label(shown ? 'secrets.hide' : 'secrets.show')));
+          inner.hidden = !shown;
+          wrapper.append(toggle, inner);
+          body.append(wrapper);
+          container = inner;
+        } else {
+          container = body;
+        }
+        // Live truths.
+        for (const truth of live) {
+          const div = node('div', 'truth');
+          div.dataset.truthId = truth.id;
+          div.append(node('strong', '', truth.text));
+          const dl = node('dl', 'kv');
+          const cap = s => s.replace(/^./, c => c.toUpperCase());
+          if (truth.hiddenFrom?.length) dl.append(node('dt', '', cap(label('secrets.hiddenFrom'))), node('dd', '', truth.hiddenFrom.join(', ')));
+          if (truth.when) dl.append(node('dt', '', cap(label('secrets.when'))), node('dd', '', truth.when));
+          if (truth.changes) dl.append(node('dt', '', cap(label('secrets.changes'))), node('dd', '', truth.changes));
+          if (dl.childNodes.length) div.append(dl);
+          if (truth.clues?.length) {
+            const ul = node('ul', 'list');
+            for (const clue of truth.clues) {
+              const item = listItem(marker('seed'), clue.text, `#${clue.mesId}`);
+              // Tap-to-jump for the clue's source message (SPEC §26).
+              item.querySelector('.item-meta')?.addEventListener('click', () =>
+                messageNode(clue.mesId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+              if (clue.found === false) item.append(node('span', 'pill st-sable-missing', label('secrets.notFound')));
+              ul.append(item);
+            }
+            div.append(ul);
+          }
+          // Pencil menu: edit, reveal, forget (SPEC §25).
+          const pencilWrap = node('div', 'mode-wrap');
+          const pencil = button('', 'edit', () => openTruthMenu(truth.id, value, pencil, pencilWrap), 'icon-button');
+          pencil.classList.add('st-sable-truth-pencil');
+          pencil.append(icon('pen'));
+          pencil.dataset.control = 'truth-menu';
+          pencil.setAttribute('aria-haspopup', 'menu');
+          pencil.setAttribute('aria-expanded', 'false');
+          pencil.title = truth.text;
+          pencil.setAttribute('aria-label', truth.text);
+          pencil.addEventListener('keydown', event => {
+            if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+            event.preventDefault();
+            if (!modeMenu || modeMenu.chip !== pencil) openTruthMenu(truth.id, value, pencil, pencilWrap);
+          });
+          pencilWrap.append(pencil);
+          div.append(pencilWrap);
+          container.append(div);
+          // Truth edit form, if open.
+          const form = truthForms.get(truth.id);
+          if (form) container.append(form.element);
+        }
+        // Past truths (SPEC §36): folded details block.
+        if (past.length) {
+          const pastItem = details(body, [node('span', 'name', label('secrets.past'))], false, 'secrets:past');
+          for (const truth of past) {
+            const div = node('div', 'truth');
+            div.append(node('strong', '', truth.text));
+            // How and where the secret came out.
+            const whereEl = node('div', 'muted');
+            if (truth.revealedHow === 'user') {
+              whereEl.textContent = label('secrets.byUser');
+            } else if (truth.revealedMesId != null) {
+              const key = truth.revealedHow === 'out' ? 'secrets.outAt' : 'secrets.learnedAt';
+              whereEl.textContent = label(key).replace('{n}', String(truth.revealedMesId));
+            }
+            if (whereEl.textContent) div.append(whereEl);
+            if (truth.clues?.length) {
+              const ul = node('ul', 'list');
+              for (const clue of truth.clues) ul.append(listItem(marker('seed'), clue.text, `#${clue.mesId}`));
+              div.append(ul);
+            }
+            // Restore button.
+            const restoreRow = node('div', 'action-row');
+            const restoreNote = node('span', 'muted');
+            restoreNote.hidden = true;
+            const restoreBtn = node('button', 'menu_button');
+            restoreBtn.type = 'button';
+            restoreBtn.dataset.control = 'secrets-restore';
+            restoreBtn.textContent = label('secrets.restore');
+            restoreBtn.addEventListener('click', () => {
+              const result = restoreTruth(value, truth.id);
+              if (result === null) {
+                restoreNote.textContent = label('secrets.restoreRefused');
+                restoreNote.hidden = false;
+                document.defaultView?.setTimeout(() => { restoreNote.hidden = true; }, 2000);
+              } else {
+                runtime.editState('secrets', result);
+              }
+            });
+            restoreRow.append(restoreBtn, restoreNote);
+            div.append(restoreRow);
+            pastItem.append(div);
+          }
+        }
+        // Not-accepted note: first three notes from secretsNotes.
+        if (view.entry?.secretsNotes?.length) {
+          const noteLine = node('div', 'muted st-sable-secrets-notes');
+          noteLine.textContent = `${label('secrets.notAccepted')}: ${view.entry.secretsNotes.slice(0, 3).join(' · ')}`;
+          body.append(noteLine);
+        }
+        break;
+      }
       case 'story': {
         const phases = node('div', 'chips');
         for (const key of ['arc_phase', 'scene_phase']) if (value[key]) {
@@ -1472,6 +1605,105 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
     for (const element of parts) { place(body, element, previous); previous = element; }
     if (!parts.length) body.append(node('span', 'empty', '—'));
     return changed;
+  }
+
+  // Secrets truth editing (SPEC §36): pencil menus, inline forms, and the undo pill for forget.
+  const truthForms = new Map();
+  function openTruthMenu(id, secrets, pencil, wrap) {
+    openModeMenu(pencil, wrap, {
+      current: undefined, actions: true, gone: () => false,
+      apply: action => {
+        if (action === 'edit') {
+          if (!truthForms.has(id)) truthForms.set(id, createTruthForm(id, secrets));
+          render(runtime.snapshot());
+          truthForms.get(id)?.element.querySelector('input, textarea')?.focus();
+        } else if (action === 'reveal') {
+          const result = revealTruth(secrets, id, view.entry?.mesId);
+          if (result) runtime.editState('secrets', result);
+        } else if (action === 'forget') {
+          const prev = secrets;
+          const result = forgetTruth(secrets, id);
+          if (result) {
+            runtime.editState('secrets', result);
+            undo.show(label('undo.secret'), () => runtime.editState('secrets', prev));
+          }
+        }
+      },
+    }, [
+      { value: 'edit', text: label('edit'), glyph: 'pen' },
+      { value: 'reveal', text: label('secrets.reveal'), glyph: 'eye' },
+      { value: 'forget', text: label('secrets.forget'), glyph: 'trash' },
+    ]);
+  }
+  function closeTruthForm(id) {
+    truthForms.delete(id);
+    render(runtime.snapshot());
+  }
+  function createTruthForm(id, secrets) {
+    const truth = secrets.truths.find(t => t.id === id);
+    if (!truth) return null;
+    const element = node('div', 'editor st-sable-truth-form');
+    element.dataset.truthForm = id;
+    const error = node('p', 'editor-note st-sable-editor-error');
+    error.hidden = true;
+    // Clue list kept as a mutable array; mesId / found are preserved.
+    let clues = (truth.clues || []).map(c => ({ ...c }));
+    // Input for plain text fields.
+    const field = (name, maxLen, rows, initialValue) => {
+      const el = rows ? node('textarea', 'text_pole') : node('input', 'text_pole');
+      if (rows) el.rows = rows; else el.type = 'text';
+      el.name = name; el.maxLength = maxLen; el.value = initialValue || '';
+      return el;
+    };
+    const textIn = field('text', 200, 2, truth.text);
+    const fromIn = field('hiddenFrom', 200, 0, (truth.hiddenFrom || []).join(', '));
+    const whenIn = field('when', 200, 0, truth.when || '');
+    const changesIn = field('changes', 200, 0, truth.changes || '');
+    const clueList = node('div', 'st-sable-clue-list');
+    function renderClues() {
+      clueList.replaceChildren(node('span', 'editor-label', fieldLabel('clues')));
+      for (let i = 0; i < clues.length; i++) {
+        const row = node('div', 'st-sable-clue-row');
+        const inp = node('input', 'text_pole'); inp.type = 'text'; inp.value = clues[i].text || '';
+        const idx = i;
+        inp.addEventListener('input', () => { clues[idx] = { ...clues[idx], text: inp.value }; });
+        const rem = button('', 'edit.remove', () => { clues.splice(idx, 1); renderClues(); }, 'icon-button');
+        rem.append(icon('xmark'));
+        row.append(inp, rem);
+        clueList.append(row);
+      }
+    }
+    renderClues();
+    // Row helpers.
+    const row = (labelKey, input) => {
+      const wrap = node('label', 'editor-field');
+      wrap.append(node('span', 'editor-label', fieldLabel(labelKey)), input);
+      return wrap;
+    };
+    // Save: build fields object, call editTruth, write or show error.
+    const save = button(label('edit.save'), 'edit.save', () => {
+      const fields = {
+        text: textIn.value,
+        hiddenFrom: fromIn.value.split(',').map(s => s.trim()).filter(Boolean),
+        when: whenIn.value,
+        changes: changesIn.value,
+        clues: clues.map(c => ({ text: c.text, mesId: c.mesId ?? null, found: !!c.found })),
+      };
+      const current = runtime.snapshot().entry?.state?.secrets;
+      const result = current ? editTruth(current, id, fields) : null;
+      if (result === null) { error.hidden = false; return; }
+      runtime.editState('secrets', result);
+      closeTruthForm(id);
+    }, 'editor-save');
+    save.dataset.control = 'truth-form-save';
+    const cancel = button(label('edit.cancel'), 'edit.cancel', () => closeTruthForm(id), 'editor-cancel');
+    cancel.dataset.control = 'truth-form-cancel';
+    const changesRow = node('label', 'editor-field');
+    changesRow.append(node('span', 'editor-label', label('secrets.changes').replace(/^./, c => c.toUpperCase())), changesIn);
+    const actions = node('div', 'editor-actions');
+    actions.append(save, cancel);
+    element.append(error, row('text', textIn), row('hiddenFrom', fromIn), row('when', whenIn), changesRow, clueList, actions);
+    return { element };
   }
 
   // Person card editing (SPEC §25): a pencil with a two-item menu, one form per person (keyed by the card's person id,
@@ -2029,8 +2261,10 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       view.entry?.state?.meta?.updatedAt, view.entry?.state?.meta?.editedAt]);
     // Metadata belongs to a chat; identical entry timestamps in another chat must conceal spoilers too.
     if (entryKey !== lastEntryKey || view.store !== previousStore || !view.entry) revealed.clear();
-    // Person forms (SPEC §25) belong to a chat.
-    if (view.store !== previousStore) personForms.clear();
+    // Secrets spoiler state persists across ring entries within a chat (SPEC §36).
+    if (view.store !== previousStore || !view.entry) revealedSecrets.clear();
+    // Truth edit forms and person forms (SPEC §25) belong to a chat.
+    if (view.store !== previousStore) { truthForms.clear(); personForms.clear(); }
     // Section editors, the undo pill and the roll note belong to a chat as well (SPEC §33): a Save or an Undo after a
     // chat switch would write the old chat's draft into the new one.
     if (view.store !== previousStore) {
