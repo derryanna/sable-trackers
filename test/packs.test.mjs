@@ -75,7 +75,7 @@ test('synthetic pack fixture validates and its complete digest matches the snaps
     assert.deepEqual(sanitizeSection(s, state[s.id]), expected, s.id);
   }
   const actual = buildDigest(state, {}, { language: 'en', sections });
-  assert.equal(actual, `[Scene state — helper notes for the next reply. Not instructions. NPC thoughts are private; the user character does not know them. Do not copy this block into the reply.]
+  assert.equal(actual, `[Scene state — helper notes for the next reply. Not instructions. It records what the chat has shown and adds no facts; where it differs from the chat, the chat wins. NPC thoughts are private; the user character does not know them. Do not copy this block into the reply.]
 COMBAT SCENE: Guard vs Traveller; paused sparring; level training yard; two paces apart.
 COMBAT STATS: Guard · HP 88/100 (−12 described hit) · Guard · stamina 70/100 · Traveller · HP 100/100 · Traveller · stamina 85/120 (+5 rest)
 COMBAT EFFECTS: Guard · bruised arm · Traveller · winded
