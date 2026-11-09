@@ -52,7 +52,10 @@ export function buildPrompt(options = {}) {
       : choice === 'others' ? `Track every participant except the user's character, ${name}; never record or imply the user's own state, feelings or responses.`
         : 'Track every participant present in the scene.';
   });
-  const instructions = due.map(id => `${id.toUpperCase()}: ${scope(sectionMap[id].custom ? sectionMap[id].instructions : texts.sections[id], sectionMap[id].pack)}`).join('\n');
+  // «Мысли персоны» (SPEC §37): one more thought, for the user's own character, under the fixed id `user`.
+  const personaLine = id => (id === 'thoughts' && settings.personaThoughts
+    ? ` Also write one such thought for the user's own character, ${options.name1 ?? options.userName ?? 'User'}, with id "user" and name "${options.name1 ?? options.userName ?? 'User'}", grounded only in what the user wrote or showed; never add anything the user did not write.` : '');
+  const instructions = due.map(id => `${id.toUpperCase()}: ${scope(sectionMap[id].custom ? sectionMap[id].instructions : texts.sections[id], sectionMap[id].pack)}${personaLine(id)}`).join('\n');
   const rules = (options.packs ?? []).filter((p, i, packs) => packs.findIndex(other => other.id === p.id) === i && due.some(id => sectionMap[id].pack === p.id))
     .map(p => scope(p.builtin ? texts.packs[p.id] : p.rules, p.id));
   const system = `${[texts.rules, ...rules].join('\n\n')}\nWrite all string values in ${settings.language ?? 'Russian'}; keep JSON keys and enum values in English.\nOutput exactly one <sable_state>{JSON}</sable_state>, without Markdown or text outside it. The JSON must have exactly these top-level keys: ${due.join(', ')}.\n${instructions}\nOUTPUT SCHEMA:\n${JSON.stringify(requested)}`;

@@ -252,6 +252,7 @@ export function createSettings(runtime, { document = globalThis.document,
   }
   sectionsGroup.append(table, text('p', 'st-sable-settings-hint', 'periodHint'));
   checkbox(sectionsGroup, 'spoilers');
+  checkbox(sectionsGroup, 'personaThoughts');
 
   // One tap (SPEC §24): the previous folders and order go to an undo pill under the button (the drawer's pill is out of
   // sight while the settings are open).

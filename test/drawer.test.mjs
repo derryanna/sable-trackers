@@ -312,6 +312,7 @@ test('cards read at a glance: icons, mode accents, priority dots, bars with delt
   assert.equal(deltas[1].querySelector('.st-sable-reason').textContent, 'the fire is warm');
   assert.equal(deltas[0].open, false, 'reason on tap');
   assert.equal(card('thoughts').querySelector('.st-sable-quote').textContent, '«If I tell them about Tomas, the whole village turns on him. Not yet.»');
+  assert.equal(card('thoughts').querySelectorAll('.st-sable-thought').length, 1, 'a persona thought stays hidden while the setting is off');
   assert.equal(card('planner').querySelectorAll('ol.st-sable-beats > li').length, 1);
   assert.equal(card('planner').querySelector('.st-sable-why').textContent, 'pays off the rope thread');
   assert.equal(card('planner').querySelector('.st-sable-note .st-sable-key').textContent, 'не забыть');
@@ -831,4 +832,19 @@ test('NPC editor gets a localized truth input and saves it through the schema', 
     card('npcs').querySelector('.st-sable-editor-save').click();
     assert.equal(runtime.snapshot().entry.state.npcs[0].truth, input.value);
   }
+});
+
+test('persona thought (SPEC §37): shown under the user\'s name only with the setting on, by id «user» or by the persona\'s name', t => {
+  const state = structuredClone(fixture);
+  state.thoughts.push({ id: 'user', name: 'Player', thought: 'I should not have come back here.' });
+  const { card, runtime } = setup(t, state);
+  assert.equal(card('thoughts').querySelectorAll('.st-sable-thought').length, 1);
+  runtime.updateSettings({ personaThoughts: true });
+  const items = [...card('thoughts').querySelectorAll('.st-sable-thought')];
+  assert.deepEqual(items.map(item => item.querySelector('.st-sable-speaker').textContent), ['Maren', 'Player']);
+  assert.equal(items[1].querySelector('.st-sable-quote').textContent, '«I should not have come back here.»');
+  // A hand-added thought filed under the persona's name (ids derive from the name) counts too.
+  state.thoughts[1] = { id: 'player', name: 'player', thought: 'Hand-written.' };
+  runtime.editState('thoughts', state.thoughts);
+  assert.equal(card('thoughts').querySelectorAll('.st-sable-thought').length, 2);
 });

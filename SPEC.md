@@ -53,7 +53,7 @@ model), `render(state)` for the drawer, and `digest(state)` for injection.
 | `story` | 🌱 seeds `{text, planted_turn}` (planted, not yet paid off, max 6); ⏳ timers `{text, due}` (in-world deadlines, max 4); `arc_phase`, `scene_phase` (short labels) | inject | 1 |
 | `secrets` | the author's notebook (§36): up to 3 live hidden truths `{id, text, hiddenFrom, when, changes, clues}` plus revealed ones; written by the story model in a tail block, never requested from the side model (`source: 'main'`) | off | — |
 | `npcs` | per NPC: `id, name, present, outfit, position, mood, agenda, action, wants_toward, secret, truth` | inject | 1 |
-| `thoughts` | per present NPC: private first-person thought, ≤30 words (≈ "NPC Inner Chatter") | show | 1 |
+| `thoughts` | per present NPC: private first-person thought, ≤30 words (≈ "NPC Inner Chatter"); with «Мысли персоны» on (§37) one more for the user's own character under the fixed id `user` | show | 1 |
 | `bonds` | per NPC: `toward` + scales 0–100 or null: affection, trust, desire, love, reputation, suspicion, respect, fear, grudge, tension; plus `changes` (only changed scales: `{delta, reason}`); built-ins can be switched off and custom scales added in the «Шкалы отношений» / "Bond scales" settings group (§20) | inject | 1 |
 | `dossiers` | one dossier per NEW named NPC: `{name, role, look, voice, hook}`, each ≤1 sentence; written once when the NPC first appears, never rewritten | show | 0 (only when a new NPC appears) |
 | `planner` | 2–3 possible next beats `{beat, why}` and one "don't forget" line | show | 5 |
@@ -835,7 +835,7 @@ or the digest.
   mode is not `off`:
   1. the npcs fields (`agenda` first, then outfit, position, action,
      wants_toward) and the «Тайна» spoiler (§19);
-  2. the thought as a blockquote (present NPCs only, as today);
+  2. the thought as a blockquote (present NPCs only, as today; plus the user's own card, §37);
   3. the bond rows (`toward` line, then the active scales as keyed
      `scaleRow`s with keys `person:<id>:<scale>` so bars slide and flash as
      in §16);
@@ -1760,3 +1760,47 @@ spoilers off, the counts. Settings: the regex installed once, the flag, not
 re-added, the button. i18n: every new key in ru and en.
 `fixtures/state-full.json` gets a `secrets` section (synthetic, the
 lighthouse story).
+
+## 37. «Мысли персоны» / "Persona thoughts": the user's own character in `thoughts`
+
+**Why.** Some players let the models write for their own character and
+want its thought tracked next to the NPCs'. The side model writes
+`thoughts` for present NPCs only and the user's character is not an NPC,
+so a thought a player added by hand was saved but never shown (both
+layouts render a thought only for a present NPC with the same id) and was
+dropped by the next full snapshot. One opt-in setting fixes both ends.
+
+**Setting.** `settings.personaThoughts`, boolean, default `false`,
+normalised like `spoilers`. One checkbox under the Sections table, after
+the spoiler checkbox: «Мысли персоны тоже (вспомогательная модель пишет,
+карточка показывает)» / "The user's character's thoughts too (the side
+model writes one, the drawer shows it)". Off, nothing changes for anyone.
+
+**Prompt** (`buildPrompt`). With the setting on, the THOUGHTS instruction
+gets one more sentence: write one such thought for the user's own
+character, `<name1>`, with id `user` and name `<name1>`, grounded only in
+what the user wrote or showed, never adding anything the user did not
+write. The schema is unchanged (`thoughts[]` already allows any id);
+the section's editable text in the prompt editor stays the NPC rule, the
+sentence is appended at build time so the setting and the override do not
+fight.
+
+**What counts as the persona's thought** (`personaThought` in the
+drawer): the setting is on and the entry has id `user`, or its name equals
+`name1` case-insensitively (a hand-added row derives its id from the name,
+so that is how a player's own edit arrives).
+
+**Drawer.** Topics layout: the Thoughts card shows the persona's thought
+with `name1` as the speaker, after the NPC thoughts. People layout: one
+extra person card `user` first in the group, class `st-sable-persona`,
+no presence dot, open by default, holding only the thought; its edit form
+has no «+ Character» (the user's character is not an NPC). `thoughts` off
+hides it like any other thought.
+
+**Digest.** Unchanged: `thoughts` already lists every stored thought by
+name, so the persona's goes to the story model under the same header.
+
+**Tests.** core: the sentence appears only with the setting on and names
+the user; drawer: hidden off, shown on, by id and by name; people-ui: the
+persona card (first, thought only, no character part, follows the mode);
+ui-settings: default, localisation, patch; i18n: ru and en.

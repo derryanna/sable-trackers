@@ -1,6 +1,14 @@
 # Changelog
 
-## 0.5.2 — 9 November 2026
+## 0.6.0 — 9 November 2026
+
+### Мысли персоны
+
+**Новая галочка «Мысли персоны тоже»** в настройках секций, по умолчанию выключена. Карточка «Мысли» вела только NPC: ваш персонаж не NPC, поэтому вспомогательная модель мысль за него не писала, а мысль, добавленная вручную, сохранялась, но не показывалась и стиралась следующим ходом. С галочкой модель пишет одну мысль и за вашего персонажа (только из того, что вы сами написали, ничего сверх), карточка «Мысли» показывает её под вашим именем, а в раскладке «по персонажам» появляется ваша карточка с этой мыслью. Без галочки всё как раньше.
+
+### Persona thoughts
+
+**A new checkbox, «The user's character's thoughts too»**, in the sections settings, off by default. The Thoughts card tracked NPCs only: your own character is not an NPC, so the side model wrote no thought for them, and a thought you added by hand was saved but never shown and was dropped by the next turn. With the checkbox on, the side model writes one thought for your character as well (only from what you wrote, nothing beyond), the Thoughts card shows it under your name, and the People layout gets a card for you with that thought. Off, nothing changes.
 
 ### Окно промптов: «Тайны сюжета» без «null»
 

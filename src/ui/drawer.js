@@ -223,6 +223,10 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   const enabled = () => view.packs?.enabled ?? [];
   // People layout (SPEC §21): the four NPC-keyed sections read as one block, consumed from any folder that lists them.
   const peopleOn = () => view.settings.layout === 'people';
+  // «Мысли персоны» (SPEC §37): with the setting on, the thought under the fixed id `user`, or one a hand edit filed
+  // under the persona's name, belongs to the user's own character; off, such a thought stays out of sight as before.
+  const personaThought = thought => !!view.settings.personaThoughts && !!thought && (thought.id === 'user'
+    || (!!view.name1 && String(thought.name ?? '').trim().toLowerCase() === String(view.name1).trim().toLowerCase()));
   const folderMembers = folder => (peopleOn() ? folder.members.filter(id => !PEOPLE.includes(id)) : folder.members);
   const drawerFolders = () => (peopleOn() ? [{ id: 'people', members: PEOPLE },
     ...(view.settings.folders ?? []).map(folder => ({ ...folder, members: folderMembers(folder) }))] : view.settings.folders);
@@ -1301,9 +1305,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         }
         break;
       case 'thoughts':
-        for (const thought of value) if (state.npcs?.some(npc => npc.id === thought.id && npc.present)) {
+        for (const thought of value) if (state.npcs?.some(npc => npc.id === thought.id && npc.present) || personaThought(thought)) {
           const item = node('div', 'thought');
-          item.append(node('div', 'speaker', thought.name || thought.id), node('blockquote', 'quote', quote(thought.thought)));
+          item.append(node('div', 'speaker', personaThought(thought) ? view.name1 || thought.name || thought.id : thought.name || thought.id), node('blockquote', 'quote', quote(thought.thought)));
           body.append(item);
         }
         break;
@@ -1515,6 +1519,9 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   function people(state) {
     const list = key => (Array.isArray(state[key]) ? state[key] : []), lower = text => String(text ?? '').trim().toLowerCase();
     const dossiers = [...list('dossiers')], bonds = list('bonds'), result = [], seen = new Set();
+    // «Мысли персоны» (SPEC §37): the user's own card comes first and holds only the thought.
+    const mine = list('thoughts').find(personaThought);
+    if (mine?.thought) { seen.add('user'); result.push({ id: 'user', name: view.name1 || mine.name || 'user', persona: true, thought: mine, bonds: [] }); }
     for (const npc of [...list('npcs')].sort((a, b) => Number(!!b.present) - Number(!!a.present))) {
       if (!npc?.id || seen.has(npc.id)) continue;
       seen.add(npc.id);
@@ -1541,9 +1548,10 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   /** Header and footer follow the view; the body keeps its bond part, so bars slide. Returns whether a bond value changed. */
   function updatePersonCard(card, person) {
     const { npc } = person, key = `person:${person.id}`, on = id => view.modes[id] !== 'off';
-    const folded = view.settings.folded[key] ?? !npc?.present;
+    const folded = view.settings.folded[key] ?? !(npc?.present || person.persona);
     applyCardColor(card, view.settings.visual?.cardColors?.npcs);
     card.classList.toggle('st-sable-present', !!npc?.present);
+    card.classList.toggle('st-sable-persona', !!person.persona);
     const [, body, footer] = card.children;
     const heading = node('div', 'card-header'); heading.classList.add('st-sable-person-header');
     const title = node('h3', 'card-title');
@@ -1585,7 +1593,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       if (view.settings.spoilers && (npc.secret || npc.truth)) spoiler(element, npc);
       if (element.childNodes.length) parts.push(element);
     }
-    if (npc?.present && person.thought?.thought && on('thoughts')) {
+    if ((npc?.present || person.persona) && person.thought?.thought && on('thoughts')) {
       const element = part('thoughts'), thought = node('div', 'thought');
       thought.append(node('blockquote', 'quote', quote(person.thought.thought))); element.append(thought); parts.push(element);
     }
@@ -1787,7 +1795,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
         const item = button(label(key), key, () => { action(); syncAdds(); item.blur(); }, 'editor-add');
         item.dataset.control = control; adds.append(item);
       };
-      if (!form.npc) add('person.addCharacter', 'person-add-npc', () => { form.npc = npcPart(slots.npc, { id: form.id, name: name(), present: false }); });
+      if (!form.npc && !form.person.persona) add('person.addCharacter', 'person-add-npc', () => { form.npc = npcPart(slots.npc, { id: form.id, name: name(), present: false }); });
       if (!form.dossier) add('person.addDossier', 'person-add-dossier', () => { form.dossier = dossierPart(slots.dossier, { name: name() }); });
       if (!form.bonds.length) add('person.addBond', 'person-add-bond', () => { form.bonds.push(bondPart(slots.bonds, { id: form.id, name: name(), toward: '{{user}}', stats: {} }, 0)); });
       if (!form.thought) add('person.addThought', 'person-add-thought', () => { form.thought = thoughtPart(slots.thought, { id: form.id, name: name(), thought: '' }); });

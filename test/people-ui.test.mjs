@@ -184,3 +184,21 @@ test('the People handle moves the whole block among top-level items', t => {
   assert.deepEqual(order.slice(0, 8), ['world', 'offscreen', 'threads', 'story', ...PEOPLE]);
   assert.equal(group().nextElementSibling.dataset.section, 'planner');
 });
+
+test('persona card (SPEC §37): first, only with the setting on, holds the thought alone and offers no character part', t => {
+  const state = people();
+  state.thoughts.push({ id: 'user', name: 'Player', thought: 'I should not have come back here.' });
+  const { person, persons, control, runtime } = setup(t, {}, state);
+  assert.equal(person('user'), undefined, 'hidden while the setting is off');
+  runtime.updateSettings({ personaThoughts: true });
+  assert.equal(persons()[0], 'user');
+  const card = person('user');
+  assert.equal(card.querySelector('.st-sable-card-label').textContent, 'Player');
+  assert.ok(card.classList.contains('st-sable-persona'));
+  assert.equal(card.querySelector('.st-sable-card-body').hidden, false, 'open like a present NPC');
+  assert.equal(card.querySelector('.st-sable-presence'), null);
+  assert.match(card.querySelector('[data-part="thoughts"] blockquote').textContent, /come back here/);
+  assert.equal(card.querySelector('[data-part="npcs"]'), null);
+  runtime.setMode('thoughts', 'off');
+  assert.equal(card.querySelector('[data-part="thoughts"]'), null);
+});

@@ -40,6 +40,12 @@ test('prompt overrides change only instructions and preserve the default format'
   const world = SECTIONS.find(s => s.id === 'world');
   assert.equal(buildPrompt({ settings: { prompts: { sections: { world: 'Track only location.' } } } }).messages[0].content,
     defaults.replace(`WORLD: ${world.instructions}`, 'WORLD: Track only location.'));
+  // «Мысли персоны» (SPEC §37): one extra sentence on the THOUGHTS line, with the user's name and the fixed id.
+  assert.ok(!defaults.includes('with id "user"'));
+  const withPersona = buildPrompt({ settings: { personaThoughts: true }, name1: 'Player' }).messages[0].content;
+  assert.ok(withPersona.includes('THOUGHTS: '));
+  assert.ok(withPersona.includes('for the user\'s own character, Player, with id "user" and name "Player"'));
+  assert.equal(withPersona.split('\n').find(line => line.startsWith('THOUGHTS: ')).includes('never add anything the user did not write.'), true);
 });
 
 test('registry contains the specified ordered sections and pure metadata', () => {
