@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.2 — 9 November 2026
+
+### Окно промптов: «Тайны сюжета» без «null»
+
+**Строка «Тайны сюжета» в редакторе промптов показывала слово `null`** и после «По умолчанию» тоже. У этого раздела нет инструкции для вспомогательной модели, правила получает основная модель, и редактор брал пустое значение вместо них. Теперь строка показывает те самые правила на выбранном языке; сам промпт и раньше уходил правильный.
+
+### Prompt editor: «Story secrets» without «null»
+
+**The «Story secrets» row of the prompt editor showed the word `null`**, and «Default» left it there. The section has no side-model instructions, the story model gets the rules, and the editor took the empty value instead of them. The row now shows those rules in the chosen language; the prompt itself was already correct.
+
 ## 0.5.1 — 22 October 2026
 
 ### Трекеры не сочиняют

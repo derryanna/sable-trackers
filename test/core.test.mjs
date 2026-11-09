@@ -7,6 +7,7 @@ import { buildPrompt, COMMON_RULES, getPromptTexts } from '../src/prompt.js';
 import { parseStateOutput, sanitizeSection } from '../src/parse.js';
 import { mergeState } from '../src/merge.js';
 import { buildDigest } from '../src/digest.js';
+import { t } from '../src/i18n.js';
 import { SECTION_ORDER, SECTIONS } from '../src/sections.js';
 
 const fixture = async name => JSON.parse(await readFile(new URL(`../fixtures/${name}`, import.meta.url), 'utf8'));
@@ -28,7 +29,10 @@ test('NPC truth is schema-backed, bounded and canon-grounded; hidden fields neve
 });
 
 test('prompt overrides change only instructions and preserve the default format', () => {
-  assert.deepEqual(getPromptTexts({}), { rules: COMMON_RULES, sections: Object.fromEntries(SECTIONS.map(s => [s.id, s.instructions])), packs: Object.fromEntries(BUILTIN_PACKS.map(p => [p.id, p.rules])) });
+  assert.deepEqual(getPromptTexts({}), { rules: COMMON_RULES, sections: Object.fromEntries(SECTIONS.map(s => [s.id, s.instructions ?? t('secretsRules', 'ru')])), packs: Object.fromEntries(BUILTIN_PACKS.map(p => [p.id, p.rules])) });
+  // The secrets row of the prompt editor shows the story-model rules in the chosen language, never "null".
+  assert.equal(getPromptTexts({ language: 'en' }).sections.secrets, t('secretsRules', 'en'));
+  assert.equal(getPromptTexts({ language: 'en', prompts: { sections: { secrets: 'Mine' } } }).sections.secrets, 'Mine');
   const defaults = buildPrompt().messages[0].content;
   assert.ok(defaults.startsWith(COMMON_RULES)); assert.ok(defaults.includes('OUTPUT SCHEMA'));
   assert.equal(buildPrompt({ settings: { prompts: { rules: 'Custom rules' } } }).messages[0].content,
