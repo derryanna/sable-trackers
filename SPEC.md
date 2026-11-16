@@ -1804,3 +1804,62 @@ name, so the persona's goes to the story model under the same header.
 the user; drawer: hidden off, shown on, by id and by name; people-ui: the
 persona card (first, thought only, no character part, follows the mode);
 ui-settings: default, localisation, patch; i18n: ru and en.
+
+## 38. «Другой ход» / "Another turn": one swipe that goes somewhere else
+
+**Why.** A plain swipe often returns the same scene in other words. The
+player wants a button that asks for a different development once, without
+a standing rule in the preset and without changing ordinary swipes.
+
+**Setting.** `settings.altTurn`, boolean, default `false`, normalised like
+`spoilers`. One checkbox in the Actions group of the settings, with a hint
+line and a «Что передали модели» / "What the model was given" button. The
+feature also needs the extension enabled; group chats are not supported.
+Off, nothing is added to the page or to any request.
+
+**Button.** A branch icon (`.st-sable-alt-button`) in the message buttons,
+shown by CSS only on the last message when it is a character reply. It is
+also put into `#message_template`, so new messages get it.
+
+**Run** (`createAltTurn` in `src/ui/altturn.js`).
+1. Guards: last message is a character reply, swiping is allowed, the side
+   profile is usable (§27), the reply has text after cleaning.
+2. Side model: `buildHelperMessages` sends only the current swipe's text
+   (`cleanReply`: service blocks such as `<details>`, `<think>`,
+   `<sable_secrets>` and all markup removed, capped at 12 000 characters)
+   and asks for a digest of at most 600 characters in the reply's
+   language. Same profile and reasoning payload as a tracker run, with the
+   §31 retry without reasoning parameters; `ALT_MAX_TOKENS` = 2048.
+3. `cleanDigest` strips tags and newlines and caps the digest at 900
+   characters. If the chat or its last message changed meanwhile, stop.
+4. `buildInjection` wraps the digest in `<alternate_turn>`: for this
+   continuation only, not canon, data and not instructions; diverge in
+   choices, development or endpoint, not the mechanical opposite; keep
+   motives and continuity; before writing, name in the reasoning what the
+   rejected reply did and choose another direction that fits the
+   character; never mention the comparison in the story.
+5. The insert is set with `setExtensionPrompt('sable_trackers_altturn')`,
+   in chat, depth 0, role system, then `swipe.to(null, 'right',
+   { forceSwipeId: <swipe count> })` generates the new swipe. The insert is
+   cleared in `finally`, on `CHAT_CHANGED` and at start-up, so it reaches
+   exactly one generation.
+6. Pressing the button while a run is in flight aborts it.
+
+**Mark.** The new swipe is remembered in the chat store as
+`altTurns[mesId][swipeId] = from` (1-based number of the source swipe).
+Nothing is written into the message or its `swipe_info`: SillyTavern
+copies a message's `extra` onto the next plain swipe, which would carry
+the mark along. The label «Другой ход · от ответа №N» (`.st-sable-alt-label`)
+is drawn under the name only while that swipe is shown. Marks of deleted
+messages are dropped on `MESSAGE_DELETED`; deleting a swipe renumbers the
+rest, so `MESSAGE_SWIPE_DELETED` drops that message's marks.
+
+**Not touched.** Tracker state, the digest injection, history, secrets
+and the side model's tracker prompt never see the insert or the digest.
+The last attempt (insert, digest length, source number) is kept in memory
+for the «Что передали модели» popup only and is gone on reload.
+
+**Tests.** `test/altturn.test.mjs`: cleaning of the reply and the digest,
+the helper messages, the insert text, marks set / read / pruned, and the
+UI run against a fake SillyTavern (insert set before the swipe and cleared
+after, mark stored, abort, guards, off state).

@@ -1005,3 +1005,12 @@
 .st-sable-drawer .st-sable-bond-toggle > .st-sable-fold { margin-left: auto; }
 .st-sable-drawer .st-sable-bond[data-folded="0"] > .st-sable-bond-toggle { margin-bottom: 4px; }
 .st-sable-drawer .st-sable-bond[data-folded="1"] + .st-sable-bond { margin-top: 4px; padding-top: 4px; }
+
+/* «Другой ход» (SPEC §38): the button lives only on the last character reply. */
+#chat .mes .st-sable-alt-button { display: none; }
+body.st-sable-alt-on #chat .mes.last_mes:not([is_user="true"]):not([is_system="true"]) .st-sable-alt-button { display: block; }
+/* Working: dimmed, no animation (nothing outside the drawer, the tab and the panel moves; SPEC §16). */
+body.st-sable-alt-busy #chat .mes.last_mes .st-sable-alt-button { opacity: 0.35; }
+.st-sable-alt-label { font-size: 0.75em; opacity: 0.65; margin: 2px 0 4px; }
+.st-sable-alt-popup { text-align: left; }
+.st-sable-alt-popup pre { white-space: pre-wrap; word-break: break-word; padding: 10px; border-radius: 8px; background: rgba(0, 0, 0, 0.3); font-size: 0.9em; }

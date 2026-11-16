@@ -440,7 +440,7 @@ Object.assign(STRINGS.en, {
   'group.scales.summary': 'built-in scales, custom scales, −100…+100',
   'group.custom.summary': 'your own cards and their instructions',
   'group.visual.summary': 'panel, cards, background, card colours, effects',
-  'group.actions.summary': 'run now, chat overrides, reply panel, floating button',
+  'group.actions.summary': 'run now, chat overrides, reply panel, floating button, another turn',
   'group.packs.summary': 'packs, defaults for new chats, import and export',
   'group.danger.summary': 'instructions, request preview, log',
   'menu.period': 'Every N replies', 'menu.periodDossiers': 'Dossiers check for new NPCs on every reply.',
@@ -455,7 +455,7 @@ Object.assign(STRINGS.ru, {
   'group.scales.summary': 'встроенные шкалы, свои шкалы, −100…+100',
   'group.custom.summary': 'свои карточки и их инструкции',
   'group.visual.summary': 'панель, карточки, фон, цвета карточек, эффекты',
-  'group.actions.summary': 'обновить, режимы чата, панель под ответом, кнопка',
+  'group.actions.summary': 'обновить, режимы чата, панель под ответом, кнопка, другой ход',
   'group.packs.summary': 'наборы, включение в новых чатах, импорт и экспорт',
   'group.danger.summary': 'инструкции, предпросмотр запроса, журнал',
   'menu.period': 'Раз в N ответов', 'menu.periodDossiers': 'Досье проверяют новых NPC каждый ответ.',
@@ -573,4 +573,29 @@ Object.assign(STRINGS.ru, {
   'secrets.regexAgain': 'Поставить правило снова',
   'secrets.regexExists': 'правило уже есть',
   'field.hiddenFrom': 'Скрыто от', 'field.when': 'Выйдет', 'field.clues': 'Подсказки',
+});
+
+// T38
+// «Другой ход» / "Another turn" (SPEC §38): the message button, the swipe label, the settings rows and the toasts.
+Object.assign(STRINGS.en, {
+  altTurn: '«Another turn» button on the last reply',
+  'hint.altTurn': 'The side model sums up the reply you are looking at, and the story model gets that digest for one new swipe with a request to take the scene somewhere else. Ordinary swipes do not change.',
+  'altTurn.title': 'Another turn', 'altTurn.button': 'Another turn: a new swipe that develops the scene differently',
+  'altTurn.label': 'Another turn · from reply #{n}',
+  'altTurn.sent': 'What the model was given', 'altTurn.sentNone': 'Nothing yet: no «Another turn» has run in this tab.',
+  'altTurn.sentNote': 'The last attempt in this tab, made from reply #{n}; digest of {chars} characters. Below is the exact one-time insert: not canon and not a standing instruction.',
+  'altTurn.notReply': 'The last message is not a character reply.', 'altTurn.busy': 'Swiping is not available right now: wait for the reply to finish.',
+  'altTurn.noText': 'There is no text in this reply to sum up.', 'altTurn.empty': 'The side model returned an empty digest.',
+  'altTurn.failed': 'Another turn failed',
+});
+Object.assign(STRINGS.ru, {
+  altTurn: 'Кнопка «Другой ход» на последнем ответе',
+  'hint.altTurn': 'Вспомогательная модель кратко пересказывает ответ, который сейчас на экране, а основная получает эту выжимку на один новый свайп с просьбой повести сцену иначе. Обычные свайпы не меняются.',
+  'altTurn.title': 'Другой ход', 'altTurn.button': 'Другой ход: новый свайп с другим развитием сцены',
+  'altTurn.label': 'Другой ход · от ответа №{n}',
+  'altTurn.sent': 'Что передали модели', 'altTurn.sentNone': 'Пока ничего: в этой вкладке «Другой ход» ещё не запускался.',
+  'altTurn.sentNote': 'Последняя попытка в этой вкладке, от ответа №{n}; выжимка: {chars} знаков. Ниже точная временная вставка: не канон и не постоянная инструкция.',
+  'altTurn.notReply': 'Последнее сообщение не ответ персонажа.', 'altTurn.busy': 'Сейчас свайп недоступен: дождитесь конца ответа.',
+  'altTurn.noText': 'В этом ответе нет текста для выжимки.', 'altTurn.empty': 'Вспомогательная модель вернула пустую выжимку.',
+  'altTurn.failed': 'Другой ход не получился',
 });
