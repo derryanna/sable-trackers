@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Другой ход
+
+**Новая кнопка «Другой ход» на последнем ответе**, по умолчанию выключена (настройки, группа действий). Обычный свайп часто возвращает ту же сцену другими словами. Кнопка просит вспомогательную модель кратко пересказать ответ, который сейчас на экране, и отдаёт эту выжимку основной модели на один новый свайп с просьбой повести сцену иначе: другие решения, другое развитие или другой финал, без случайных событий ради отличия. Обычные свайпы не меняются, в пресет ничего не добавляется, трекеры выжимку не видят. Новый вариант подписан «Другой ход · от ответа №N», а кнопка «Что передали модели» показывает точную вставку последней попытки. Повторное нажатие во время работы отменяет запрос. В групповых чатах кнопки нет.
+
+### Another turn
+
+**A new «Another turn» button on the last reply**, off by default (settings, actions group). A plain swipe often returns the same scene in other words. The button asks the side model for a short digest of the reply you are looking at and gives it to the story model for one new swipe, with a request to take the scene somewhere else: other choices, another development or another ending, with no random events just to be different. Ordinary swipes do not change, nothing is added to the preset, and the trackers never see the digest. The new swipe is labelled «Another turn · from reply #N», and «What the model was given» shows the exact insert of the last attempt. Pressing the button again while it works cancels the request. Group chats do not get the button.
+
 ## 0.6.0 — 9 November 2026
 
 ### Мысли персоны

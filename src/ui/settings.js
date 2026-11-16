@@ -44,7 +44,7 @@ export function newCustomId(taken = new Set(), random = globalThis.crypto, prefi
 
 /** Settings writes belong to the runtime, including per-chat mode overrides. */
 export function createSettings(runtime, { document = globalThis.document,
-  getContext = () => globalThis.SillyTavern.getContext(), encodeImage = encodeImageFile } = {}) {
+  getContext = () => globalThis.SillyTavern.getContext(), encodeImage = encodeImageFile, altTurnSent = null } = {}) {
   const host = document.querySelector('#extensions_settings2') ?? document.querySelector('#extensions_settings');
   if (!host) return null;
   let view = runtime.snapshot(), forced, openCustom, openPack, openBlock, openScale;
@@ -799,6 +799,13 @@ export function createSettings(runtime, { document = globalThis.document,
   for (const key of ['perChatOverrides', 'showPanel', 'showFloatingButton']) checkbox(actions, key);
   checkbox(actions, 'hideOff');
   controls.get('showPanel').parentElement.after(controls.get('hideOff').parentElement);
+  // «Другой ход» (SPEC §38): the switch, what it does, and the insert of the last attempt.
+  checkbox(actions, 'altTurn');
+  actions.append(text('p', 'st-sable-settings-hint', 'hint.altTurn'));
+  if (altTurnSent) {
+    const altButtons = node('div', 'st-sable-settings-buttons'); actions.append(altButtons);
+    button(altButtons, 'altTurn.sent', 'eye', () => { altTurnSent(); }).dataset.control = 'alt-turn-sent';
+  }
 
   // Packs (SPEC §15): the same list as the drawer sheet, "on in new chats" ticks, export/import and the user-pack editor.
   const packsGroup = group('packs', 'group.packs');
