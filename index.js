@@ -16,7 +16,7 @@ export function initialize() {
     if (globalThis.document?.body) {
       altTurn = createAltTurn(runtime);
       settings = createSettings(runtime, { altTurnSent: () => altTurn.showLast() });
-      drawer = createDrawer(runtime);
+      drawer = createDrawer(runtime, { altTurn });
       panel = createPanel(runtime, drawer);
     }
   }

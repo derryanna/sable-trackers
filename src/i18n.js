@@ -576,9 +576,9 @@ Object.assign(STRINGS.ru, {
 });
 
 // T38
-// «Другой ход» / "Another turn" (SPEC §38): the message button, the swipe label, the settings rows and the toasts.
+// «Другой ход» / "Another turn" (SPEC §38): the drawer button, the swipe label, the settings rows and the toasts.
 Object.assign(STRINGS.en, {
-  altTurn: '«Another turn» button on the last reply',
+  altTurn: '«Another turn» button in the trackers panel',
   'hint.altTurn': 'The side model sums up the reply you are looking at, and the story model gets that digest for one new swipe with a request to take the scene somewhere else. Ordinary swipes do not change.',
   'altTurn.title': 'Another turn', 'altTurn.button': 'Another turn: a new swipe that develops the scene differently',
   'altTurn.label': 'Another turn · from reply #{n}',
@@ -586,10 +586,10 @@ Object.assign(STRINGS.en, {
   'altTurn.sentNote': 'The last attempt in this tab, made from reply #{n}; digest of {chars} characters. Below is the exact one-time insert: not canon and not a standing instruction.',
   'altTurn.notReply': 'The last message is not a character reply.', 'altTurn.busy': 'Swiping is not available right now: wait for the reply to finish.',
   'altTurn.noText': 'There is no text in this reply to sum up.', 'altTurn.empty': 'The side model returned an empty digest.',
-  'altTurn.failed': 'Another turn failed',
+  'altTurn.failed': 'Another turn failed', 'altTurn.cancel': 'Cancel another turn',
 });
 Object.assign(STRINGS.ru, {
-  altTurn: 'Кнопка «Другой ход» на последнем ответе',
+  altTurn: 'Кнопка «Другой ход» в панели трекеров',
   'hint.altTurn': 'Вспомогательная модель кратко пересказывает ответ, который сейчас на экране, а основная получает эту выжимку на один новый свайп с просьбой повести сцену иначе. Обычные свайпы не меняются.',
   'altTurn.title': 'Другой ход', 'altTurn.button': 'Другой ход: новый свайп с другим развитием сцены',
   'altTurn.label': 'Другой ход · от ответа №{n}',
@@ -597,5 +597,5 @@ Object.assign(STRINGS.ru, {
   'altTurn.sentNote': 'Последняя попытка в этой вкладке, от ответа №{n}; выжимка: {chars} знаков. Ниже точная временная вставка: не канон и не постоянная инструкция.',
   'altTurn.notReply': 'Последнее сообщение не ответ персонажа.', 'altTurn.busy': 'Сейчас свайп недоступен: дождитесь конца ответа.',
   'altTurn.noText': 'В этом ответе нет текста для выжимки.', 'altTurn.empty': 'Вспомогательная модель вернула пустую выжимку.',
-  'altTurn.failed': 'Другой ход не получился',
+  'altTurn.failed': 'Другой ход не получился', 'altTurn.cancel': 'Отменить другой ход',
 });

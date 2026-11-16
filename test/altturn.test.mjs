@@ -5,6 +5,7 @@ import { JSDOM } from 'jsdom';
 import { ALT_MAX_TOKENS, ALT_PROMPT_KEY, MAX_DIGEST_CHARS, MAX_REPLY_CHARS, altTurnMark, buildHelperMessages, buildInjection,
   cleanDigest, cleanReply, markAltTurn, pruneAltTurns } from '../src/altturn.js';
 import { createAltTurn } from '../src/ui/altturn.js';
+import { createDrawer } from '../src/ui/drawer.js';
 import { createSettings } from '../src/ui/settings.js';
 import { createRuntime } from '../src/run.js';
 import { normalizeSettings } from '../src/settings.js';
@@ -64,7 +65,7 @@ test('the setting is off by default and only a boolean is kept; both languages h
   assert.equal(normalizeSettings({ altTurn: 'yes' }).altTurn, false);
   assert.equal(normalizeSettings({ altTurn: true }).altTurn, true);
   const keys = Object.keys(STRINGS.en).filter(key => key === 'altTurn' || key.startsWith('altTurn.') || key === 'hint.altTurn');
-  assert.equal(keys.length, 13);
+  assert.equal(keys.length, 14);
   for (const key of keys) assert.ok(STRINGS.ru[key], `ru has ${key}`);
 });
 
@@ -112,27 +113,65 @@ function setup(t, { on = true, language = 'en' } = {}) {
   const ui = createAltTurn(runtime, { document, getContext: fake.getContext });
   t.after(() => { ui.dispose(); runtime.dispose(); dom.window.close(); });
   const last = () => document.querySelector('#chat .mes.last_mes');
-  const press = () => last().querySelector('.st-sable-alt-button').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  // The drawer button calls exactly this.
+  const press = () => { void ui.run(); };
   const settle = async () => { for (let i = 0; i < 12; i++) await new Promise(resolve => setImmediate(resolve)); };
   const altPrompts = () => fake.calls.prompts.filter(args => args[0] === ALT_PROMPT_KEY);
   return { dom, document, fake, runtime, ui, swipes, popups, draw, last, press, settle, altPrompts,
     reply: () => fake.ctx.chat.at(-1), setGenerate(fn) { generate = fn; } };
 }
 
-test('off by default: no button; the setting adds it to the template and every message, and removes it again', t => {
-  const { document, runtime, last } = setup(t, { on: false });
-  assert.equal(document.querySelector('.st-sable-alt-button'), null);
-  assert.equal(document.body.classList.contains('st-sable-alt-on'), false);
+test('nothing is added to the message buttons; the phase goes digest → writing → idle and listeners hear it', async t => {
+  const { document, fake, ui, press, settle } = setup(t);
+  assert.equal(document.querySelector('.mes_buttons .st-sable-alt-button'), null);
+  assert.equal(document.querySelectorAll('#message_template .mes_buttons > *').length, 1);
+  const heard = [];
+  const stop = ui.subscribe(phase => heard.push(phase));
+  const pending = deferred();
+  fake.respond(() => pending.promise);
+  assert.equal(ui.phase(), 'idle');
+  press(); await settle();
+  assert.equal(ui.phase(), 'digest');
+  pending.resolve('The guide lets the visitor in.'); await settle();
+  assert.deepEqual(heard, ['digest', 'writing', 'idle']);
+  stop();
+  press(); await settle();
+  assert.equal(heard.length, 3);
+});
+
+test('the drawer: a labelled button under the title, hidden while the setting is off; cancel while the side model works', async t => {
+  const { document, fake, runtime, ui, swipes, settle } = setup(t, { on: false });
+  const drawer = createDrawer(runtime, { document, altTurn: ui });
+  t.after(() => drawer.dispose());
+  drawer.open();
+  const row = drawer.element.querySelector('.st-sable-alt-row'), button = row.querySelector('[data-control="alt-turn"]');
+  assert.equal(row.hidden, true);
   runtime.updateSettings({ altTurn: true });
-  assert.ok(document.querySelector('#message_template .st-sable-alt-button'));
-  assert.equal(document.querySelectorAll('#chat .st-sable-alt-button').length, 2);
-  assert.equal(last().querySelector('.st-sable-alt-button').title, STRINGS.en['altTurn.button']);
-  assert.ok(document.body.classList.contains('st-sable-alt-on'));
+  assert.equal(row.hidden, false);
+  assert.ok(button.textContent.includes(STRINGS.en['altTurn.title']));
   runtime.updateSettings({ language: 'ru' });
-  assert.equal(last().querySelector('.st-sable-alt-button').title, STRINGS.ru['altTurn.button']);
+  assert.ok(button.textContent.includes(STRINGS.ru['altTurn.title']));
+  const pending = deferred();
+  fake.respond(() => pending.promise);
+  button.click(); await settle();
+  assert.ok(button.textContent.includes(STRINGS.ru['altTurn.cancel']));
+  assert.equal(button.disabled, false);
+  button.click(); await settle();
+  pending.resolve('Too late.'); await settle();
+  assert.equal(swipes.length, 0);
+  assert.ok(button.textContent.includes(STRINGS.ru['altTurn.title']));
+  // A full run: the button is locked while the swipe is written, and an unpinned drawer closes for it.
+  runtime.updateSettings({ pinned: false });
+  fake.respond('The guide lets the visitor in.');
+  let lockedWhileWriting, hiddenWhileWriting;
+  ui.subscribe(phase => { if (phase === 'writing') { lockedWhileWriting = button.disabled; hiddenWhileWriting = drawer.element.hidden; } });
+  button.click(); await settle();
+  assert.equal(swipes.length, 1);
+  assert.equal(lockedWhileWriting, true);
+  assert.equal(hiddenWhileWriting, true);
+  assert.equal(button.disabled, false);
   runtime.updateSettings({ enabled: false });
-  assert.equal(document.querySelector('.st-sable-alt-button'), null);
-  assert.equal(document.body.classList.contains('st-sable-alt-on'), false);
+  assert.equal(row.hidden, true);
 });
 
 test('a press: digest of the reply only, one-time insert for one new swipe, mark in the chat store, message untouched', async t => {
@@ -194,7 +233,7 @@ test('a second press while the side model works cancels: no insert, no swipe, no
   const cleared = altPrompts().length;
   press(); await settle();
   assert.equal(ui.idle(), false);
-  assert.ok(document.body.classList.contains('st-sable-alt-busy'));
+  assert.equal(ui.phase(), 'digest');
   press(); await settle();
   assert.equal(signal.aborted, true);
   pending.resolve('Too late.'); await settle();
@@ -202,7 +241,7 @@ test('a second press while the side model works cancels: no insert, no swipe, no
   assert.equal(altPrompts().length, cleared);
   assert.equal(fake.ctx.chatMetadata.sableTrackers?.altTurns, undefined);
   assert.equal(ui.idle(), true);
-  assert.equal(document.body.classList.contains('st-sable-alt-busy'), false);
+  assert.equal(ui.phase(), 'idle');
 });
 
 test('a chat switch while the side model works: no swipe, the insert slot is cleared', async t => {
@@ -295,7 +334,7 @@ test('«What the model was given» shows the exact insert of the last attempt, a
   assert.equal(popups[1][0], box);
 });
 
-test('settings: the checkbox writes the setting, the button opens the last insert; dispose removes buttons and labels', async t => {
+test('settings: the checkbox writes the setting, the button opens the last insert; dispose removes the labels', async t => {
   const { document, fake, runtime, ui, press, settle } = setup(t, { on: false });
   let opened = 0;
   const panel = createSettings(runtime, { document, getContext: fake.getContext, altTurnSent: () => { opened++; } });
@@ -310,6 +349,5 @@ test('settings: the checkbox writes the setting, the button opens the last inser
   press(); await settle();
   assert.ok(document.querySelector('.st-sable-alt-label'));
   ui.dispose();
-  assert.equal(document.querySelector('.st-sable-alt-button, .st-sable-alt-label'), null);
-  assert.equal(document.body.classList.contains('st-sable-alt-on'), false);
+  assert.equal(document.querySelector('.st-sable-alt-label'), null);
 });

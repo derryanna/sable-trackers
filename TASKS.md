@@ -694,10 +694,11 @@ Done 18 Oct 2026: 388 tests green (53 core, 10 glue, 8 UI); core and UI built by
   order and drops from the front; incoming items and present NPCs are protected, so a list can exceed its cap when
   everything is protected. `buildDigest` flattens a copy of the state (`flat`) before rendering. Unverified live:
   SillyTavern's `saveMetadata` serialising at call time (the save queue assumes it).
-- T38: «Другой ход» (SPEC §38). Pure helpers and marks in `src/altturn.js`, the run, button, label and popup in
-  `src/ui/altturn.js` (`createAltTurn(runtime)`, created in `index.js` before the settings panel, which gets
-  `altTurnSent`); `settings.altTurn` default false; i18n under `// T38`; CSS at the end of `style.css`. The busy state
-  is a static dim, not an animation (the motion test allows animations only where the «effects off» setting reaches).
+- T38: «Другой ход» (SPEC §38). Pure helpers and marks in `src/altturn.js`, the run, label and popup in
+  `src/ui/altturn.js`, the button in the drawer (`createDrawer(runtime, { altTurn })`, row under the title;
+  moved there from the message buttons, which were too small on a phone). `createAltTurn(runtime)` is created in `index.js` before the settings panel, which gets
+  `altTurnSent`; `settings.altTurn` default false; i18n under `// T38`; CSS at the end of `style.css`. The working state
+  is a changed label and a disabled button, not an animation (the motion test allows animations only where the «effects off» setting reaches).
   Marks live in the chat store (`altTurns`), not in `message.extra`, because SillyTavern copies `extra` to the next
   plain swipe. Checked in a local SillyTavern with a mock endpoint, phone and desktop size, streaming off. Unverified
   live: streaming replies, a real side model, and whether a preset with a strict thinking template follows the
