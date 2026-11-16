@@ -209,7 +209,7 @@ export function packTitle(title) {
 }
 
 /** DOM-only view. Model text is never parsed as HTML. */
-export function createDrawer(runtime, { document = globalThis.document, onSettings } = {}) {
+export function createDrawer(runtime, { document = globalThis.document, onSettings, altTurn = null } = {}) {
   const win = document.defaultView;
   let view = runtime.snapshot(), opener, drag;
   let modeMenu, revealOff = false, rollNote = null, rollTimer;
@@ -380,7 +380,27 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
   // State too far behind the chat (SPEC §32): one note under the title row while the cards keep the old state.
   const lagNote = node('div', 'lag');
   lagNote.hidden = true;
-  drawer.append(rain, header, lagNote, banner, hint, cards, hiddenRow, undo.element, status, sheet);
+  // «Другой ход» (SPEC §38): one labelled button under the title row; it works on the last character reply.
+  const altRow = node('div', 'alt-row');
+  altRow.hidden = true;
+  const altButton = button('', 'altTurn.button', () => { void altTurn?.run(); }, 'alt-action');
+  altButton.dataset.control = 'alt-turn';
+  altRow.append(altButton);
+  function syncAlt() {
+    altRow.hidden = !altTurn || !view.settings.enabled || !view.settings.altTurn;
+    const now = altTurn?.phase() ?? 'idle', working = now === 'digest';
+    altButton.replaceChildren(icon(working ? 'xmark' : 'shuffle'), document.createTextNode(` ${label(working ? 'altTurn.cancel' : 'altTurn.title')}`));
+    altButton.title = label(working ? 'altTurn.cancel' : 'altTurn.button');
+    altButton.setAttribute('aria-label', altButton.title);
+    // The digest can be cancelled; the swipe itself is stopped with SillyTavern's own stop button.
+    altButton.disabled = now === 'writing';
+  }
+  if (altTurn) cleanups.push(altTurn.subscribe(now => {
+    syncAlt();
+    // The new swipe is being written: an unpinned drawer gets out of the way of the chat.
+    if (now === 'writing' && !view.settings.pinned && !drawer.hidden) hide(false);
+  }));
+  drawer.append(rain, header, altRow, lagNote, banner, hint, cards, hiddenRow, undo.element, status, sheet);
   // Edge pull tab: glued to the screen edge when closed, to the panel's left edge when open.
   const tab = button('', 'open', () => { if (drawer.hidden) open(tab); else hide(false); }, 'tab');
   tab.append(icon('wand-magic-sparkles'), icon('chevron-right'));
@@ -2292,6 +2312,7 @@ export function createDrawer(runtime, { document = globalThis.document, onSettin
       element.title = label(key); element.setAttribute('aria-label', label(key));
     }
     pin.setAttribute('aria-pressed', String(view.settings.pinned));
+    syncAlt();
     packs.replaceChildren(view.settings.visual?.icons === 'emoji' ? node('span', 'emoji', '🎒') : icon('box-open'));
     renderSheet();
     tab.hidden = !view.settings.showFloatingButton;

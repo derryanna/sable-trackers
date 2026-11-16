@@ -1817,9 +1817,16 @@ line and a «Что передали модели» / "What the model was given"
 feature also needs the extension enabled; group chats are not supported.
 Off, nothing is added to the page or to any request.
 
-**Button.** A branch icon (`.st-sable-alt-button`) in the message buttons,
-shown by CSS only on the last message when it is a character reply. It is
-also put into `#message_template`, so new messages get it.
+**Button.** One labelled button (`[data-control="alt-turn"]`, shuffle icon
+and the feature name) in its own row under the drawer's title row, shown
+only while the setting and the extension are on. It always works on the
+last message. Nothing is added to the message buttons: that row is small on
+a phone and already holds SillyTavern's own branch icon. While the side
+model works the button reads «Отменить другой ход» / "Cancel another turn"
+and a press cancels; while the story model writes the swipe it is disabled
+(SillyTavern's stop button stops that), and an unpinned drawer closes so
+the chat is visible. `createAltTurn` exposes `phase()` (`idle`, `digest`,
+`writing`) and `subscribe(listener)` for this.
 
 **Run** (`createAltTurn` in `src/ui/altturn.js`).
 1. Guards: last message is a character reply, swiping is allowed, the side

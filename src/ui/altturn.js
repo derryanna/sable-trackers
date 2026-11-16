@@ -5,13 +5,21 @@ import { reasoningPayload } from '../settings.js';
 import { loadStore, saveStore } from '../store.js';
 import { t } from '../i18n.js';
 
-/** «Другой ход» / "Another turn" (SPEC §38): a button on the last reply that asks the side model for a digest of the
- *  current swipe and gives it to the story model for one new swipe. Nothing is written into the message itself. */
+/** «Другой ход» / "Another turn" (SPEC §38): asks the side model for a digest of the last reply's current swipe and
+ *  gives it to the story model for one new swipe. The drawer holds the button; nothing is written into the message. */
 export function createAltTurn(runtime, { document = globalThis.document,
   getContext = () => globalThis.SillyTavern.getContext() } = {}) {
   const bindings = [];
   // The run in flight ({ controller }) and the last attempt of this tab, shown by «Что передали модели».
   let active = null, lastAttempt = null, labelTimer;
+  // 'idle', 'digest' (the side model works, a press cancels) or 'writing' (the story model writes the swipe).
+  let phase = 'idle';
+  const listeners = new Set();
+  const setPhase = next => {
+    if (phase === next) return;
+    phase = next;
+    for (const listener of [...listeners]) { try { listener(phase); } catch {} }
+  };
   const label = key => t(key, runtime.snapshot().settings.language);
   const toast = (kind, key, detail = '') => {
     try { globalThis.toastr?.[kind]?.(`${label(key)}${detail}`, label('altTurn.title')); } catch {}
@@ -33,7 +41,7 @@ export function createAltTurn(runtime, { document = globalThis.document,
     const chatId = ctx.getCurrentChatId(), from = Number(message.swipe_id ?? 0);
     const swipeCount = Array.isArray(message.swipes) ? message.swipes.length : 1;
     const current = active = { controller: new AbortController() };
-    document.body.classList.add('st-sable-alt-busy');
+    setPhase('digest');
     try {
       const messages = buildHelperMessages(message.mes);
       const send = payload => ctx.ConnectionManagerRequestService.sendRequest(settings.profileId, messages, ALT_MAX_TOKENS,
@@ -55,6 +63,7 @@ export function createAltTurn(runtime, { document = globalThis.document,
       const injection = buildInjection(digest);
       lastAttempt = { digestChars: digest.length, injection, from: from + 1 };
       ctx.setExtensionPrompt(ALT_PROMPT_KEY, injection, 1, 0, false, 0);
+      setPhase('writing');
       // A swipe past the last one makes SillyTavern generate a new one.
       try { await ctx.swipe.to(null, 'right', { message, forceSwipeId: swipeCount }); } finally { clearInjection(); }
       const after = getContext();
@@ -67,29 +76,13 @@ export function createAltTurn(runtime, { document = globalThis.document,
         toast('error', 'altTurn.failed', error?.message ? `: ${error.message}` : '');
       }
     } finally {
-      if (active === current) active = null;
-      document.body.classList.remove('st-sable-alt-busy');
+      if (active === current) { active = null; setPhase('idle'); }
       render();
     }
   }
 
-  function makeButton() {
-    const button = document.createElement('div');
-    button.className = 'mes_button st-sable-alt-button fa-solid fa-code-branch interactable';
-    button.tabIndex = 0;
-    return button;
-  }
-
   function render() {
     const ctx = getContext(), view = runtime.snapshot(), on = isOn(view);
-    document.body.classList.toggle('st-sable-alt-on', on);
-    // New messages are cloned from the template, so the button goes there too.
-    for (const buttons of document.querySelectorAll('#message_template .mes_buttons, #chat .mes .mes_buttons')) {
-      let button = buttons.querySelector('.st-sable-alt-button');
-      if (!on) { button?.remove(); continue; }
-      if (!button) buttons.prepend(button = makeButton());
-      button.title = label('altTurn.button');
-    }
     const data = ctx.chatMetadata?.sableTrackers;
     for (const mes of document.querySelectorAll('#chat .mes')) {
       const mesId = Number(mes.getAttribute('mesid')), message = ctx.chat[mesId];
@@ -132,10 +125,6 @@ export function createAltTurn(runtime, { document = globalThis.document,
     return box;
   }
 
-  const onClick = event => {
-    if (event.target?.closest?.('#chat .st-sable-alt-button')) void run();
-  };
-  document.addEventListener('click', onClick);
   const ctx = getContext();
   const on = (key, handler) => {
     const event = ctx.eventTypes[key];
@@ -160,12 +149,13 @@ export function createAltTurn(runtime, { document = globalThis.document,
   const unsubscribe = runtime.subscribe(() => render());
   clearInjection();
   render();
-  return { run, render, showLast, idle: () => !active,
+  return { run, render, showLast, idle: () => !active, phase: () => phase,
+    /** Calls `listener(phase)` on every phase change; returns the unsubscribe function. */
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() {
       active?.controller.abort(); unsubscribe(); bindings.forEach(remove => remove());
-      document.removeEventListener('click', onClick);
+      listeners.clear();
       document.defaultView?.clearTimeout(labelTimer);
-      document.body.classList.remove('st-sable-alt-on', 'st-sable-alt-busy');
-      document.querySelectorAll('.st-sable-alt-button, .st-sable-alt-label').forEach(node => node.remove());
+      document.querySelectorAll('.st-sable-alt-label').forEach(node => node.remove());
     } };
 }
