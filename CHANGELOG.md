@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 — 16 November 2026
 
 ### Другой ход
 
